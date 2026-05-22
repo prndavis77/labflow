@@ -1,0 +1,126 @@
+import { Layout, Menu, Typography, Button, Space, Tag } from "antd";
+import {
+  DashboardOutlined,
+  ProjectOutlined,
+  ExperimentOutlined,
+  CheckSquareOutlined,
+  CalendarOutlined,
+  FileTextOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons";
+import { useNavigate, useLocation } from "react-router";
+
+import AppRoutes from "./routes/AppRoutes";
+import { useAuth } from "./context/AuthContext";
+
+const { Header, Sider, Content } = Layout;
+const { Title } = Typography;
+
+const App = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, logout } = useAuth();
+
+  // Auth pages should not show the main app sidebar.
+  const isAuthPage = ["/login", "/register"].includes(location.pathname);
+
+  const menuItems = [
+    {
+      key: "/dashboard",
+      icon: <DashboardOutlined />,
+      label: "Dashboard",
+    },
+    {
+      key: "/projects",
+      icon: <ProjectOutlined />,
+      label: "Projects",
+    },
+    {
+      key: "/experiments",
+      icon: <ExperimentOutlined />,
+      label: "Experiments",
+    },
+    {
+      key: "/tasks",
+      icon: <CheckSquareOutlined />,
+      label: "Tasks",
+    },
+    {
+      key: "/equipment",
+      icon: <CalendarOutlined />,
+      label: "Equipment",
+    },
+    {
+      key: "/protocols",
+      icon: <FileTextOutlined />,
+      label: "Protocols",
+    },
+  ];
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
+
+  if (isAuthPage) {
+    return <AppRoutes />;
+  }
+
+  // Finds the best sidebar key based on the current route.
+  const selectedMenuKey =
+    menuItems.find((item) => location.pathname.startsWith(item.key))?.key ||
+    "/dashboard";
+
+  return (
+    <Layout style={{ minHeight: "100vh" }}>
+      <Sider width={240}>
+        <div style={{ padding: "16px", color: "white" }}>
+          <Title level={4} style={{ color: "white", margin: 0 }}>
+            LabFlow
+          </Title>
+        </div>
+
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={[selectedMenuKey]}
+          items={menuItems}
+          onClick={({ key }) => navigate(key)}
+        />
+      </Sider>
+
+      <Layout>
+        <Header
+          style={{
+            background: "#fff",
+            padding: "0 24px",
+            borderBottom: "1px solid #f0f0f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Title level={4} style={{ margin: 0, lineHeight: "64px" }}>
+            University Laboratory Project Management
+          </Title>
+
+          {user && (
+            <Space>
+              <Tag color="blue">{user.role}</Tag>
+              <span>{user.name}</span>
+              <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+                Logout
+              </Button>
+            </Space>
+          )}
+        </Header>
+
+        <Content style={{ margin: "24px" }}>
+          <AppRoutes />
+        </Content>
+      </Layout>
+    </Layout>
+  );
+};
+
+export default App;

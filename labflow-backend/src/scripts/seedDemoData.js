@@ -1,0 +1,447 @@
+const bcrypt = require("bcrypt");
+require("dotenv").config();
+
+const { sequelize } = require("../config/database");
+const {
+  User,
+  Project,
+  Task,
+  Experiment,
+  Protocol,
+  Equipment,
+  EquipmentBooking,
+} = require("../models");
+
+const SALT_ROUNDS = 12;
+
+// Converts a Date object into YYYY-MM-DD format for Sequelize DATEONLY fields
+function toDateOnly(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+// Returns a Date object offset by a number of days from now
+function daysFromNow(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+// Returns a Date object offset by a number of minutes from now
+function minutesFromNow(minutes) {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() + minutes);
+  return date;
+}
+
+// Clears existing demo data and resets IDs
+// This is destructive and should only be used for local development
+async function clearDatabase() {
+  await sequelize.query(`
+    TRUNCATE TABLE
+      equipment_bookings,
+      protocols,
+      experiments,
+      tasks,
+      equipment,
+      projects,
+      users
+    RESTART IDENTITY CASCADE;
+  `);
+}
+
+// Creates demo users for testing role-based access
+async function createUsers() {
+  const passwordHash = await bcrypt.hash("password123", SALT_ROUNDS);
+
+  const admin = await User.create({
+    name: "Admin User",
+    email: "admin@labflow.test",
+    passwordHash,
+    role: "admin",
+    department: "Research Administration",
+  });
+
+  const supervisor = await User.create({
+    name: "Dr. Anna Keller",
+    email: "anna.keller@labflow.test",
+    passwordHash,
+    role: "supervisor",
+    department: "Analytical Chemistry",
+  });
+
+  const researcherOne = await User.create({
+    name: "Maria Schmidt",
+    email: "maria.schmidt@labflow.test",
+    passwordHash,
+    role: "researcher",
+    department: "Analytical Chemistry",
+  });
+
+  const researcherTwo = await User.create({
+    name: "Jonas Weber",
+    email: "jonas.weber@labflow.test",
+    passwordHash,
+    role: "researcher",
+    department: "Environmental Chemistry",
+  });
+
+  const researcherThree = await User.create({
+    name: "Sam Dean",
+    email: "sam.dean@labflow.test",
+    passwordHash,
+    role: "researcher",
+    department: "Analytical Chemistry",
+  });
+
+  return {
+    admin,
+    supervisor,
+    researcherOne,
+    researcherTwo,
+    researcherThree,
+  };
+}
+
+// Creates realistic university lab research projects
+async function createProjects(users) {
+  const caffeineProject = await Project.create({
+    title: "HPLC Method Development for Caffeine Analysis",
+    description:
+      "Develop and validate an HPLC-UV method for quantifying caffeine in beverage samples.",
+    status: "active",
+    startDate: toDateOnly(daysFromNow(-14)),
+    targetEndDate: toDateOnly(daysFromNow(60)),
+    supervisorId: users.supervisor.id,
+  });
+
+  const microplasticProject = await Project.create({
+    title: "Soil Microplastic Extraction Study",
+    description:
+      "Optimize sample preparation and extraction methods for microplastic analysis in soil samples.",
+    status: "active",
+    startDate: toDateOnly(daysFromNow(-30)),
+    targetEndDate: toDateOnly(daysFromNow(90)),
+    supervisorId: users.supervisor.id,
+  });
+
+  const gcmsProject = await Project.create({
+    title: "GC-MS Volatile Compound Screening",
+    description:
+      "Screen volatile organic compounds in forensic liquid samples using GC-MS.",
+    status: "planning",
+    startDate: toDateOnly(daysFromNow(7)),
+    targetEndDate: toDateOnly(daysFromNow(120)),
+    supervisorId: users.supervisor.id,
+  });
+
+  return {
+    caffeineProject,
+    microplasticProject,
+    gcmsProject,
+  };
+}
+
+// Creates project-linked tasks with different priorities and due dates
+async function createTasks(users, projects) {
+  const taskOne = await Task.create({
+    title: "Prepare caffeine calibration standards",
+    description:
+      "Prepare 10 ppm, 25 ppm, and 50 ppm caffeine standards for the next HPLC run.",
+    status: "todo",
+    priority: "high",
+    dueDate: toDateOnly(daysFromNow(2)),
+    projectId: projects.caffeineProject.id,
+    assignedToId: users.researcherOne.id,
+    createdById: users.supervisor.id,
+  });
+
+  const taskTwo = await Task.create({
+    title: "Review caffeine chromatograms",
+    description:
+      "Check peak shape, retention time stability, and calibration curve linearity.",
+    status: "in_progress",
+    priority: "urgent",
+    dueDate: toDateOnly(daysFromNow(-1)),
+    projectId: projects.caffeineProject.id,
+    assignedToId: users.researcherOne.id,
+    createdById: users.supervisor.id,
+  });
+
+  const taskThree = await Task.create({
+    title: "Prepare soil extraction blanks",
+    description:
+      "Prepare procedural blanks for soil microplastic extraction comparison.",
+    status: "review",
+    priority: "medium",
+    dueDate: toDateOnly(daysFromNow(5)),
+    projectId: projects.microplasticProject.id,
+    assignedToId: users.researcherTwo.id,
+    createdById: users.supervisor.id,
+  });
+
+  const taskFour = await Task.create({
+    title: "Prepare GC-MS screening method setup",
+    description:
+      "Prepare method parameters, solvent blanks, and sample sequence for volatile compound screening.",
+    status: "todo",
+    priority: "high",
+    dueDate: toDateOnly(daysFromNow(10)),
+    projectId: projects.gcmsProject.id,
+    assignedToId: users.researcherTwo.id,
+    createdById: users.supervisor.id,
+  });
+
+  return {
+    taskOne,
+    taskTwo,
+    taskThree,
+    taskFour,
+  };
+}
+
+// Creates reusable lab protocols and approval states
+async function createProtocols(users, projects) {
+  const caffeineProtocol = await Protocol.create({
+    title: "HPLC Caffeine Quantification Method",
+    version: "1.0",
+    purpose:
+      "Quantify caffeine in beverage samples using reversed-phase HPLC with UV detection.",
+    content:
+      "1. Prepare caffeine standards.\n2. Filter samples through 0.45 µm filters.\n3. Set HPLC method parameters.\n4. Inject calibration standards.\n5. Inject unknown samples.\n6. Calculate concentration from calibration curve.",
+    approvalStatus: "approved",
+    projectId: projects.caffeineProject.id,
+    createdById: users.supervisor.id,
+    approvedById: users.supervisor.id,
+    approvedAt: toDateOnly(daysFromNow(-3)),
+  });
+
+  const microplasticProtocol = await Protocol.create({
+    title: "Soil Microplastic Extraction SOP",
+    version: "0.9",
+    purpose:
+      "Extract and isolate microplastic particles from soil samples for downstream analysis.",
+    content:
+      "1. Dry soil samples.\n2. Sieve samples.\n3. Perform density separation.\n4. Filter supernatant.\n5. Inspect filters under microscope.\n6. Record particle count and morphology.",
+    approvalStatus: "pending_review",
+    projectId: projects.microplasticProject.id,
+    createdById: users.researcherTwo.id,
+    approvedById: null,
+    approvedAt: null,
+  });
+
+  const gcmsProtocol = await Protocol.create({
+    title: "GC-MS Volatile Compound Screening Method",
+    version: "1.0",
+    purpose:
+      "Screen volatile organic compounds in liquid samples using GC-MS full scan acquisition.",
+    content:
+      "1. Prepare solvent blank and quality control sample.\n2. Dilute unknown samples if necessary.\n3. Set GC oven temperature program.\n4. Configure MS scan range.\n5. Inject solvent blank before samples.\n6. Run sample sequence.\n7. Review chromatograms and compare mass spectra against library matches.",
+    approvalStatus: "draft",
+    projectId: projects.gcmsProject.id,
+    createdById: users.supervisor.id,
+    approvedById: null,
+    approvedAt: null,
+  });
+
+  return {
+    caffeineProtocol,
+    microplasticProtocol,
+    gcmsProtocol,
+  };
+}
+
+// Creates laboratory experiments linked to projects, tasks, researchers, and protocols
+async function createExperiments(users, projects, tasks, protocols) {
+  const experimentOne = await Experiment.create({
+    title: "Caffeine calibration curve run 1",
+    objective:
+      "Generate a calibration curve using 10 ppm, 25 ppm, and 50 ppm caffeine standards.",
+    notes:
+      "Initial run showed stable retention time. Peak shape should be reviewed before final validation.",
+    status: "needs_review",
+    reviewStatus: "pending",
+    startedAt: toDateOnly(daysFromNow(-2)),
+    completedAt: toDateOnly(daysFromNow(-2)),
+    projectId: projects.caffeineProject.id,
+    researcherId: users.researcherOne.id,
+    taskId: tasks.taskOne.id,
+    protocolId: protocols.caffeineProtocol.id,
+    createdById: users.researcherOne.id,
+  });
+
+  const experimentTwo = await Experiment.create({
+    title: "Soil extraction blank comparison",
+    objective:
+      "Compare blank contamination levels across two soil extraction workflows.",
+    notes:
+      "Blanks prepared. Waiting for microscope inspection and particle counting.",
+    status: "waiting_for_data",
+    reviewStatus: "not_submitted",
+    startedAt: toDateOnly(daysFromNow(-1)),
+    completedAt: null,
+    projectId: projects.microplasticProject.id,
+    researcherId: users.researcherTwo.id,
+    taskId: tasks.taskThree.id,
+    protocolId: protocols.microplasticProtocol.id,
+    createdById: users.researcherTwo.id,
+  });
+
+  const experimentThree = await Experiment.create({
+    title: "Initial GC-MS volatile compound screening run",
+    objective:
+      "Screen unknown liquid samples for volatile organic compounds using full scan GC-MS acquisition.",
+    notes:
+      "Prepare solvent blank, QC sample, and initial sample sequence before running the instrument.",
+    status: "planned",
+    reviewStatus: "not_submitted",
+    startedAt: toDateOnly(daysFromNow(8)),
+    completedAt: null,
+    projectId: projects.gcmsProject.id,
+    researcherId: users.researcherTwo.id,
+    taskId: tasks.taskFour.id,
+    protocolId: protocols.gcmsProtocol.id,
+    createdById: users.researcherTwo.id,
+  });
+
+  return {
+    experimentOne,
+    experimentTwo,
+    experimentThree,
+  };
+}
+
+// Creates shared lab equipment inventory
+async function createEquipment() {
+  const hplc = await Equipment.create({
+    name: "HPLC Agilent 1260",
+    type: "HPLC",
+    location: "Analytical Lab Room 203",
+    status: "available",
+    notes: "Main HPLC system for UV-based quantification.",
+  });
+
+  const gcms = await Equipment.create({
+    name: "GC-MS Shimadzu QP2020",
+    type: "GC-MS",
+    location: "Forensic Chemistry Lab 105",
+    status: "available",
+    notes: "Used for volatile compound screening and forensic sample analysis.",
+  });
+
+  const microscope = await Equipment.create({
+    name: "Leica DM750 Microscope",
+    type: "Microscope",
+    location: "Environmental Lab Room 118",
+    status: "maintenance",
+    notes: "Currently under maintenance for focus adjustment.",
+  });
+
+  return {
+    hplc,
+    gcms,
+    microscope,
+  };
+}
+
+// Creates equipment bookings, including one active booking for dashboard testing
+async function createEquipmentBookings(
+  users,
+  projects,
+  experiments,
+  equipment,
+) {
+  const activeBooking = await EquipmentBooking.create({
+    title: "Active HPLC caffeine run",
+    startTime: minutesFromNow(-30),
+    endTime: minutesFromNow(90),
+    status: "confirmed",
+    purpose: "Run caffeine calibration standards for HPLC method development.",
+    equipmentId: equipment.hplc.id,
+    userId: users.researcherOne.id,
+    projectId: projects.caffeineProject.id,
+    experimentId: experiments.experimentOne.id,
+  });
+
+  const futureBooking = await EquipmentBooking.create({
+    title: "GC-MS volatile screening",
+    startTime: daysFromNow(2),
+    endTime: new Date(daysFromNow(2).getTime() + 2 * 60 * 60 * 1000),
+    status: "confirmed",
+    purpose: "Screen forensic liquid samples for volatile organic compounds.",
+    equipmentId: equipment.gcms.id,
+    userId: users.researcherTwo.id,
+    projectId: projects.gcmsProject.id,
+    experimentId: null,
+  });
+
+  return {
+    activeBooking,
+    futureBooking,
+  };
+}
+
+// Main seed runner
+async function seedDemoData() {
+  try {
+    console.log("Connecting to database...");
+
+    await sequelize.authenticate();
+
+    console.log("Syncing database models...");
+
+    await sequelize.sync({ alter: true });
+
+    console.log("Clearing existing data...");
+
+    await clearDatabase();
+
+    console.log("Creating demo users...");
+
+    const users = await createUsers();
+
+    console.log("Creating demo projects...");
+
+    const projects = await createProjects(users);
+
+    console.log("Creating demo tasks...");
+
+    const tasks = await createTasks(users, projects);
+
+    console.log("Creating demo protocols...");
+
+    const protocols = await createProtocols(users, projects);
+
+    console.log("Creating demo experiments...");
+
+    const experiments = await createExperiments(
+      users,
+      projects,
+      tasks,
+      protocols,
+    );
+
+    console.log("Creating demo equipment...");
+
+    const equipment = await createEquipment();
+
+    console.log("Creating demo equipment bookings...");
+
+    await createEquipmentBookings(users, projects, experiments, equipment);
+
+    console.log("Demo data seeded successfully.");
+    console.log("");
+    console.log("Demo login credentials:");
+    console.log("Admin: admin@labflow.test / password123");
+    console.log("Supervisor: anna.keller@labflow.test / password123");
+    console.log("Researcher 1: maria.schmidt@labflow.test / password123");
+    console.log("Researcher 2: jonas.weber@labflow.test / password123");
+    console.log("Researcher 3: sam.dean@labflow.test / password123");
+  } catch (error) {
+    console.error("Seed script failed:", error);
+    process.exitCode = 1;
+  } finally {
+    await sequelize.close();
+  }
+}
+
+seedDemoData();
