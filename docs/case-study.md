@@ -68,8 +68,8 @@ existing.endTime > newStartTime
 
 This ensures shared instruments cannot be double-booked.
 
-**Dashboard Summary Endpoint
-**
+**Dashboard Summary Endpoint**
+
 The dashboard uses a backend summary endpoint to calculate key metrics such as active projects, open tasks, overdue tasks, experiments needing review, pending protocols, equipment in use, and upcoming bookings.
 
 **Challenges**
