@@ -306,6 +306,42 @@ For example, if an HPLC is booked from 09:00 to 11:00, another confirmed booking
 
 ---
 
+## Screenshots
+
+### Dashboard
+
+![LabFlow dashboard showing project, task, experiment, protocol, and equipment metrics](docs/screenshots/dashboard.png)
+
+### Projects
+
+![LabFlow projects page showing research projects, statuses, supervisors, and timelines](docs/screenshots/projects.png)
+
+### Tasks
+
+![LabFlow tasks page showing assigned tasks, priorities, statuses, due dates, and linked projects](docs/screenshots/tasks.png)
+
+### Experiments
+
+![LabFlow experiments page showing project-linked experiments, researchers, review status, protocols, and tasks](docs/screenshots/experiments.png)
+
+### Protocols
+
+![LabFlow protocols page showing lab methods, versions, approval status, and approved-by data](docs/screenshots/protocols.png)
+
+### Equipment Inventory
+
+![LabFlow equipment inventory page showing lab instruments, locations, equipment types, and availability status](docs/screenshots/equipment-inventory.png)
+
+### Equipment Bookings
+
+![LabFlow equipment bookings page showing instrument reservations, users, time ranges, projects, and experiments](docs/screenshots/equipment-bookings.png)
+
+### Booking Conflict Prevention
+
+![LabFlow booking conflict error showing that overlapping confirmed equipment bookings are rejected](docs/screenshots/booking-conflict.png)
+
+---
+
 ## Technical Highlights
 
 LabFlow demonstrates several full-stack development concepts:
