@@ -15,6 +15,7 @@ import {
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 
 import {
   createProtocol,
@@ -233,7 +234,9 @@ const ProtocolsPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/protocols/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
             {record.purpose && (
               <div style={{ color: "#666", marginTop: 4 }}>
                 {record.purpose}
@@ -290,34 +293,38 @@ const ProtocolsPage = () => {
       },
     ];
 
-    if (!canManageProtocols) {
-      return baseColumns;
-    }
-
     return [
       ...baseColumns,
       {
         title: "Actions",
         key: "actions",
-        width: 180,
+        width: canManageProtocols ? 220 : 90,
         render: (_, record) => (
           <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Edit
-            </Button>
+            <Link to={`/protocols/${record.id}`}>
+              <Button size="small">View</Button>
+            </Link>
 
-            <Popconfirm
-              title="Delete protocol?"
-              description="This cannot be undone."
-              okText="Delete"
-              cancelText="Cancel"
-              okButtonProps={{ danger: true }}
-              onConfirm={() => handleDelete(record.id)}
-            >
-              <Button size="small" danger>
-                Delete
-              </Button>
-            </Popconfirm>
+            {canManageProtocols && (
+              <>
+                <Button size="small" onClick={() => openEditModal(record)}>
+                  Edit
+                </Button>
+
+                <Popconfirm
+                  title="Delete protocol?"
+                  description="This cannot be undone."
+                  okText="Delete"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => handleDelete(record.id)}
+                >
+                  <Button size="small" danger>
+                    Delete
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
           </Space>
         ),
       },

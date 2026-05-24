@@ -7,6 +7,9 @@ import EquipmentPage from "../pages/EquipmentPage";
 import ProtocolsPage from "../pages/ProtocolsPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
+import ProjectDetailPage from "../pages/ProjectDetailPage";
+import ExperimentDetailPage from "../pages/ExperimentDetailPage";
+import ProtocolDetailPage from "../pages/ProtocolDetailPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -49,10 +52,26 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/projects/:id"
+        element={
+          <ProtectedRoute>
+            <ProjectDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/experiments"
         element={
           <ProtectedRoute>
             <ExperimentsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/experiments/:id"
+        element={
+          <ProtectedRoute>
+            <ExperimentDetailPage />
           </ProtectedRoute>
         }
       />
@@ -77,6 +96,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <ProtocolsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/protocols/:id"
+        element={
+          <ProtectedRoute>
+            <ProtocolDetailPage />
           </ProtectedRoute>
         }
       />

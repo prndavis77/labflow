@@ -16,6 +16,7 @@ import {
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import dayjs from "dayjs";
 
 import {
@@ -179,7 +180,9 @@ const ProjectsPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/projects/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
             {record.description && (
               <div style={{ color: "#666", marginTop: 4 }}>
                 {record.description}
@@ -220,34 +223,38 @@ const ProjectsPage = () => {
       },
     ];
 
-    if (!canManageProjects) {
-      return baseColumns;
-    }
-
     return [
       ...baseColumns,
       {
         title: "Actions",
         key: "actions",
-        width: 180,
+        width: canManageProjects ? 220 : 90,
         render: (_, record) => (
           <Space>
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Edit
-            </Button>
+            <Link to={`/projects/${record.id}`}>
+              <Button size="small">View</Button>
+            </Link>
 
-            <Popconfirm
-              title="Delete project?"
-              description="This cannot be undone."
-              okText="Delete"
-              cancelText="Cancel"
-              okButtonProps={{ danger: true }}
-              onConfirm={() => handleDelete(record.id)}
-            >
-              <Button size="small" danger>
-                Delete
-              </Button>
-            </Popconfirm>
+            {canManageProjects && (
+              <>
+                <Button size="small" onClick={() => openEditModal(record)}>
+                  Edit
+                </Button>
+
+                <Popconfirm
+                  title="Delete project?"
+                  description="This cannot be undone."
+                  okText="Delete"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => handleDelete(record.id)}
+                >
+                  <Button size="small" danger>
+                    Delete
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
           </Space>
         ),
       },

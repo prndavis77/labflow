@@ -16,6 +16,7 @@ import {
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import dayjs from "dayjs";
 
 import {
@@ -385,7 +386,10 @@ const ExperimentsPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/experiments/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
+
             {record.objective && (
               <div style={{ color: "#666", marginTop: 4 }}>
                 {record.objective}
@@ -462,9 +466,13 @@ const ExperimentsPage = () => {
       {
         title: "Actions",
         key: "actions",
-        width: canDeleteExperiments ? 180 : 90,
+        width: canDeleteExperiments ? 220 : 140,
         render: (_, record) => (
           <Space>
+            <Link to={`/experiments/${record.id}`}>
+              <Button size="small">View</Button>
+            </Link>
+
             <Button size="small" onClick={() => openEditModal(record)}>
               Edit
             </Button>
