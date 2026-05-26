@@ -6,9 +6,9 @@ The goal of LabFlow is to solve a common problem in academic labs: research work
 
 ## Project Status
 
-LabFlow MVP Version 1 is complete.
+LabFlow MVP Version 1.1 is complete.
 
-This version includes authentication, role-based access control, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, and demo seed data.
+This version includes authentication, role-based access control, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, experiment-linked notebook entries and demo seed data.
 
 ---
 
