@@ -20,12 +20,14 @@ import { fetchTasks } from "../api/taskApi";
 import { fetchExperiments } from "../api/experimentApi";
 import { fetchProtocols } from "../api/protocolApi";
 import { fetchEquipmentBookings } from "../api/equipmentBookingApi";
+import { fetchNotebookEntries } from "../api/notebookEntryApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 
 import {
   APPROVAL_STATUS_COLORS,
   BOOKING_STATUS_COLORS,
   EXPERIMENT_STATUS_COLORS,
+  NOTEBOOK_ENTRY_TYPE_COLORS,
   PROJECT_STATUS_COLORS,
   TASK_PRIORITY_COLORS,
   TASK_STATUS_COLORS,
@@ -42,6 +44,7 @@ const ProjectDetailPage = () => {
   const [experiments, setExperiments] = useState([]);
   const [protocols, setProtocols] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [notebookEntries, setNotebookEntries] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -59,12 +62,14 @@ const ProjectDetailPage = () => {
         experimentsResult,
         protocolsResult,
         bookingsResult,
+        notebookEntriesResult,
       ] = await Promise.all([
         fetchProjectById(id),
         fetchTasks({ projectId: id }),
         fetchExperiments({ projectId: id }),
         fetchProtocols({ projectId: id }),
         fetchEquipmentBookings({ projectId: id }),
+        fetchNotebookEntries({ projectId: id }),
       ]);
 
       setProject(projectResult.data.project);
@@ -72,6 +77,7 @@ const ProjectDetailPage = () => {
       setExperiments(experimentsResult.data.experiments);
       setProtocols(protocolsResult.data.protocols);
       setBookings(bookingsResult.data.bookings);
+      setNotebookEntries(notebookEntriesResult.data.notebookEntries);
     } catch (error) {
       const message =
         error.response?.data?.message || "Failed to load project details.";
@@ -282,6 +288,69 @@ const ProjectDetailPage = () => {
     [],
   );
 
+  // Columns for project-linked notebook entries
+  // These entries come from experiments that belong to the current project
+  const notebookEntryColumns = useMemo(
+    () => [
+      {
+        title: "Notebook Entry",
+        dataIndex: "title",
+        key: "title",
+        render: (title, record) => (
+          <div>
+            <strong>{title}</strong>
+
+            {record.content && (
+              <div style={{ color: "#666", marginTop: 4 }}>
+                {record.content.length > 160
+                  ? `${record.content.slice(0, 160)}...`
+                  : record.content}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        title: "Type",
+        dataIndex: "entryType",
+        key: "entryType",
+        width: 170,
+        render: (entryType) => (
+          <Tag color={NOTEBOOK_ENTRY_TYPE_COLORS[entryType]}>
+            {formatLabel(entryType)}
+          </Tag>
+        ),
+      },
+      {
+        title: "Experiment",
+        dataIndex: "experiment",
+        key: "experiment",
+        width: 260,
+        render: (experiment) =>
+          experiment ? (
+            <Link to={`/experiments/${experiment.id}`}>{experiment.title}</Link>
+          ) : (
+            "Not linked"
+          ),
+      },
+      {
+        title: "Author",
+        dataIndex: "author",
+        key: "author",
+        width: 180,
+        render: (author) => author?.name || "Unknown",
+      },
+      {
+        title: "Created",
+        dataIndex: "createdAt",
+        key: "createdAt",
+        width: 170,
+        render: formatDateTime,
+      },
+    ],
+    [],
+  );
+
   if (errorMessage) {
     return (
       <Card>
@@ -384,6 +453,23 @@ const ProjectDetailPage = () => {
               pagination={{ pageSize: 5, showSizeChanger: false }}
               size="small"
             />
+          </Card>
+        </Col>
+
+        <Col xs={24}>
+          <Card title="Recent Notebook Entries">
+            {notebookEntries.length === 0 ? (
+              <Empty description="No notebook entries recorded for this project yet." />
+            ) : (
+              <Table
+                rowKey="id"
+                columns={notebookEntryColumns}
+                dataSource={notebookEntries}
+                loading={isLoading}
+                pagination={{ pageSize: 5, showSizeChanger: false }}
+                size="small"
+              />
+            )}
           </Card>
         </Col>
 
