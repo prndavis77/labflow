@@ -2,6 +2,7 @@ const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
 const Project = require("./Project");
 const User = require("./User");
+const Equipment = require("./Equipment");
 
 // Protocol represents a reusable lab method, SOP, or procedure
 // Examples: HPLC method, sample preparation SOP, extraction protocol, calibration workflow
@@ -69,10 +70,20 @@ const Protocol = sequelize.define(
 
     projectId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: "project_id",
       references: {
         model: Project,
+        key: "id",
+      },
+    },
+
+    equipmentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: "equipment_id",
+      references: {
+        model: Equipment,
         key: "id",
       },
     },
@@ -110,7 +121,7 @@ const Protocol = sequelize.define(
   },
 );
 
-// A protocol belongs to one project
+// A protocol may belongs to one project
 Protocol.belongsTo(Project, {
   foreignKey: "projectId",
   as: "project",
@@ -119,6 +130,19 @@ Protocol.belongsTo(Project, {
 // A project can have many protocols
 Project.hasMany(Protocol, {
   foreignKey: "projectId",
+  as: "protocols",
+});
+
+// A protocol may belong to one equipment item
+// Example: instrument startup/shutdown SOP
+Protocol.belongsTo(Equipment, {
+  foreignKey: "equipmentId",
+  as: "equipment",
+});
+
+// Equipment can have many linked SOPs
+Equipment.hasMany(Protocol, {
+  foreignKey: "equipmentId",
   as: "protocols",
 });
 

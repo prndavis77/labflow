@@ -67,3 +67,14 @@ export const BOOKING_STATUS_OPTIONS = [
   { label: "Cancelled", value: "cancelled" },
   { label: "Completed", value: "completed" },
 ];
+
+// Notebook entry types must match the backend NotebookEntry entryType ENUM
+export const NOTEBOOK_ENTRY_TYPE_OPTIONS = [
+  { label: "General Note", value: "general_note" },
+  { label: "Procedure", value: "procedure" },
+  { label: "Observation", value: "observation" },
+  { label: "Result", value: "result" },
+  { label: "Issue", value: "issue" },
+  { label: "Conclusion", value: "conclusion" },
+  { label: "Supervisor Comment", value: "supervisor_comment" },
+];

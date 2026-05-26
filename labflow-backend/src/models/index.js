@@ -1,5 +1,5 @@
-// Import all Sequelize models from one central location.
-// This keeps controller imports clean as the app grows.
+// Import all Sequelize models from one central location
+// This keeps controller imports clean as the app grows
 const User = require("./User");
 const Project = require("./Project");
 const Task = require("./Task");
@@ -7,6 +7,7 @@ const Experiment = require("./Experiment");
 const Protocol = require("./Protocol");
 const Equipment = require("./Equipment");
 const EquipmentBooking = require("./EquipmentBooking");
+const NotebookEntry = require("./NotebookEntry");
 
 module.exports = {
   User,
@@ -16,4 +17,5 @@ module.exports = {
   Protocol,
   Equipment,
   EquipmentBooking,
+  NotebookEntry,
 };

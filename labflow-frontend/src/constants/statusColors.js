@@ -60,3 +60,14 @@ export const BOOKING_STATUS_COLORS = {
   cancelled: "red",
   completed: "green",
 };
+
+// Centralized tag colors for experiment-linked notebook entry types.
+export const NOTEBOOK_ENTRY_TYPE_COLORS = {
+  general_note: "default",
+  procedure: "blue",
+  observation: "purple",
+  result: "green",
+  issue: "red",
+  conclusion: "cyan",
+  supervisor_comment: "orange",
+};

@@ -24,6 +24,7 @@ import {
   updateProtocol,
 } from "../api/protocolApi";
 import { fetchProjects } from "../api/projectApi";
+import { fetchEquipment } from "../api/equipmentApi";
 import { useAuth } from "../context/AuthContext";
 import { APPROVAL_STATUS_OPTIONS } from "../constants/statusOptions";
 import { APPROVAL_STATUS_COLORS } from "../constants/statusColors";
@@ -37,6 +38,10 @@ const ProtocolsPage = () => {
 
   const [protocols, setProtocols] = useState([]);
   const [projects, setProjects] = useState([]);
+
+  const [equipment, setEquipment] = useState([]);
+  const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState(undefined);
 
   const [isLoadingProtocols, setIsLoadingProtocols] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
@@ -64,6 +69,14 @@ const ProtocolsPage = () => {
     }));
   }, [projects]);
 
+  // Converts equipment into options for equipment-specific SOPs
+  const equipmentOptions = useMemo(() => {
+    return equipment.map((item) => ({
+      label: `${item.name} (${item.type})`,
+      value: item.id,
+    }));
+  }, [equipment]);
+
   // Builds the filter object used by the protocol API.
   const protocolFilters = useMemo(() => {
     const filters = {};
@@ -72,12 +85,16 @@ const ProtocolsPage = () => {
       filters.projectId = selectedProjectId;
     }
 
+    if (selectedEquipmentId) {
+      filters.equipmentId = selectedEquipmentId;
+    }
+
     if (selectedApprovalStatus) {
       filters.approvalStatus = selectedApprovalStatus;
     }
 
     return filters;
-  }, [selectedProjectId, selectedApprovalStatus]);
+  }, [selectedProjectId, selectedEquipmentId, selectedApprovalStatus]);
 
   // Loads projects for filters and the protocol form
   const loadProjects = useCallback(async () => {
@@ -94,6 +111,24 @@ const ProtocolsPage = () => {
       message.error(messageText);
     } finally {
       setIsLoadingProjects(false);
+    }
+  }, []);
+
+  // Loads equipment so protocols can optionally be linked to instruments
+  const loadEquipment = useCallback(async () => {
+    try {
+      setIsLoadingEquipment(true);
+
+      const result = await fetchEquipment();
+
+      setEquipment(result.data.equipment);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load equipment.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingEquipment(false);
     }
   }, []);
 
@@ -121,8 +156,9 @@ const ProtocolsPage = () => {
   useEffect(() => {
     queueMicrotask(() => {
       loadProjects();
+      loadEquipment();
     });
-  }, [loadProjects]);
+  }, [loadProjects, loadEquipment]);
 
   // Reload protocols whenever filters change
   // queueMicrotask avoids direct synchronous state updates inside the effect body
@@ -143,6 +179,7 @@ const ProtocolsPage = () => {
       version: "1.0",
       approvalStatus: "draft",
       projectId: selectedProjectId || undefined,
+      equipmentId: selectedEquipmentId || undefined,
     });
 
     setIsModalOpen(true);
@@ -159,7 +196,8 @@ const ProtocolsPage = () => {
         purpose: protocol.purpose,
         content: protocol.content,
         approvalStatus: protocol.approvalStatus,
-        projectId: protocol.projectId,
+        projectId: protocol.projectId || undefined,
+        equipment: protocol.equipmentId || undefined,
       });
 
       setIsModalOpen(true);
@@ -184,7 +222,8 @@ const ProtocolsPage = () => {
         purpose: values.purpose,
         content: values.content,
         approvalStatus: values.approvalStatus,
-        projectId: values.projectId,
+        projectId: values.projectId || null,
+        equipmentId: values.equipmentId || null,
       };
 
       if (editingProtocol) {
@@ -257,7 +296,17 @@ const ProtocolsPage = () => {
         dataIndex: "project",
         key: "project",
         width: 260,
-        render: (project) => project?.title || "Not linked",
+        render: (project) => project?.title || "Genral / Not linked",
+      },
+      {
+        title: "Equipment",
+        dataIndex: "equipment",
+        key: "equipment",
+        width: 240,
+        render: (equipmentItem) =>
+          equipmentItem
+            ? `${equipmentItem.name} (${equipmentItem.type})`
+            : "Not linked",
       },
       {
         title: "Approval",
@@ -301,6 +350,16 @@ const ProtocolsPage = () => {
         width: canManageProtocols ? 220 : 90,
         render: (_, record) => (
           <Space>
+            <Select
+              allowClear
+              placeholder="Filter by equipment"
+              style={{ width: 300 }}
+              loading={isLoadingEquipment}
+              options={equipmentOptions}
+              value={selectedEquipmentId}
+              onChange={setSelectedEquipmentId}
+            />
+
             <Link to={`/protocols/${record.id}`}>
               <Button size="small">View</Button>
             </Link>
@@ -329,7 +388,14 @@ const ProtocolsPage = () => {
         ),
       },
     ];
-  }, [canManageProtocols, handleDelete, openEditModal]);
+  }, [
+    canManageProtocols,
+    equipmentOptions,
+    handleDelete,
+    isLoadingEquipment,
+    openEditModal,
+    selectedEquipmentId,
+  ]);
 
   return (
     <>
@@ -466,20 +532,25 @@ const ProtocolsPage = () => {
             </Form.Item>
           </Space>
 
-          <Form.Item
-            label="Project"
-            name="projectId"
-            rules={[
-              {
-                required: true,
-                message: "Please select a project.",
-              },
-            ]}
-          >
+          <Paragraph type="secondary">
+            Protocols can be linked to a project, an instrument, both, or
+            neither. General SOPs can be saved without a project.
+          </Paragraph>
+
+          <Form.Item label="Project" name="projectId">
             <Select
               placeholder="Select project"
               loading={isLoadingProjects}
               options={projectOptions}
+            />
+          </Form.Item>
+
+          <Form.Item label="Equipment" name="equipmentId">
+            <Select
+              allowClear
+              placeholder="Optionally link this protocol to an instrument"
+              loading={isLoadingEquipment}
+              options={equipmentOptions}
             />
           </Form.Item>
 

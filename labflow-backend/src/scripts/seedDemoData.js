@@ -10,6 +10,7 @@ const {
   Protocol,
   Equipment,
   EquipmentBooking,
+  NotebookEntry,
 } = require("../models");
 
 const SALT_ROUNDS = 12;
@@ -39,6 +40,7 @@ async function clearDatabase() {
   await sequelize.query(`
     TRUNCATE TABLE
       equipment_bookings,
+      notebook_entries,
       protocols,
       experiments,
       tasks,
@@ -310,6 +312,48 @@ async function createExperiments(users, projects, tasks, protocols) {
   };
 }
 
+// Creates demo notebook entries linked to experiments.
+async function createNotebookEntries(users, experiments) {
+  const entryOne = await NotebookEntry.create({
+    title: "Initial HPLC setup observation",
+    entryType: "observation",
+    content:
+      "The HPLC system was equilibrated for 20 minutes before injection. Baseline looked stable before starting the calibration sequence.",
+    contentFormat: "plain_text",
+    experimentId: experiments.experimentOne.id,
+    projectId: experiments.experimentOne.projectId,
+    authorId: users.researcherOne.id,
+  });
+
+  const entryTwo = await NotebookEntry.create({
+    title: "Calibration curve result notes",
+    entryType: "result",
+    content:
+      "The calibration curve showed acceptable linearity across the tested concentration range. Peak shape should still be reviewed before final validation.",
+    contentFormat: "plain_text",
+    experimentId: experiments.experimentOne.id,
+    projectId: experiments.experimentOne.projectId,
+    authorId: users.researcherOne.id,
+  });
+
+  const entryThree = await NotebookEntry.create({
+    title: "Soil extraction blank observation",
+    entryType: "observation",
+    content:
+      "Prepared procedural blanks for comparison. Samples are waiting for microscope inspection and particle counting.",
+    contentFormat: "plain_text",
+    experimentId: experiments.experimentTwo.id,
+    projectId: experiments.experimentTwo.projectId,
+    authorId: users.researcherTwo.id,
+  });
+
+  return {
+    entryOne,
+    entryTwo,
+    entryThree,
+  };
+}
+
 // Creates shared lab equipment inventory
 async function createEquipment() {
   const hplc = await Equipment.create({
@@ -329,17 +373,40 @@ async function createEquipment() {
   });
 
   const microscope = await Equipment.create({
-    name: "Leica DM750 Microscope",
-    type: "Microscope",
-    location: "Environmental Lab Room 118",
+    name: "Agilent 5977C GC/MS",
+    type: "GC-MS",
+    location: "Analytical Lab Room 203",
     status: "maintenance",
-    notes: "Currently under maintenance for focus adjustment.",
+    notes:
+      "Used for volatile compound screening and forensic sample analysis. Currently under maintenance for detector replacement.",
   });
 
   return {
     hplc,
     gcms,
     microscope,
+  };
+}
+
+// Creates equipment-specific SOPs after equipment exists.
+async function createEquipmentProtocols(users, equipment) {
+  const hplcSop = await Protocol.create({
+    title: "HPLC Agilent 1260 Startup and Shutdown SOP",
+    version: "1.0",
+    purpose:
+      "Standard procedure for safely starting, preparing, and shutting down the HPLC Agilent 1260 system.",
+    content:
+      "1. Check solvent levels.\n2. Inspect waste container.\n3. Power on the HPLC modules.\n4. Prime solvent lines.\n5. Equilibrate the column.\n6. Run system suitability check.\n7. After use, flush the system.\n8. Shut down modules according to lab procedure.",
+    approvalStatus: "approved",
+    projectId: null,
+    equipmentId: equipment.hplc.id,
+    createdById: users.supervisor.id,
+    approvedById: users.supervisor.id,
+    approvedAt: toDateOnly(daysFromNow(-5)),
+  });
+
+  return {
+    hplcSop,
   };
 }
 
@@ -420,9 +487,17 @@ async function seedDemoData() {
       protocols,
     );
 
+    console.log("Creating demo notebook entries...");
+
+    await createNotebookEntries(users, experiments);
+
     console.log("Creating demo equipment...");
 
     const equipment = await createEquipment();
+
+    console.log("Creating equipment SOPs...");
+
+    await createEquipmentProtocols(users, equipment);
 
     console.log("Creating demo equipment bookings...");
 

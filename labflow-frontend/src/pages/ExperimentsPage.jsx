@@ -112,18 +112,30 @@ const ExperimentsPage = () => {
   // Converts protocols into options
   // If a project is selected in the form, the list is narrowed to that project
   const protocolOptions = useMemo(() => {
-    const selectedFormProjectId = selectedExperimentFormProjectId;
-
     return protocols
       .filter((protocol) => {
-        if (!selectedFormProjectId) {
+        if (!selectedExperimentFormProjectId) {
           return true;
         }
 
-        return Number(protocol.projectId) === Number(selectedFormProjectId);
+        // Allow protocols linked to the selected project
+        if (
+          Number(protocol.projectId) === Number(selectedExperimentFormProjectId)
+        ) {
+          return true;
+        }
+
+        // Allow general SOPs that are not tied to a specific project
+        if (!protocol.projectId) {
+          return true;
+        }
+
+        return false;
       })
       .map((protocol) => ({
-        label: `${protocol.title} v${protocol.version}`,
+        label: protocol.equipment
+          ? `${protocol.title} v${protocol.version} (${protocol.equipment.name})`
+          : `${protocol.title} v${protocol.version}`,
         value: protocol.id,
       }));
   }, [protocols, selectedExperimentFormProjectId]);

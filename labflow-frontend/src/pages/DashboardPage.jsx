@@ -429,7 +429,7 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Equipment Total"
+              title="Instrument Total"
               value={metrics.totalEquipment}
               prefix={<ToolOutlined />}
               loading={isLoadingDashboard}
@@ -440,7 +440,7 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Instrument In Use Now"
+              title="Instruments In Use Now"
               value={metrics.equipmentInUseNow}
               prefix={<ToolOutlined />}
               valueStyle={{
@@ -452,17 +452,18 @@ const DashboardPage = () => {
         </Col>
 
         <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Instrument Offline"
-              value={metrics.unavailableEquipment}
-              prefix={<WarningOutlined />}
-              valueStyle={{
+          {metrics.unavailableEquipment > 0 && (
+            <Card>
+              <Statistic
+                title="Instruments Offline"
+                value={metrics.unavailableEquipment}
+                prefix={<WarningOutlined />}
+                valueStyle={{
                 color: metrics.unavailableEquipment > 0 ? "#fa8c16" : undefined,
               }}
               loading={isLoadingDashboard}
             />
-          </Card>
+          </Card>)}
         </Col>
       </Row>
 

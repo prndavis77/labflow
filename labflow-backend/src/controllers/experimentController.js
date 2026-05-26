@@ -275,10 +275,16 @@ const createExperiment = async (req, res) => {
         });
       }
 
-      if (Number(protocol.projectId) !== Number(projectId)) {
+      // Project-specific protocols must belong to the selected project
+      // General or equipment-specific SOPs with no project are allowed
+      if (
+        protocol.projectId &&
+        Number(protocol.projectId) !== Number(projectId)
+      ) {
         return res.status(400).json({
           status: "error",
-          message: "Linked protocol must belong to the selected project.",
+          message:
+            "Linked protocol must either be general or belong to the selected project.",
         });
       }
     }
@@ -401,10 +407,16 @@ const updateExperiment = async (req, res) => {
         });
       }
 
-      if (Number(protocol.projectId) !== Number(resolvedProjectId)) {
+      // Project-specific protocols must belong to the selected project.
+      // General or equipment-specific SOPs with no project are allowed.
+      if (
+        protocol.projectId &&
+        Number(protocol.projectId) !== Number(projectId)
+      ) {
         return res.status(400).json({
           status: "error",
-          message: "Linked protocol must belong to the selected project.",
+          message:
+            "Linked protocol must either be general or belong to the selected project.",
         });
       }
     }

@@ -1,4 +1,4 @@
-const { Protocol, Project, User } = require("../models");
+const { Protocol, Project, User, Equipment } = require("../models");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -30,6 +30,22 @@ const formatProjectSummary = (project) => {
   };
 };
 
+// Formats equipment data for protocol responses
+// This is useful for equipment-specific SOPs
+function formatEquipmentSummary(equipment) {
+  if (!equipment) {
+    return null;
+  }
+
+  return {
+    id: equipment.id,
+    name: equipment.name,
+    type: equipment.type,
+    location: equipment.location,
+    status: equipment.status,
+  };
+}
+
 // Formats protocol data before sending it to the frontend
 const formatProtocolResponse = (protocol) => {
   return {
@@ -40,10 +56,12 @@ const formatProtocolResponse = (protocol) => {
     content: protocol.content,
     approvalStatus: protocol.approvalStatus,
     projectId: protocol.projectId,
+    equipmentId: protocol.equipmentId,
     createdById: protocol.createdById,
     approvedById: protocol.approvedById,
     approvedAt: protocol.approvedAt,
     project: formatProjectSummary(protocol.project),
+    equipment: formatEquipmentSummary(protocol.equipment),
     createdBy: formatUserSummary(protocol.createdBy),
     approvedBy: formatUserSummary(protocol.approvedBy),
     createdAt: protocol.createdAt,
@@ -58,6 +76,11 @@ const protocolInclude = [
     model: Project,
     as: "project",
     attributes: ["id", "title", "status"],
+  },
+  {
+    model: Equipment,
+    as: "equipment",
+    attributes: ["id", "name", "type", "location", "status"],
   },
   {
     model: User,
@@ -75,13 +98,17 @@ const protocolInclude = [
 // Returns protocols with optional filters for project and approval status
 const getProtocols = async (req, res) => {
   try {
-    const { projectId, approvalStatus } = req.query;
+    const { projectId, equipmentId, approvalStatus } = req.query;
 
     // Build a flexible filter object from query parameters.
     const where = {};
 
     if (projectId) {
       where.projectId = projectId;
+    }
+
+    if (equipmentId) {
+      where.equipmentId = equipmentId;
     }
 
     if (approvalStatus) {
@@ -150,23 +177,43 @@ const getProtocolById = async (req, res) => {
 // Creates a project-linked protocol
 const createProtocol = async (req, res) => {
   try {
-    const { title, version, purpose, content, approvalStatus, projectId } =
-      req.body;
+    const {
+      title,
+      version,
+      purpose,
+      content,
+      approvalStatus,
+      projectId,
+      equipmentId,
+    } = req.body;
 
-    if (!title || !content || !projectId) {
+    if (!title || !content) {
       return res.status(400).json({
         status: "error",
-        message: "Protocol title, content, and project are required.",
+        message: "Protocol title and content are required.",
       });
     }
 
-    const project = await Project.findByPk(projectId);
+    if (projectId) {
+      const project = await Project.findByPk(projectId);
 
-    if (!project) {
-      return res.status(404).json({
-        status: "error",
-        message: "Project not found.",
-      });
+      if (!project) {
+        return res.status(404).json({
+          status: "error",
+          message: "Project not found.",
+        });
+      }
+    }
+
+    if (equipmentId) {
+      const equipment = await Equipment.findByPk(equipmentId);
+
+      if (!equipment) {
+        return res.status(404).json({
+          status: "error",
+          message: "Equipment not found.",
+        });
+      }
     }
 
     const resolvedApprovalStatus = approvalStatus || "draft";
@@ -187,7 +234,8 @@ const createProtocol = async (req, res) => {
       purpose: purpose?.trim() || null,
       content: content.trim(),
       approvalStatus: resolvedApprovalStatus,
-      projectId,
+      projectId: projectId || null,
+      equipmentId: equipmentId || null,
       createdById: req.user.id,
       approvedById,
       approvedAt,
@@ -219,8 +267,15 @@ const createProtocol = async (req, res) => {
 const updateProtocol = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, version, purpose, content, approvalStatus, projectId } =
-      req.body;
+    const {
+      title,
+      version,
+      purpose,
+      content,
+      approvalStatus,
+      projectId,
+      equipmentId,
+    } = req.body;
 
     const protocol = await Protocol.findByPk(id);
 
@@ -238,6 +293,17 @@ const updateProtocol = async (req, res) => {
         return res.status(404).json({
           status: "error",
           message: "Project not found.",
+        });
+      }
+    }
+
+    if (equipmentId) {
+      const equipment = await Equipment.findByPk(equipmentId);
+
+      if (!equipment) {
+        return res.status(404).json({
+          status: "error",
+          message: "Equipment not found.",
         });
       }
     }
@@ -268,6 +334,8 @@ const updateProtocol = async (req, res) => {
       content: content !== undefined ? content.trim() : protocol.content,
       approvalStatus: nextApprovalStatus,
       projectId: projectId !== undefined ? projectId : protocol.projectId,
+      equipmentId:
+        equipmentId !== undefined ? equipmentId || null : protocol.equipmentId,
       approvedById: nextApprovedById,
       approvedAt: nextApprovedAt,
     });
