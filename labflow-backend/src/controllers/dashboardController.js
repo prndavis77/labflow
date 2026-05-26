@@ -6,6 +6,7 @@ const {
   Protocol,
   Equipment,
   EquipmentBooking,
+  NotebookEntry,
   User,
 } = require("../models");
 
@@ -143,6 +144,45 @@ const formatBookingSummary = (booking) => {
   };
 };
 
+// Formats notebook entry data for dashboard responses.
+// Dashboard only needs summary data, not the full editing workflow.
+const formatNotebookEntrySummary = (entry) => {
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    id: entry.id,
+    title: entry.title,
+    entryType: entry.entryType,
+    content: entry.content,
+    contentFormat: entry.contentFormat,
+    experiment: entry.experiment
+      ? {
+          id: entry.experiment.id,
+          title: entry.experiment.title,
+          status: entry.experiment.status,
+        }
+      : null,
+    project: entry.project
+      ? {
+          id: entry.project.id,
+          title: entry.project.title,
+          status: entry.project.status,
+        }
+      : null,
+    author: entry.author
+      ? {
+          id: entry.author.id,
+          name: entry.author.name,
+          role: entry.author.role,
+        }
+      : null,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  };
+};
+
 // GET /api/dashboard/summary
 // Returns high-level metrics and short lists for the main dashboard
 const getDashboardSummary = async (req, res) => {
@@ -167,6 +207,7 @@ const getDashboardSummary = async (req, res) => {
       recentProjects,
       recentTasks,
       recentExperiments,
+      recentNotebookEntries,
     ] = await Promise.all([
       // Count all projects.
       Project.count(),
@@ -387,6 +428,29 @@ const getDashboardSummary = async (req, res) => {
         order: [["updatedAt", "DESC"]],
         limit: 5,
       }),
+
+      // Fetch recently created or updated notebook entries
+      NotebookEntry.findAll({
+        include: [
+          {
+            model: Experiment,
+            as: "experiment",
+            attributes: ["id", "title", "status"],
+          },
+          {
+            model: Project,
+            as: "project",
+            attributes: ["id", "title", "status"],
+          },
+          {
+            model: User,
+            as: "author",
+            attributes: ["id", "name", "role"],
+          },
+        ],
+        order: [["updatedAt", "DESC"]],
+        limit: 5,
+      }),
     ]);
 
     return res.json({
@@ -415,6 +479,9 @@ const getDashboardSummary = async (req, res) => {
           recentProjects: recentProjects.map(formatProjectSummary),
           recentTasks: recentTasks.map(formatTaskSummary),
           recentExperiments: recentExperiments.map(formatExperimentSummary),
+          recentNotebookEntries: recentNotebookEntries.map(
+            formatNotebookEntrySummary,
+          ),
         },
       },
     });

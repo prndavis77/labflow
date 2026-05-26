@@ -23,14 +23,18 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import dayjs from "dayjs";
 
 import { fetchDashboardSummary } from "../api/dashboardApi";
 import { useAuth } from "../context/AuthContext";
-import { TASK_PRIORITY_COLORS } from "../constants/statusColors";
-import { TASK_STATUS_COLORS } from "../constants/statusColors";
-import { REVIEW_STATUS_COLORS } from "../constants/statusColors";
-import { APPROVAL_STATUS_COLORS } from "../constants/statusColors";
+import {
+  APPROVAL_STATUS_COLORS,
+  NOTEBOOK_ENTRY_TYPE_COLORS,
+  REVIEW_STATUS_COLORS,
+  TASK_PRIORITY_COLORS,
+  TASK_STATUS_COLORS,
+} from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
 
 const { Title, Paragraph } = Typography;
@@ -111,6 +115,7 @@ const DashboardPage = () => {
     recentProjects: [],
     recentTasks: [],
     recentExperiments: [],
+    recentNotebookEntries: [],
   };
 
   // Columns for upcoming task summaries
@@ -191,6 +196,68 @@ const DashboardPage = () => {
             {formatLabel(reviewStatus)}
           </Tag>
         ),
+      },
+    ],
+    [],
+  );
+
+  // Columns for recent notebook entry summaries
+  const notebookEntryColumns = useMemo(
+    () => [
+      {
+        title: "Notebook Entry",
+        dataIndex: "title",
+        key: "title",
+        render: (title, record) => (
+          <div>
+            <strong>{title}</strong>
+
+            {record.content && (
+              <div style={{ color: "#666", marginTop: 4 }}>
+                {record.content.length > 140
+                  ? `${record.content.slice(0, 140)}...`
+                  : record.content}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        title: "Type",
+        dataIndex: "entryType",
+        key: "entryType",
+        width: 160,
+        render: (entryType) => (
+          <Tag color={NOTEBOOK_ENTRY_TYPE_COLORS[entryType]}>
+            {formatLabel(entryType)}
+          </Tag>
+        ),
+      },
+      {
+        title: "Experiment",
+        dataIndex: "experiment",
+        key: "experiment",
+        width: 240,
+        render: (experiment) =>
+          experiment ? (
+            <Link to={`/experiments/${experiment.id}`}>{experiment.title}</Link>
+          ) : (
+            "Not linked"
+          ),
+      },
+      {
+        title: "Author",
+        dataIndex: "author",
+        key: "author",
+        width: 160,
+        render: (author) => author?.name || "Unknown",
+      },
+      {
+        title: "Updated",
+        dataIndex: "updatedAt",
+        key: "updatedAt",
+        width: 160,
+        render: formatDateTime,
       },
     ],
     [],
@@ -459,11 +526,13 @@ const DashboardPage = () => {
                 value={metrics.unavailableEquipment}
                 prefix={<WarningOutlined />}
                 valueStyle={{
-                color: metrics.unavailableEquipment > 0 ? "#fa8c16" : undefined,
-              }}
-              loading={isLoadingDashboard}
-            />
-          </Card>)}
+                  color:
+                    metrics.unavailableEquipment > 0 ? "#fa8c16" : undefined,
+                }}
+                loading={isLoadingDashboard}
+              />
+            </Card>
+          )}
         </Col>
       </Row>
 
@@ -584,6 +653,24 @@ const DashboardPage = () => {
             loading={isLoadingDashboard}
             pagination={false}
             size="small"
+          />
+        )}
+      </Card>
+
+      <Card title="Recent Notebook Entries">
+        {lists.recentNotebookEntries.length === 0 ? (
+          <Empty description="No recent notebook entries" />
+        ) : (
+          <Table
+            rowKey="id"
+            columns={notebookEntryColumns}
+            dataSource={lists.recentNotebookEntries}
+            loading={isLoadingDashboard}
+            pagination={false}
+            size="small"
+            scroll={{
+              x: 900,
+            }}
           />
         )}
       </Card>
