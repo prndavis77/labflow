@@ -415,7 +415,12 @@ const ExperimentsPage = () => {
         dataIndex: "project",
         key: "project",
         width: 240,
-        render: (project) => project?.title || "Not linked",
+        render: (project) =>
+          project ? (
+            <Link to={`/projects/${project.id}`}>{project.title}</Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "Researcher",
@@ -465,7 +470,12 @@ const ExperimentsPage = () => {
         dataIndex: "task",
         key: "task",
         width: 220,
-        render: (task) => task?.title || "Not linked",
+        render: (task) =>
+          task ? (
+            <Link to={`/tasks/${task.id}`}>{task.title}</Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "Protocol",
@@ -473,7 +483,13 @@ const ExperimentsPage = () => {
         key: "protocol",
         width: 240,
         render: (protocol) =>
-          protocol ? `${protocol.title} v${protocol.version}` : "Not linked",
+          protocol ? (
+            <Link to={`/protocols/${protocol.id}`}>
+              {protocol.title} v{protocol.version}
+            </Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "Actions",

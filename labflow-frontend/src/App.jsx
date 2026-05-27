@@ -12,6 +12,7 @@ import { useNavigate, useLocation } from "react-router";
 
 import AppRoutes from "./routes/AppRoutes";
 import { useAuth } from "./context/AuthContext";
+import ScrollToTop from "./components/ScrollToTop";
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -63,7 +64,12 @@ const App = () => {
   }
 
   if (isAuthPage) {
-    return <AppRoutes />;
+    return (
+      <>
+        <ScrollToTop />
+        <AppRoutes />
+      </>
+    );
   }
 
   // Finds the best sidebar key based on the current route.
@@ -72,54 +78,57 @@ const App = () => {
     "/dashboard";
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Sider width={240}>
-        <div style={{ padding: "16px", color: "white" }}>
-          <Title level={4} style={{ color: "white", margin: 0 }}>
-            LabFlow
-          </Title>
-        </div>
+    <>
+      <ScrollToTop />
+      <Layout style={{ minHeight: "100vh" }}>
+        <Sider width={240}>
+          <div style={{ padding: "16px", color: "white" }}>
+            <Title level={4} style={{ color: "white", margin: 0 }}>
+              LabFlow
+            </Title>
+          </div>
 
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[selectedMenuKey]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-        />
-      </Sider>
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[selectedMenuKey]}
+            items={menuItems}
+            onClick={({ key }) => navigate(key)}
+          />
+        </Sider>
 
-      <Layout>
-        <Header
-          style={{
-            background: "#fff",
-            padding: "0 24px",
-            borderBottom: "1px solid #f0f0f0",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Title level={4} style={{ margin: 0, lineHeight: "64px" }}>
-            University Laboratory Project Management
-          </Title>
+        <Layout>
+          <Header
+            style={{
+              background: "#fff",
+              padding: "0 24px",
+              borderBottom: "1px solid #f0f0f0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Title level={4} style={{ margin: 0, lineHeight: "64px" }}>
+              University Laboratory Project Management
+            </Title>
 
-          {user && (
-            <Space>
-              <Tag color="blue">{user.role}</Tag>
-              <span>{user.name}</span>
-              <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-                Logout
-              </Button>
-            </Space>
-          )}
-        </Header>
+            {user && (
+              <Space>
+                <Tag color="blue">{user.role}</Tag>
+                <span>{user.name}</span>
+                <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+                  Logout
+                </Button>
+              </Space>
+            )}
+          </Header>
 
-        <Content style={{ margin: "24px" }}>
-          <AppRoutes />
-        </Content>
+          <Content style={{ margin: "24px" }}>
+            <AppRoutes />
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
+    </>
   );
 };
 

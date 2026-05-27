@@ -381,7 +381,13 @@ const ExperimentDetailPage = () => {
               </Descriptions.Item>
 
               <Descriptions.Item label="Linked Task">
-                {experiment.task?.title || "Not linked"}
+                {experiment.task ? (
+                  <Link to={`/tasks/${experiment.task.id}`}>
+                    {experiment.task.title}
+                  </Link>
+                ) : (
+                  "Not linked"
+                )}
               </Descriptions.Item>
 
               <Descriptions.Item label="Protocol Used">

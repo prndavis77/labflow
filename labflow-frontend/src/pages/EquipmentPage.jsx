@@ -619,14 +619,24 @@ const EqipmentPage = () => {
         dataIndex: "project",
         key: "project",
         width: 220,
-        render: (project) => project?.title || "Not linked",
+        render: (project) =>
+          project ? (
+            <Link to={`/projects/${project.id}`}>{project.title}</Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "Experiment",
         dataIndex: "experiment",
         key: "experiment",
         width: 220,
-        render: (experiment) => experiment?.title || "Not linked",
+        render: (experiment) =>
+          experiment ? (
+            <Link to={`/experiments/${experiment.id}`}>{experiment.title}</Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "Actions",

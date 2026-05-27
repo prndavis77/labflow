@@ -284,7 +284,12 @@ const TasksPage = () => {
         dataIndex: "project",
         key: "project",
         width: 260,
-        render: (project) => project?.title || "Not linked",
+        render: (project) =>
+          project ? (
+            <Link to={`/projects/${project.id}`}>{project.title}</Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "Status",

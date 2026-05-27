@@ -127,7 +127,10 @@ const DashboardPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/tasks/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
+
             <div style={{ color: "#666", marginTop: 4 }}>
               {record.project?.title || "No project"}
             </div>
@@ -172,7 +175,10 @@ const DashboardPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/experiments/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
+
             <div style={{ color: "#666", marginTop: 4 }}>
               {record.project?.title || "No project"}
             </div>
@@ -210,7 +216,13 @@ const DashboardPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            {record.experiment ? (
+              <Link to={`/experiments/${record.experiment.id}`}>
+                <strong>{title}</strong>
+              </Link>
+            ) : (
+              <strong>{title}</strong>
+            )}
 
             {record.content && (
               <div style={{ color: "#666", marginTop: 4 }}>
@@ -272,7 +284,10 @@ const DashboardPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/protocols/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
+
             <div style={{ color: "#666", marginTop: 4 }}>
               {record.project?.title || "No project"} · v{record.version}
             </div>
@@ -343,7 +358,10 @@ const DashboardPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/projects/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
+
             <div style={{ color: "#666", marginTop: 4 }}>
               Supervisor: {record.supervisor?.name || "Not assigned"}
             </div>
@@ -377,7 +395,10 @@ const DashboardPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/tasks/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
+
             <div style={{ color: "#666", marginTop: 4 }}>
               {record.project?.title || "No project"}
             </div>

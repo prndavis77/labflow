@@ -115,9 +115,13 @@ const ProtocolDetailPage = () => {
             </Descriptions.Item>
 
             <Descriptions.Item label="Equipment">
-              {protocol.equipment
-                ? `${protocol.equipment.name} (${protocol.equipment.type})`
-                : "Not linked"}
+              {protocol.equipment ? (
+                <Link to={`/equipment/${protocol.equipment.id}`}>
+                  {protocol.equipment.name} ({protocol.equipment.type})
+                </Link>
+              ) : (
+                "Not linked"
+              )}
             </Descriptions.Item>
 
             <Descriptions.Item label="Created By">

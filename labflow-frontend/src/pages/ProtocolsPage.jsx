@@ -296,7 +296,12 @@ const ProtocolsPage = () => {
         dataIndex: "project",
         key: "project",
         width: 260,
-        render: (project) => project?.title || "Genral / Not linked",
+        render: (project) =>
+          project ? (
+            <Link to={`/projects/${project.id}`}>{project.title}</Link>
+          ) : (
+            "General / Not linked"
+          ),
       },
       {
         title: "Equipment",
@@ -304,9 +309,13 @@ const ProtocolsPage = () => {
         key: "equipment",
         width: 240,
         render: (equipmentItem) =>
-          equipmentItem
-            ? `${equipmentItem.name} (${equipmentItem.type})`
-            : "Not linked",
+          equipmentItem ? (
+            <Link to={`/equipment/${equipmentItem.id}`}>
+              {equipmentItem.name} ({equipmentItem.type})
+            </Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "Approval",
