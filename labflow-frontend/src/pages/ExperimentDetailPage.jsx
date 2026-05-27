@@ -52,6 +52,11 @@ const ExperimentDetailPage = () => {
   const [experiment, setExperiment] = useState(null);
   const [notebookEntries, setNotebookEntries] = useState([]);
 
+  // Stores the selected notebook entry type filter
+  // Undefined means all notebook entries are shown
+  const [selectedNotebookEntryType, setSelectedNotebookEntryType] =
+    useState(undefined);
+
   const [isLoadingExperiment, setIsLoadingExperiment] = useState(false);
   const [isLoadingNotebookEntries, setIsLoadingNotebookEntries] =
     useState(false);
@@ -220,9 +225,21 @@ const ExperimentDetailPage = () => {
     [loadNotebookEntries],
   );
 
+  // Filters notebook entries by selected entry type
+  // If no type is selected, all entries are shown
+  const filteredNotebookEntries = useMemo(() => {
+    if (!selectedNotebookEntryType) {
+      return notebookEntries;
+    }
+
+    return notebookEntries.filter(
+      (entry) => entry.entryType === selectedNotebookEntryType,
+    );
+  }, [notebookEntries, selectedNotebookEntryType]);
+
   // Converts notebook entries into Ant Design Timeline items
   const notebookTimelineItems = useMemo(() => {
-    return notebookEntries.map((entry) => ({
+    return filteredNotebookEntries.map((entry) => ({
       key: entry.id,
       children: (
         <Card size="small">
@@ -241,10 +258,12 @@ const ExperimentDetailPage = () => {
                 </Tag>
 
                 <Text type="secondary">
-                  {entry.author?.name || "Unknown author"}
+                  Author: {entry.author?.name || "Unknown"}
                 </Text>
 
-                <Text type="secondary">{formatDateTime(entry.createdAt)}</Text>
+                <Text type="secondary">
+                  Created: {formatDateTime(entry.createdAt)}
+                </Text>
               </Space>
 
               <Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
@@ -301,7 +320,7 @@ const ExperimentDetailPage = () => {
   }, [
     canModifyNotebookEntry,
     handleDeleteNotebookEntry,
-    notebookEntries,
+    filteredNotebookEntries,
     openEditNotebookModal,
   ]);
 
@@ -364,6 +383,10 @@ const ExperimentDetailPage = () => {
                 <Tag color={REVIEW_STATUS_COLORS[experiment.reviewStatus]}>
                   {formatLabel(experiment.reviewStatus)}
                 </Tag>
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Notebook Entries">
+                {notebookEntries.length}
               </Descriptions.Item>
 
               <Descriptions.Item label="Project">
@@ -431,15 +454,26 @@ const ExperimentDetailPage = () => {
       </Card>
 
       <Card
-        title="Experiment Notebook"
+        title={`Experiment Notebook (${filteredNotebookEntries.length})`}
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={openCreateNotebookModal}
-          >
-            New Entry
-          </Button>
+          <Space wrap>
+            <Select
+              allowClear
+              placeholder="Filter by entry type"
+              style={{ width: 220 }}
+              options={NOTEBOOK_ENTRY_TYPE_OPTIONS}
+              value={selectedNotebookEntryType}
+              onChange={setSelectedNotebookEntryType}
+            />
+
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openCreateNotebookModal}
+            >
+              New Entry
+            </Button>
+          </Space>
         }
       >
         {notebookErrorMessage && (
@@ -455,6 +489,8 @@ const ExperimentDetailPage = () => {
           <Card loading />
         ) : notebookEntries.length === 0 ? (
           <Empty description="No notebook entries recorded for this experiment yet." />
+        ) : filteredNotebookEntries.length === 0 ? (
+          <Empty description="No notebook entries match the selected filter." />
         ) : (
           <Timeline items={notebookTimelineItems} />
         )}

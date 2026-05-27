@@ -21,7 +21,7 @@ router.get("/:id", getNotebookEntryById);
 // Notebook entries are part of normal experiment documentation
 router.post(
   "/",
-  authorizeRoles("admin", "researcher", "lab_manager"),
+  authorizeRoles("admin", "researcher", "supervisor", "lab_manager"),
   createNotebookEntry,
 );
 
@@ -37,7 +37,7 @@ router.patch(
 // The controller restricts researchers to their own entries.
 router.delete(
   "/:id",
-  authorizeRoles("admin", "researcher", "lab_manager"),
+  authorizeRoles("admin", "researcher", "supervisor", "lab_manager"),
   deleteNotebookEntry,
 );
 module.exports = router;

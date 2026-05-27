@@ -304,7 +304,13 @@ const ProjectDetailPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            {record.experiment ? (
+              <Link to={`/experiments/${record.experiment.id}`}>
+                <strong>{title}</strong>
+              </Link>
+            ) : (
+              <strong>{title}</strong>
+            )}
 
             {record.content && (
               <div style={{ color: "#666", marginTop: 4 }}>
@@ -425,6 +431,10 @@ const ProjectDetailPage = () => {
                 {formatDateTime(project.createdAt)}
               </Descriptions.Item>
 
+              <Descriptions.Item label="Notebook Entries">
+                {notebookEntries.length}
+              </Descriptions.Item>
+
               <Descriptions.Item label="Updated At">
                 {formatDateTime(project.updatedAt)}
               </Descriptions.Item>
@@ -463,7 +473,7 @@ const ProjectDetailPage = () => {
         </Col>
 
         <Col xs={24}>
-          <Card title="Recent Notebook Entries">
+          <Card title={`Recent Notebook Entries (${notebookEntries.length})`}>
             {notebookEntries.length === 0 ? (
               <Empty description="No notebook entries recorded for this project yet." />
             ) : (

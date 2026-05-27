@@ -49,7 +49,7 @@ const App = () => {
     {
       key: "/equipment",
       icon: <CalendarOutlined />,
-      label: "Equipment",
+      label: "Instruments",
     },
     {
       key: "/protocols",
@@ -109,7 +109,7 @@ const App = () => {
             }}
           >
             <Title level={4} style={{ margin: 0, lineHeight: "64px" }}>
-              University Laboratory Project Management
+              Research Laboratory Project Management
             </Title>
 
             {user && (

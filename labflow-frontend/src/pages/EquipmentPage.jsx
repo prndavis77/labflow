@@ -474,7 +474,7 @@ const EqipmentPage = () => {
   const equipmentColumns = useMemo(() => {
     const baseColumns = [
       {
-        title: "Equipment",
+        title: "Instrument",
         dataIndex: "name",
         key: "name",
         render: (name, record) => (
@@ -573,7 +573,7 @@ const EqipmentPage = () => {
         ),
       },
       {
-        title: "Equipment",
+        title: "Instrument",
         dataIndex: "equipment",
         key: "equipment",
         width: 220,
@@ -683,7 +683,7 @@ const EqipmentPage = () => {
         >
           <div>
             <Title level={2} style={{ marginBottom: 4 }}>
-              Equipment
+              Instruments
             </Title>
             <Paragraph style={{ marginBottom: 0 }}>
               Manage shared lab instruments and schedule equipment bookings.
@@ -695,7 +695,7 @@ const EqipmentPage = () => {
           items={[
             {
               key: "equipment",
-              label: "Equipment Inventory",
+              label: "Instrument Inventory",
               children: (
                 <>
                   <div
@@ -758,7 +758,7 @@ const EqipmentPage = () => {
                     <Space wrap>
                       <Select
                         allowClear
-                        placeholder="Filter by equipment"
+                        placeholder="Filter by instrument"
                         style={{ width: 300 }}
                         options={equipmentOptions}
                         value={selectedEquipmentId}
