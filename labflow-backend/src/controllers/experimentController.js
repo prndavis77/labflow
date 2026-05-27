@@ -123,13 +123,17 @@ const experimentInclude = [
 // Returns experiments with optional filters for project, status, review status, and researcher.
 const getExperiments = async (req, res) => {
   try {
-    const { projectId, status, reviewStatus, researcherId } = req.query;
+    const { projectId, status, reviewStatus, researcherId, taskId } = req.query;
 
     // Build a flexible filter object from query parameters
     const where = {};
 
     if (projectId) {
       where.projectId = projectId;
+    }
+
+    if (taskId) {
+      where.taskId = taskId;
     }
 
     if (status) {

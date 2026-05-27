@@ -10,6 +10,7 @@ import RegisterPage from "../pages/RegisterPage";
 import ProjectDetailPage from "../pages/ProjectDetailPage";
 import ExperimentDetailPage from "../pages/ExperimentDetailPage";
 import ProtocolDetailPage from "../pages/ProtocolDetailPage";
+import TaskDetailPage from "../pages/TaskDetailPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -80,6 +81,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <TasksPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tasks/:id"
+        element={
+          <ProtectedRoute>
+            <TaskDetailPage />
           </ProtectedRoute>
         }
       />

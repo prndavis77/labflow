@@ -103,7 +103,7 @@ const ProjectDetailPage = () => {
         dataIndex: "title",
         key: "title",
         render: (title, record) => (
-          <Link to="/tasks">
+          <Link to={`/tasks/${record.id}`}>
             <strong>{title}</strong>
             {record.description && (
               <div style={{ color: "#666", marginTop: 4 }}>

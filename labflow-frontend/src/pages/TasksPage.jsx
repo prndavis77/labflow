@@ -16,6 +16,7 @@ import {
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import dayjs from "dayjs";
 
 import { fetchTasks, createTask, updateTask, deleteTask } from "../api/taskApi";
@@ -267,7 +268,9 @@ const TasksPage = () => {
         key: "title",
         render: (title, record) => (
           <div>
-            <strong>{title}</strong>
+            <Link to={`/tasks/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
             {record.description && (
               <div style={{ color: "#666", marginTop: 4 }}>
                 {record.description}
@@ -320,9 +323,13 @@ const TasksPage = () => {
       {
         title: "Actions",
         key: "actions",
-        width: canDeleteTasks ? 180 : 90,
+        width: canDeleteTasks ? 220 : 140,
         render: (_, record) => (
           <Space>
+            <Link to={`/tasks/${record.id}`}>
+              <Button size="small">View</Button>
+            </Link>
+
             <Button size="small" onClick={() => openEditModal(record)}>
               Edit
             </Button>
