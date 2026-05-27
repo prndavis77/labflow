@@ -257,7 +257,7 @@ const createProtocol = async (req, res) => {
 
     return res.status(500).json({
       status: "error",
-      message: "Something went wrong while creating the protocol.",
+      message: "An error occurred while creating the protocol.",
     });
   }
 };
@@ -333,7 +333,8 @@ const updateProtocol = async (req, res) => {
         purpose !== undefined ? purpose?.trim() || null : protocol.purpose,
       content: content !== undefined ? content.trim() : protocol.content,
       approvalStatus: nextApprovalStatus,
-      projectId: projectId !== undefined ? projectId : protocol.projectId,
+      projectId:
+        projectId !== undefined ? projectId || null : protocol.projectId,
       equipmentId:
         equipmentId !== undefined ? equipmentId || null : protocol.equipmentId,
       approvedById: nextApprovedById,
@@ -388,7 +389,7 @@ const deleteProtocol = async (req, res) => {
 
     return res.status(500).json({
       status: "error",
-      message: "Something went wrong while deleting the protocol.",
+      message: "An error occurred while deleting the protocol.",
     });
   }
 };

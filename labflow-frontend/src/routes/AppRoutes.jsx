@@ -4,6 +4,7 @@ import ProjectsPage from "../pages/ProjectsPage";
 import ExperimentsPage from "../pages/ExperimentsPage";
 import TasksPage from "../pages/TasksPage";
 import EquipmentPage from "../pages/EquipmentPage";
+import EquipmentDetailPage from "../pages/EquipmentDetailPage";
 import ProtocolsPage from "../pages/ProtocolsPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
@@ -97,6 +98,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <EquipmentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/equipment/:id"
+        element={
+          <ProtectedRoute>
+            <EquipmentDetailPage />
           </ProtectedRoute>
         }
       />

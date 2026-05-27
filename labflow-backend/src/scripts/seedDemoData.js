@@ -372,7 +372,7 @@ async function createEquipment() {
     notes: "Used for volatile compound screening and forensic sample analysis.",
   });
 
-  const microscope = await Equipment.create({
+  const gcms_2 = await Equipment.create({
     name: "Agilent 5977C GC/MS",
     type: "GC-MS",
     location: "Analytical Lab Room 203",

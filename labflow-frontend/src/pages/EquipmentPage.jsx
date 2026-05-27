@@ -17,6 +17,7 @@ import {
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import dayjs from "dayjs";
 
 import {
@@ -478,7 +479,10 @@ const EqipmentPage = () => {
         key: "name",
         render: (name, record) => (
           <div>
-            <strong>{name}</strong>
+            <Link to={`/equipment/${record.id}`}>
+              <strong>{name}</strong>
+            </Link>
+
             {record.notes && (
               <div style={{ color: "#666", marginTop: 4 }}>{record.notes}</div>
             )}
@@ -509,40 +513,45 @@ const EqipmentPage = () => {
           </Tag>
         ),
       },
-    ];
-
-    if (!canManageEquipment) {
-      return baseColumns;
-    }
-
-    return [
-      ...baseColumns,
       {
         title: "Actions",
         key: "actions",
-        width: 180,
+        width: canManageEquipment ? 220 : 90,
         render: (_, record) => (
           <Space>
-            <Button size="small" onClick={() => openEditEquipmentModal(record)}>
-              Edit
-            </Button>
+            <Link to={`/equipment/${record.id}`}>
+              <Button size="small">View</Button>
+            </Link>
 
-            <Popconfirm
-              title="Delete equipment?"
-              description="This can affect existing bookings."
-              okText="Delete"
-              cancelText="Cancel"
-              okButtonProps={{ danger: true }}
-              onConfirm={() => handleDeleteEquipment(record.id)}
-            >
-              <Button size="small" danger>
-                Delete
-              </Button>
-            </Popconfirm>
+            {canManageEquipment && (
+              <>
+                <Button
+                  size="small"
+                  onClick={() => openEditEquipmentModal(record)}
+                >
+                  Edit
+                </Button>
+
+                <Popconfirm
+                  title="Delete equipment?"
+                  description="This can affect existing bookings."
+                  okText="Delete"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => handleDeleteEquipment(record.id)}
+                >
+                  <Button size="small" danger>
+                    Delete
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
           </Space>
         ),
       },
     ];
+
+    return baseColumns;
   }, [canManageEquipment, handleDeleteEquipment, openEditEquipmentModal]);
 
   // Booking table columns
@@ -568,7 +577,12 @@ const EqipmentPage = () => {
         dataIndex: "equipment",
         key: "equipment",
         width: 220,
-        render: (item) => item?.name || "Not linked",
+        render: (item) =>
+          item ? (
+            <Link to={`/equipment/${item.id}`}>{item.name}</Link>
+          ) : (
+            "Not linked"
+          ),
       },
       {
         title: "User",

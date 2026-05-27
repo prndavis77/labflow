@@ -305,8 +305,14 @@ const DashboardPage = () => {
           <div>
             <strong>{title}</strong>
             <div style={{ color: "#666", marginTop: 4 }}>
-              {record.equipment?.name || "No equipment"} ·{" "}
-              {record.user?.name || "Unknown user"}
+              {record.equipment ? (
+                <Link to={`/equipment/${record.equipment.id}`}>
+                  {record.equipment.name}
+                </Link>
+              ) : (
+                "No equipment"
+              )}{" "}
+              · {record.user?.name || "Unknown user"}
             </div>
           </div>
         ),
