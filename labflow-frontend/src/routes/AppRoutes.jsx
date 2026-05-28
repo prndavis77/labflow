@@ -12,6 +12,7 @@ import ProjectDetailPage from "../pages/ProjectDetailPage";
 import ExperimentDetailPage from "../pages/ExperimentDetailPage";
 import ProtocolDetailPage from "../pages/ProtocolDetailPage";
 import TaskDetailPage from "../pages/TaskDetailPage";
+import ReviewQueuePage from "../pages/ReviewQueuePage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -122,6 +123,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <ProtocolDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/review"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "supervisor"]}>
+            <ReviewQueuePage />
           </ProtectedRoute>
         }
       />

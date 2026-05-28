@@ -7,6 +7,7 @@ import {
   CalendarOutlined,
   FileTextOutlined,
   LogoutOutlined,
+  AuditOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router";
 
@@ -31,6 +32,17 @@ const App = () => {
       icon: <DashboardOutlined />,
       label: "Dashboard",
     },
+
+    ...(user?.role === "admin" || user?.role === "supervisor"
+      ? [
+          {
+            key: "/review",
+            icon: <AuditOutlined />,
+            label: "Review Queue",
+          },
+        ]
+      : []),
+
     {
       key: "/projects",
       icon: <ProjectOutlined />,
@@ -109,7 +121,7 @@ const App = () => {
             }}
           >
             <Title level={4} style={{ margin: 0, lineHeight: "64px" }}>
-              Research Laboratory Project Management
+              University Laboratory Project Management
             </Title>
 
             {user && (

@@ -7,6 +7,7 @@ const {
   deleteNotebookEntry,
 } = require("../controllers/notebookEntryController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.get("/:id", getNotebookEntryById);
 // Notebook entries are part of normal experiment documentation
 router.post(
   "/",
-  authorizeRoles("admin", "researcher", "supervisor", "lab_manager"),
+  authorizeRoles(...ROLE_GROUPS.ALL_AUTHENTICATED),
   createNotebookEntry,
 );
 
@@ -29,7 +30,7 @@ router.post(
 // The controller restricts researchers to their own entries
 router.patch(
   "/:id",
-  authorizeRoles("admin", "supervisor", "researcher"),
+  authorizeRoles(...ROLE_GROUPS.ALL_AUTHENTICATED),
   updateNotebookEntry,
 );
 
@@ -37,7 +38,7 @@ router.patch(
 // The controller restricts researchers to their own entries.
 router.delete(
   "/:id",
-  authorizeRoles("admin", "researcher", "supervisor", "lab_manager"),
+  authorizeRoles(...ROLE_GROUPS.ALL_AUTHENTICATED),
   deleteNotebookEntry,
 );
 module.exports = router;

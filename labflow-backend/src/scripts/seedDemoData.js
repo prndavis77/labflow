@@ -384,7 +384,7 @@ async function createEquipment() {
   return {
     hplc,
     gcms,
-    microscope,
+    gcms_2,
   };
 }
 
