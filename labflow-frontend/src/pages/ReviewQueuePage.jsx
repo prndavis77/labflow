@@ -4,12 +4,14 @@ import {
   Card,
   Col,
   Empty,
+  Popconfirm,
   Row,
   Space,
   Statistic,
   Table,
   Tag,
   Typography,
+  message,
 } from "antd";
 import {
   ExperimentOutlined,
@@ -20,8 +22,8 @@ import {
 import { Link } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchExperiments } from "../api/experimentApi";
-import { fetchProtocols } from "../api/protocolApi";
+import { fetchExperiments, updateExperiment } from "../api/experimentApi";
+import { fetchProtocols, updateProtocol } from "../api/protocolApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
   APPROVAL_STATUS_COLORS,
@@ -41,6 +43,7 @@ const ReviewQueuePage = () => {
   );
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdatingReviewStatus, setIsUpdatingReviewStatus] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   // Loads review-related experiments and protocols
@@ -79,6 +82,73 @@ const ReviewQueuePage = () => {
       setIsLoading(false);
     }
   }, []);
+
+  // Updates an experiment's review status directly from the review queue
+  const handleExperimentReviewAction = useCallback(
+    async (experiment, nextReviewStatus) => {
+      try {
+        setIsUpdatingReviewStatus(true);
+
+        // Keep the existing experiment fields and only update review workflow fields
+        // When approved, also mark the experiment as completed
+        // When changes are requested, keep it in needs_review so it remains visible as review work
+        const payload = {
+          reviewStatus: nextReviewStatus,
+          status:
+            nextReviewStatus === "approved" ? "completed" : "needs_review",
+        };
+
+        await updateExperiment(experiment.id, payload);
+
+        message.success(
+          nextReviewStatus === "approved"
+            ? "Experiment approved."
+            : "Changes requested for experiment.",
+        );
+
+        await loadReviewQueue();
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message ||
+          "Failed to update experiment review status.";
+
+        message.error(messageText);
+      } finally {
+        setIsUpdatingReviewStatus(false);
+      }
+    },
+    [loadReviewQueue],
+  );
+
+  // Updates a protocol's approval status directly from the review queue
+  const handleProtocolReviewAction = useCallback(
+    async (protocol, nextApprovalStatus) => {
+      try {
+        setIsUpdatingReviewStatus(true);
+
+        const payload = { approvalStatus: nextApprovalStatus };
+
+        await updateProtocol(protocol.id, payload);
+
+        message.success(
+          nextApprovalStatus === "approved"
+            ? "Protocol approved."
+            : "Changes requested for protocol.",
+        );
+
+        await loadReviewQueue();
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message ||
+          "Failed to update protocol approval status.";
+
+        message.error(messageText);
+      } finally {
+        setIsUpdatingReviewStatus(false);
+      }
+    },
+    [loadReviewQueue],
+  );
 
   // Load review queue data after the first render
   useEffect(() => {
@@ -174,15 +244,53 @@ const ReviewQueuePage = () => {
       {
         title: "Actions",
         key: "actions",
-        width: 100,
+        width: 290,
         render: (_, record) => (
-          <Link to={`/experiments/${record.id}`}>
-            <Button size="small">View</Button>
-          </Link>
+          <Space>
+            <Link to={`/experiments/${record.id}`}>
+              <Button size="small">View</Button>
+            </Link>
+
+            {record.reviewStatus !== "approved" && (
+              <Popconfirm
+                title="Approve experiment?"
+                description="This will mark the experiment review as approved."
+                okText="Approve"
+                cancelText="Cancel"
+                onConfirm={() =>
+                  handleExperimentReviewAction(record, "approved")
+                }
+              >
+                <Button
+                  size="small"
+                  type="primary"
+                  loading={isUpdatingReviewStatus}
+                >
+                  Approve
+                </Button>
+              </Popconfirm>
+            )}
+
+            {record.reviewStatus !== "changes_requested" && (
+              <Popconfirm
+                title="Request changes?"
+                description="This will mark the experiment as requiring changes."
+                okText="Request Changes"
+                cancelText="Cancel"
+                onConfirm={() =>
+                  handleExperimentReviewAction(record, "changes_requested")
+                }
+              >
+                <Button size="small" danger loading={isUpdatingReviewStatus}>
+                  Request Changes
+                </Button>
+              </Popconfirm>
+            )}
+          </Space>
         ),
       },
     ],
-    [],
+    [handleExperimentReviewAction, isUpdatingReviewStatus],
   );
 
   // Columns for protocols that need review attention
@@ -260,15 +368,51 @@ const ReviewQueuePage = () => {
       {
         title: "Actions",
         key: "actions",
-        width: 100,
+        width: 290,
         render: (_, record) => (
-          <Link to={`/protocols/${record.id}`}>
-            <Button size="small">View</Button>
-          </Link>
+          <Space>
+            <Link to={`/protocols/${record.id}`}>
+              <Button size="small">View</Button>
+            </Link>
+
+            {record.approvalStatus !== "approved" && (
+              <Popconfirm
+                title="Approve protocol?"
+                description="This will approve the protocol and record approval metadata."
+                okText="Approve"
+                cancelText="Cancel"
+                onConfirm={() => handleProtocolReviewAction(record, "approved")}
+              >
+                <Button
+                  size="small"
+                  type="primary"
+                  loading={isUpdatingReviewStatus}
+                >
+                  Approve
+                </Button>
+              </Popconfirm>
+            )}
+
+            {record.approvalStatus !== "changes_requested" && (
+              <Popconfirm
+                title="Request protocol changes?"
+                description="This will mark the protocol as requiring changes."
+                okText="Request Changes"
+                cancelText="Cancel"
+                onConfirm={() =>
+                  handleProtocolReviewAction(record, "changes_requested")
+                }
+              >
+                <Button size="small" danger loading={isUpdatingReviewStatus}>
+                  Request Changes
+                </Button>
+              </Popconfirm>
+            )}
+          </Space>
         ),
       },
     ],
-    [],
+    [handleProtocolReviewAction, isUpdatingReviewStatus],
   );
 
   return (
