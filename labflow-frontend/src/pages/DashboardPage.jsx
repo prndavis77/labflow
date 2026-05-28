@@ -12,6 +12,7 @@ import {
   Typography,
 } from "antd";
 import {
+  AuditOutlined,
   CalendarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -19,6 +20,7 @@ import {
   FileTextOutlined,
   ProjectOutlined,
   ReloadOutlined,
+  RightOutlined,
   ToolOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -59,6 +61,9 @@ function formatDate(value) {
 
 const DashboardPage = () => {
   const { user } = useAuth();
+
+  // Only admins and supervisors should see direct review queue shortcuts
+  const canAccessReviewQueue = ["admin", "supervisor"].includes(user?.role);
 
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
@@ -117,6 +122,10 @@ const DashboardPage = () => {
     recentExperiments: [],
     recentNotebookEntries: [],
   };
+
+  // Combines the main review-related dashboard counts into one attention number
+  const reviewAttentionCount =
+    metrics.experimentsNeedingReview + metrics.pendingProtocols;
 
   // Columns for upcoming task summaries
   const taskColumns = useMemo(
@@ -180,7 +189,13 @@ const DashboardPage = () => {
             </Link>
 
             <div style={{ color: "#666", marginTop: 4 }}>
-              {record.project?.title || "No project"}
+              {record.project ? (
+                <Link to={`/projects/${record.project.id}`}>
+                  {record.project.title}
+                </Link>
+              ) : (
+                "No project"
+              )}
             </div>
           </div>
         ),
@@ -201,6 +216,16 @@ const DashboardPage = () => {
           <Tag color={REVIEW_STATUS_COLORS[reviewStatus]}>
             {formatLabel(reviewStatus)}
           </Tag>
+        ),
+      },
+      {
+        title: "Action",
+        key: "action",
+        width: 100,
+        render: (_, record) => (
+          <Link to={`/experiments/${record.id}`}>
+            <Button size="small">View</Button>
+          </Link>
         ),
       },
     ],
@@ -286,10 +311,16 @@ const DashboardPage = () => {
           <div>
             <Link to={`/protocols/${record.id}`}>
               <strong>{title}</strong>
-            </Link>
-
+            </Link>{" "}
+            · v{record.version}
             <div style={{ color: "#666", marginTop: 4 }}>
-              {record.project?.title || "No project"} · v{record.version}
+              {record.project ? (
+                <Link to={`/projects/${record.project.id}`}>
+                  {record.project.title}
+                </Link>
+              ) : (
+                "General / Not linked"
+              )}
             </div>
           </div>
         ),
@@ -303,6 +334,16 @@ const DashboardPage = () => {
           <Tag color={APPROVAL_STATUS_COLORS[approvalStatus]}>
             {formatLabel(approvalStatus)}
           </Tag>
+        ),
+      },
+      {
+        title: "Action",
+        key: "action",
+        width: 100,
+        render: (_, record) => (
+          <Link to={`/protocols/${record.id}`}>
+            <Button size="small">View</Button>
+          </Link>
         ),
       },
     ],
@@ -490,6 +531,33 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
+              title="Review Attention"
+              value={reviewAttentionCount}
+              prefix={<AuditOutlined />}
+              valueStyle={{
+                color: reviewAttentionCount > 0 ? "#fa8c16" : undefined,
+              }}
+              loading={isLoadingDashboard}
+            />
+
+            {canAccessReviewQueue && (
+              <Link to="/review">
+                <Button
+                  type={reviewAttentionCount > 0 ? "primary" : "default"}
+                  size="small"
+                  icon={<RightOutlined />}
+                  style={{ marginTop: 12 }}
+                >
+                  Open Review Queue
+                </Button>
+              </Link>
+            )}
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
               title="Experiments Needing Review"
               value={metrics.experimentsNeedingReview}
               prefix={<ExperimentOutlined />}
@@ -563,6 +631,22 @@ const DashboardPage = () => {
         </Col>
       </Row>
 
+      {canAccessReviewQueue && reviewAttentionCount > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Review items need attention"
+          description={
+            <span>
+              There are {reviewAttentionCount} experiment or protocol review
+              items waiting for action.{" "}
+              <Link to="/review">Open the Review Queue</Link> to approve items
+              or request changes.
+            </span>
+          }
+        />
+      )}
+
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={12}>
           <Card title="Tasks Due Soon">
@@ -582,7 +666,16 @@ const DashboardPage = () => {
         </Col>
 
         <Col xs={24} xl={12}>
-          <Card title="Experiments Needing Review">
+          <Card
+            title="Experiments Needing Review"
+            extra={
+              canAccessReviewQueue ? (
+                <Link to="/review">
+                  <Button size="small">Open Review Queue</Button>
+                </Link>
+              ) : null
+            }
+          >
             {lists.experimentsNeedingReview.length === 0 ? (
               <Empty description="No experiments need review" />
             ) : (
@@ -599,7 +692,16 @@ const DashboardPage = () => {
         </Col>
 
         <Col xs={24} xl={12}>
-          <Card title="Protocols Pending Review">
+          <Card
+            title="Protocols Pending Review"
+            extra={
+              canAccessReviewQueue ? (
+                <Link to="/review">
+                  <Button size="small">Open Review Queue</Button>
+                </Link>
+              ) : null
+            }
+          >
             {lists.pendingProtocols.length === 0 ? (
               <Empty description="No protocols pending review" />
             ) : (
