@@ -55,6 +55,7 @@ const formatProtocolResponse = (protocol) => {
     purpose: protocol.purpose,
     content: protocol.content,
     approvalStatus: protocol.approvalStatus,
+    reviewComment: protocol.reviewComment,
     projectId: protocol.projectId,
     equipmentId: protocol.equipmentId,
     createdById: protocol.createdById,
@@ -183,6 +184,7 @@ const createProtocol = async (req, res) => {
       purpose,
       content,
       approvalStatus,
+      reviewComment,
       projectId,
       equipmentId,
     } = req.body;
@@ -234,6 +236,7 @@ const createProtocol = async (req, res) => {
       purpose: purpose?.trim() || null,
       content: content.trim(),
       approvalStatus: resolvedApprovalStatus,
+      reviewComment: reviewComment?.trim() || null,
       projectId: projectId || null,
       equipmentId: equipmentId || null,
       createdById: req.user.id,
@@ -273,6 +276,7 @@ const updateProtocol = async (req, res) => {
       purpose,
       content,
       approvalStatus,
+      reviewComment,
       projectId,
       equipmentId,
     } = req.body;
@@ -339,6 +343,10 @@ const updateProtocol = async (req, res) => {
         equipmentId !== undefined ? equipmentId || null : protocol.equipmentId,
       approvedById: nextApprovedById,
       approvedAt: nextApprovedAt,
+      reviewComment:
+        reviewComment !== undefined
+          ? reviewComment?.trim() || null
+          : protocol.reviewComment,
     });
 
     const updatedProtocol = await Protocol.findByPk(protocol.id, {

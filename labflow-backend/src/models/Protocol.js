@@ -68,6 +68,14 @@ const Protocol = sequelize.define(
       field: "approval_status",
     },
 
+    // Stores the latest supervisor/admin protocol review feedback
+    // Later this can be replaced by a review history table
+    reviewComment: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "review_comment",
+    },
+
     projectId: {
       type: DataTypes.INTEGER,
       allowNull: true,

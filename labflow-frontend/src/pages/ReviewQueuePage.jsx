@@ -83,34 +83,23 @@ const ReviewQueuePage = () => {
     }
   }, []);
 
-  // Updates an experiment's review status directly from the review queue
-  const handleExperimentReviewAction = useCallback(
-    async (experiment, nextReviewStatus) => {
+  // Approves an experiment directly from the review queue.
+  const handleApproveExperiment = useCallback(
+    async (experiment) => {
       try {
         setIsUpdatingReviewStatus(true);
 
-        // Keep the existing experiment fields and only update review workflow fields
-        // When approved, also mark the experiment as completed
-        // When changes are requested, keep it in needs_review so it remains visible as review work
-        const payload = {
-          reviewStatus: nextReviewStatus,
-          status:
-            nextReviewStatus === "approved" ? "completed" : "needs_review",
-        };
+        await updateExperiment(experiment.id, {
+          reviewStatus: "approved",
+          status: "completed",
+        });
 
-        await updateExperiment(experiment.id, payload);
-
-        message.success(
-          nextReviewStatus === "approved"
-            ? "Experiment approved."
-            : "Changes requested for experiment.",
-        );
+        message.success("Experiment approved.");
 
         await loadReviewQueue();
       } catch (error) {
         const messageText =
-          error.response?.data?.message ||
-          "Failed to update experiment review status.";
+          error.response?.data?.message || "Failed to approve experiment.";
 
         message.error(messageText);
       } finally {
@@ -121,26 +110,21 @@ const ReviewQueuePage = () => {
   );
 
   // Updates a protocol's approval status directly from the review queue
-  const handleProtocolReviewAction = useCallback(
-    async (protocol, nextApprovalStatus) => {
+  const handleApproveProtocol = useCallback(
+    async (protocol) => {
       try {
         setIsUpdatingReviewStatus(true);
 
-        const payload = { approvalStatus: nextApprovalStatus };
+        await updateProtocol(protocol.id, {
+          approvalStatus: "approved",
+        });
 
-        await updateProtocol(protocol.id, payload);
-
-        message.success(
-          nextApprovalStatus === "approved"
-            ? "Protocol approved."
-            : "Changes requested for protocol.",
-        );
+        message.success("Protocol approved.");
 
         await loadReviewQueue();
       } catch (error) {
         const messageText =
-          error.response?.data?.message ||
-          "Failed to update protocol approval status.";
+          error.response?.data?.message || "Failed to approve protocol.";
 
         message.error(messageText);
       } finally {
@@ -248,18 +232,16 @@ const ReviewQueuePage = () => {
         render: (_, record) => (
           <Space>
             <Link to={`/experiments/${record.id}`}>
-              <Button size="small">View</Button>
+              <Button size="small">Review</Button>
             </Link>
 
             {record.reviewStatus !== "approved" && (
               <Popconfirm
                 title="Approve experiment?"
-                description="This will mark the experiment review as approved."
+                description="This will mark the experiment review as approvedand set the experiment status to completed."
                 okText="Approve"
                 cancelText="Cancel"
-                onConfirm={() =>
-                  handleExperimentReviewAction(record, "approved")
-                }
+                onConfirm={() => handleApproveExperiment(record)}
               >
                 <Button
                   size="small"
@@ -270,27 +252,11 @@ const ReviewQueuePage = () => {
                 </Button>
               </Popconfirm>
             )}
-
-            {record.reviewStatus !== "changes_requested" && (
-              <Popconfirm
-                title="Request changes?"
-                description="This will mark the experiment as requiring changes."
-                okText="Request Changes"
-                cancelText="Cancel"
-                onConfirm={() =>
-                  handleExperimentReviewAction(record, "changes_requested")
-                }
-              >
-                <Button size="small" danger loading={isUpdatingReviewStatus}>
-                  Request Changes
-                </Button>
-              </Popconfirm>
-            )}
           </Space>
         ),
       },
     ],
-    [handleExperimentReviewAction, isUpdatingReviewStatus],
+    [handleApproveExperiment, isUpdatingReviewStatus],
   );
 
   // Columns for protocols that need review attention
@@ -372,7 +338,7 @@ const ReviewQueuePage = () => {
         render: (_, record) => (
           <Space>
             <Link to={`/protocols/${record.id}`}>
-              <Button size="small">View</Button>
+              <Button size="small">Review</Button>
             </Link>
 
             {record.approvalStatus !== "approved" && (
@@ -381,7 +347,7 @@ const ReviewQueuePage = () => {
                 description="This will approve the protocol and record approval metadata."
                 okText="Approve"
                 cancelText="Cancel"
-                onConfirm={() => handleProtocolReviewAction(record, "approved")}
+                onConfirm={() => handleApproveProtocol(record)}
               >
                 <Button
                   size="small"
@@ -392,27 +358,11 @@ const ReviewQueuePage = () => {
                 </Button>
               </Popconfirm>
             )}
-
-            {record.approvalStatus !== "changes_requested" && (
-              <Popconfirm
-                title="Request protocol changes?"
-                description="This will mark the protocol as requiring changes."
-                okText="Request Changes"
-                cancelText="Cancel"
-                onConfirm={() =>
-                  handleProtocolReviewAction(record, "changes_requested")
-                }
-              >
-                <Button size="small" danger loading={isUpdatingReviewStatus}>
-                  Request Changes
-                </Button>
-              </Popconfirm>
-            )}
           </Space>
         ),
       },
     ],
-    [handleProtocolReviewAction, isUpdatingReviewStatus],
+    [handleApproveProtocol, isUpdatingReviewStatus],
   );
 
   return (
@@ -431,8 +381,9 @@ const ReviewQueuePage = () => {
             </Title>
 
             <Paragraph style={{ marginBottom: 0 }}>
-              Review experiments and protocols that are pending review or need
-              changes.
+              Use the Review button to inspect full experiment or protocol
+              details before requesting changes. Change requests require a
+              review note on the detail page.
             </Paragraph>
           </div>
 

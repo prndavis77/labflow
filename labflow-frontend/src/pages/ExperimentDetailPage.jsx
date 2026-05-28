@@ -25,7 +25,7 @@ import {
 import { Link, useNavigate, useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchExperimentById } from "../api/experimentApi";
+import { fetchExperimentById, updateExperiment } from "../api/experimentApi";
 import {
   createNotebookEntry,
   deleteNotebookEntry,
@@ -49,6 +49,9 @@ const ExperimentDetailPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Only admins and supervisors can perform review decisions
+  const canReviewExperiment = ["admin", "supervisor"].includes(user?.role);
+
   const [experiment, setExperiment] = useState(null);
   const [notebookEntries, setNotebookEntries] = useState([]);
 
@@ -62,14 +65,18 @@ const ExperimentDetailPage = () => {
     useState(false);
   const [isSubmittingNotebookEntry, setIsSubmittingNotebookEntry] =
     useState(false);
+  const [isUpdatingReviewStatus, setIsUpdatingReviewStatus] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [notebookErrorMessage, setNotebookErrorMessage] = useState("");
 
   const [isNotebookModalOpen, setIsNotebookModalOpen] = useState(false);
   const [editingNotebookEntry, setEditingNotebookEntry] = useState(null);
+  const [isReviewCommentModalOpen, setIsReviewCommentModalOpen] =
+    useState(false);
 
   const [notebookForm] = Form.useForm();
+  const [reviewCommentForm] = Form.useForm();
 
   // Admins and supervisors can modify all notebook entries
   // Researchers can modify only entries they authored
@@ -106,6 +113,21 @@ const ExperimentDetailPage = () => {
       setIsLoadingExperiment(false);
     }
   }, [id]);
+
+  const openExperimentReviewCommentModal = () => {
+    reviewCommentForm.resetFields();
+
+    reviewCommentForm.setFieldsValue({
+      reviewComment: experiment?.reviewComment || "",
+    });
+
+    setIsReviewCommentModalOpen(true);
+  };
+
+  const closeExperimentReviewCommentModal = useCallback(() => {
+    setIsReviewCommentModalOpen(false);
+    reviewCommentForm.resetFields();
+  }, [reviewCommentForm]);
 
   // Loads notebook entries for the current experiment
   const loadNotebookEntries = useCallback(async () => {
@@ -324,6 +346,57 @@ const ExperimentDetailPage = () => {
     openEditNotebookModal,
   ]);
 
+  // Updates the experiment review status from the detail page.
+  // Approving completes the experiment. Requesting changes keeps it in review work.
+  const handleExperimentReviewAction = useCallback(
+    async (nextReviewStatus, reviewComment) => {
+      if (!experiment) {
+        return;
+      }
+
+      try {
+        setIsUpdatingReviewStatus(true);
+
+        const payload = {
+          reviewStatus: nextReviewStatus,
+          status:
+            nextReviewStatus === "approved" ? "completed" : experiment.status,
+        };
+
+        if (reviewComment !== undefined) {
+          payload.reviewComment = reviewComment;
+        }
+
+        await updateExperiment(experiment.id, payload);
+
+        message.success(
+          nextReviewStatus === "approved"
+            ? "Experiment approved."
+            : "Changes requested. Experiment remains in review.",
+        );
+
+        closeExperimentReviewCommentModal();
+        await loadExperimentDetail();
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message ||
+          "Failed to update experiment review status.";
+
+        message.error(messageText);
+      } finally {
+        setIsUpdatingReviewStatus(false);
+      }
+    },
+    [experiment, loadExperimentDetail, closeExperimentReviewCommentModal],
+  );
+
+  const handleExperimentChangeRequestSubmit = async (values) => {
+    await handleExperimentReviewAction(
+      "changes_requested",
+      values.reviewComment,
+    );
+  };
+
   if (errorMessage) {
     return (
       <Card>
@@ -338,6 +411,12 @@ const ExperimentDetailPage = () => {
       </Card>
     );
   }
+
+  // Review actions should only appear for experiments that are actually in review workflow.
+  const shouldShowExperimentReviewActions =
+    canReviewExperiment &&
+    experiment &&
+    ["pending", "changes_requested"].includes(experiment.reviewStatus);
 
   return (
     <Space direction="vertical" size="large" style={{ width: "100%" }}>
@@ -383,6 +462,10 @@ const ExperimentDetailPage = () => {
                 <Tag color={REVIEW_STATUS_COLORS[experiment.reviewStatus]}>
                   {formatLabel(experiment.reviewStatus)}
                 </Tag>
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Latest Review Comment" span={2}>
+                {experiment.reviewComment || "No review comment recorded."}
               </Descriptions.Item>
 
               <Descriptions.Item label="Notebook Entries">
@@ -453,6 +536,36 @@ const ExperimentDetailPage = () => {
         )}
       </Card>
 
+      {shouldShowExperimentReviewActions && (
+        <Card title="Review Actions">
+          <Space wrap>
+            {experiment.reviewStatus !== "approved" && (
+              <Popconfirm
+                title="Approve experiment?"
+                description="This will mark the experiment review as approved and set the experiment status to completed."
+                okText="Approve"
+                cancelText="Cancel"
+                onConfirm={() => handleExperimentReviewAction("approved")}
+              >
+                <Button type="primary" loading={isUpdatingReviewStatus}>
+                  Approve Experiment
+                </Button>
+              </Popconfirm>
+            )}
+
+            <Button
+              danger
+              loading={isUpdatingReviewStatus}
+              onClick={openExperimentReviewCommentModal}
+            >
+              {experiment.reviewStatus === "changes_requested"
+                ? "Request More Changes"
+                : "Request Changes"}
+            </Button>
+          </Space>
+        </Card>
+      )}
+
       <Card
         title={`Experiment Notebook (${filteredNotebookEntries.length})`}
         extra={
@@ -495,6 +608,57 @@ const ExperimentDetailPage = () => {
           <Timeline items={notebookTimelineItems} />
         )}
       </Card>
+
+      <Modal
+        title={
+          experiment?.reviewStatus === "changes_requested"
+            ? "Request More Changes"
+            : "Request Changes"
+        }
+        open={isReviewCommentModalOpen}
+        onCancel={closeExperimentReviewCommentModal}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form
+          layout="vertical"
+          form={reviewCommentForm}
+          onFinish={handleExperimentChangeRequestSubmit}
+        >
+          <Form.Item
+            label="Change Request Note"
+            name="reviewComment"
+            rules={[
+              {
+                required: true,
+                message: "Please explain what changes are needed.",
+              },
+              {
+                min: 10,
+                message: "Please provide a more specific change request.",
+              },
+            ]}
+          >
+            <Input.TextArea
+              rows={5}
+              placeholder="Explain what needs to be corrected, repeated, clarified, or improved."
+            />
+          </Form.Item>
+
+          <Space style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button onClick={closeExperimentReviewCommentModal}>Cancel</Button>
+
+            <Button
+              type="primary"
+              danger
+              htmlType="submit"
+              loading={isUpdatingReviewStatus}
+            >
+              Save Change Request
+            </Button>
+          </Space>
+        </Form>
+      </Modal>
 
       <Modal
         title={

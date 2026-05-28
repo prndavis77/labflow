@@ -71,6 +71,7 @@ const formatExperimentResponse = (experiment) => {
     notes: experiment.notes,
     status: experiment.status,
     reviewStatus: experiment.reviewStatus,
+    reviewComment: experiment.reviewComment,
     startedAt: experiment.startedAt,
     completedAt: experiment.completedAt,
     projectId: experiment.projectId,
@@ -215,6 +216,7 @@ const createExperiment = async (req, res) => {
       notes,
       status,
       reviewStatus,
+      reviewComment,
       startedAt,
       completedAt,
       projectId,
@@ -299,6 +301,7 @@ const createExperiment = async (req, res) => {
       notes: notes?.trim() || null,
       status: status || "planned",
       reviewStatus: reviewStatus || "not_submitted",
+      reviewComment: reviewComment?.trim() || null,
       startedAt: startedAt || null,
       completedAt: completedAt || null,
       projectId,
@@ -341,6 +344,7 @@ const updateExperiment = async (req, res) => {
       notes,
       status,
       reviewStatus,
+      reviewComment,
       startedAt,
       completedAt,
       projectId,
@@ -435,6 +439,10 @@ const updateExperiment = async (req, res) => {
       status: status !== undefined ? status : experiment.status,
       reviewStatus:
         reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus,
+      reviewComment:
+        reviewComment !== undefined
+          ? reviewComment?.trim() || null
+          : experiment.reviewComment,
       startedAt:
         startedAt !== undefined ? startedAt || null : experiment.startedAt,
       completedAt:
