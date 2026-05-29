@@ -1,14 +1,27 @@
 const express = require("express");
-const { getUsers } = require("../controllers/userController");
-const { protect } = require("../middleware/authMiddleware");
+const {
+  getUsers,
+  getUserById,
+  updateUserRole,
+} = require("../controllers/userController");
+const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
-// Every user route requires authentication.
+// Every user route requires authentication
 router.use(protect);
 
-// All authenticated users can view user summaries for task assignment
-// Later, this can be restricted by lab membership
-router.get("/", getUsers);
+// All authenticated lab users can view basic user summaries
+// This supports assignment dropdowns for tasks, experiments, and project workflows
+router.get("/", authorizeRoles(...ROLE_GROUPS.ALL_AUTHENTICATED), getUsers);
+router.get(
+  "/:id",
+  authorizeRoles(...ROLE_GROUPS.ALL_AUTHENTICATED),
+  getUserById,
+);
+
+// Only admins can change user roles.
+router.patch("/:id/role", authorizeRoles(ROLES.ADMIN), updateUserRole);
 
 module.exports = router;

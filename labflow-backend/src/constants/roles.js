@@ -6,10 +6,12 @@ const ROLES = {
   RESEARCHER: "researcher",
 };
 
+const VALID_ROLES = Object.values(ROLES);
+
 // Role groups used by route protection
 const ROLE_GROUPS = {
   MANAGERS: [ROLES.ADMIN, ROLES.SUPERVISOR],
   ALL_AUTHENTICATED: [ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.RESEARCHER],
 };
 
-module.exports = { ROLES, ROLE_GROUPS };
+module.exports = { ROLES, VALID_ROLES, ROLE_GROUPS };
