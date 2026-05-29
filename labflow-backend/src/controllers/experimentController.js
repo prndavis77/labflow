@@ -1,4 +1,11 @@
-const { Experiment, Project, User, Task, Protocol } = require("../models");
+const {
+  Experiment,
+  Project,
+  User,
+  Task,
+  Protocol,
+  ReviewEvent,
+} = require("../models");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -60,6 +67,23 @@ const formatProtocolSummary = (protocol) => {
     version: protocol.version,
     approvalStatus: protocol.approvalStatus,
   };
+};
+
+// Creates a review history event for experiment review decisions.
+// This keeps a permanent record of approvals and change requests.
+const createExperimentReviewEvent = async ({
+  experimentId,
+  action,
+  comment,
+  reviewerId,
+}) => {
+  await ReviewEvent.create({
+    targetType: "experiment",
+    targetId: experimentId,
+    action,
+    comment: comment?.trim() || null,
+    reviewerId,
+  });
 };
 
 // Formats experiment data before sending it to the frontend
@@ -362,8 +386,39 @@ const updateExperiment = async (req, res) => {
       });
     }
 
+    // Resolve the values that will be saved
+    // This makes validation easier because we can compare linked records against the final project/status values, not only the raw request body
     const resolvedProjectId =
       projectId !== undefined ? projectId : experiment.projectId;
+
+    const resolvedReviewStatus =
+      reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus;
+
+    const resolvedStatus = status !== undefined ? status : experiment.status;
+
+    const previousReviewStatus = experiment.reviewStatus;
+
+    // Review decisions are restricted to admins and supervisors
+    // This must happen before updating the experiment or creating ReviewEvent records
+    const isReviewDecision =
+      reviewStatus !== undefined &&
+      ["approved", "changes_requested"].includes(reviewStatus);
+
+    if (isReviewDecision && !["admin", "supervisor"].includes(req.user.role)) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Only admins and supervisors can make experiment review decisions.",
+      });
+    }
+
+    // Requesting changes must include a useful review comment
+    if (reviewStatus === "changes_requested" && !reviewComment?.trim()) {
+      return res.status(400).json({
+        status: "error",
+        message: "A review comment is required when requesting changes.",
+      });
+    }
 
     if (projectId) {
       const project = await Project.findByPk(projectId);
@@ -415,8 +470,8 @@ const updateExperiment = async (req, res) => {
         });
       }
 
-      // Project-specific protocols must belong to the selected project.
-      // General or equipment-specific SOPs with no project are allowed.
+      // Project-specific protocols must belong to the selected project
+      // General or equipment-specific SOPs with no project are allowed
       if (
         protocol.projectId &&
         Number(protocol.projectId) !== Number(projectId)
@@ -436,9 +491,8 @@ const updateExperiment = async (req, res) => {
           ? objective?.trim() || null
           : experiment.objective,
       notes: notes !== undefined ? notes?.trim() || null : experiment.notes,
-      status: status !== undefined ? status : experiment.status,
-      reviewStatus:
-        reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus,
+      status: resolvedStatus,
+      reviewStatus: resolvedReviewStatus,
       reviewComment:
         reviewComment !== undefined
           ? reviewComment?.trim() || null
@@ -449,13 +503,36 @@ const updateExperiment = async (req, res) => {
         completedAt !== undefined
           ? completedAt || null
           : experiment.completedAt,
-      projectId: projectId !== undefined ? projectId : experiment.projectId,
+      projectId: resolvedProjectId,
       researcherId:
         researcherId !== undefined ? researcherId : experiment.researcherId,
       taskId: taskId !== undefined ? taskId || null : experiment.taskId,
       protocolId:
         protocolId !== undefined ? protocolId || null : experiment.protocolId,
     });
+
+    // Automatically create review history when a review decision is made
+    // This records repeated review cycles instead of only storing the latest comment
+    if (
+      reviewStatus !== undefined &&
+      ["approved", "changes_requested"].includes(resolvedReviewStatus)
+    ) {
+      const shouldCreateReviewEvent =
+        resolvedReviewStatus !== previousReviewStatus ||
+        resolvedReviewStatus === "changes_requested";
+
+      if (shouldCreateReviewEvent) {
+        await createExperimentReviewEvent({
+          experimentId: experiment.id,
+          action: resolvedReviewStatus,
+          comment:
+            resolvedReviewStatus === "changes_requested"
+              ? reviewComment
+              : reviewComment || "Experiment approved.",
+          reviewerId: req.user.id,
+        });
+      }
+    }
 
     const updatedExperiment = await Experiment.findByPk(experiment.id, {
       include: experimentInclude,

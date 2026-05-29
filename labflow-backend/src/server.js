@@ -15,6 +15,7 @@ const equipmentRoutes = require("./routes/equipmentRoutes");
 const equipmentBookingRoutes = require("./routes/equipmentBookingRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const notebookEntryRoutes = require("./routes/notebookEntryRoutes");
+const reviewEventRoutes = require("./routes/reviewEventRoutes");
 
 const app = express();
 
@@ -56,11 +57,14 @@ app.use("/api/equipment", equipmentRoutes);
 // Equipment booking routes
 app.use("/api/equipment-bookings", equipmentBookingRoutes);
 
-// Dashboard summary routes.
+// Dashboard summary routes
 app.use("/api/dashboard", dashboardRoutes);
 
-// Experiment-linked notebook entry routes.
+// Experiment-linked notebook entry routes
 app.use("/api/notebook-entries", notebookEntryRoutes);
+
+// Review history routes
+app.use("/api/review-events", reviewEventRoutes);
 
 // Handles unknown API routes with a clear JSON response
 app.use((req, res) => {

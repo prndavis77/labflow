@@ -528,32 +528,34 @@ const DashboardPage = () => {
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Review Attention"
-              value={reviewAttentionCount}
-              prefix={<AuditOutlined />}
-              valueStyle={{
-                color: reviewAttentionCount > 0 ? "#fa8c16" : undefined,
-              }}
-              loading={isLoadingDashboard}
-            />
+        {canAccessReviewQueue && (
+          <Col xs={24} sm={12} lg={6}>
+            <Card>
+              <Statistic
+                title="Review Attention"
+                value={reviewAttentionCount}
+                prefix={<AuditOutlined />}
+                valueStyle={{
+                  color: reviewAttentionCount > 0 ? "#fa8c16" : undefined,
+                }}
+                loading={isLoadingDashboard}
+              />
 
-            {canAccessReviewQueue && (
-              <Link to="/review">
-                <Button
-                  type={reviewAttentionCount > 0 ? "primary" : "default"}
-                  size="small"
-                  icon={<RightOutlined />}
-                  style={{ marginTop: 12 }}
-                >
-                  Open Review Queue
-                </Button>
-              </Link>
-            )}
-          </Card>
-        </Col>
+              {canAccessReviewQueue && (
+                <Link to="/review">
+                  <Button
+                    type={reviewAttentionCount > 0 ? "primary" : "default"}
+                    size="small"
+                    icon={<RightOutlined />}
+                    style={{ marginTop: 12 }}
+                  >
+                    Open Review Queue
+                  </Button>
+                </Link>
+              )}
+            </Card>
+          </Col>
+        )}
 
         <Col xs={24} sm={12} lg={6}>
           <Card>

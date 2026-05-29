@@ -6,7 +6,7 @@ const {
 
 // This helper formats project objects before sending them to the frontend
 // It avoids exposing unnecessary Sequelize metadata
-function formatProjectResponse(project) {
+const formatProjectResponse = (project) => {
   return {
     id: project.id,
     title: project.title,
@@ -27,12 +27,12 @@ function formatProjectResponse(project) {
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   };
-}
+};
 
 // GET /api/projects
 // Returns all projects for now
 // Later, we will filter by lab membership and project membership
-async function getProjects(req, res) {
+const getProjects = async (req, res) => {
   try {
     const projects = await Project.findAll({
       include: [
@@ -59,11 +59,11 @@ async function getProjects(req, res) {
       message: "An error occurred while fetching projects.",
     });
   }
-}
+};
 
 // GET /api/projects/:id
 // Returns one project by ID
-async function getProjectById(req, res) {
+const getProjectById = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -98,12 +98,12 @@ async function getProjectById(req, res) {
       message: "An error occurred while fetching the project.",
     });
   }
-}
+};
 
 // POST /api/projects
 // Creates a new project
 // For now, admins and supervisors can create projects
-async function createProject(req, res) {
+const createProject = async (req, res) => {
   try {
     const {
       title,
@@ -189,12 +189,12 @@ async function createProject(req, res) {
       message: "An error occurred while creating the project.",
     });
   }
-}
+};
 
 // PATCH /api/projects/:id
 // Updates a project
 // For now, admins and supervisors can update projects
-async function updateProject(req, res) {
+const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -297,12 +297,12 @@ async function updateProject(req, res) {
       message: "An error occurred while updating the project.",
     });
   }
-}
+};
 
 // DELETE /api/projects/:id
 // Deletes a project.
 // In a real production app, soft delete or archive is often safer.
-async function deleteProject(req, res) {
+const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -329,7 +329,7 @@ async function deleteProject(req, res) {
       message: "An error occurred while deleting the project.",
     });
   }
-}
+};
 
 module.exports = {
   getProjects,

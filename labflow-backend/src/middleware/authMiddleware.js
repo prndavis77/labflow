@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
-async function protect(req, res, next) {
+const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -34,10 +34,10 @@ async function protect(req, res, next) {
       message: "Not authorized, invalid or expired token.",
     });
   }
-}
+};
 
-function authorizeRoles(...allowedRoles) {
-  return function roleMiddleware(req, res, next) {
+const authorizeRoles = (...allowedRoles) => {
+  const roleMiddleware = (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
         status: "error",
@@ -55,7 +55,9 @@ function authorizeRoles(...allowedRoles) {
 
     next();
   };
-}
+
+  return roleMiddleware;
+};
 
 module.exports = {
   protect,

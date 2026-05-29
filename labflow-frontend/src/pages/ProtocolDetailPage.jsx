@@ -100,9 +100,9 @@ const ProtocolDetailPage = () => {
       try {
         setIsUpdatingApprovalStatus(true);
 
-        const payload = await updateProtocol(protocol.id, {
+        const payload = {
           approvalStatus: nextApprovalStatus,
-        });
+        };
 
         if (reviewComment !== undefined) {
           payload.reviewComment = reviewComment;
@@ -133,7 +133,7 @@ const ProtocolDetailPage = () => {
 
   const handleProtocolChangeRequestSubmit = async (values) => {
     await handleProtocolReviewAction("changes_requested", values.reviewComment);
-  }
+  };
 
   if (errorMessage) {
     return (
@@ -189,8 +189,8 @@ const ProtocolDetailPage = () => {
             </Descriptions.Item>
 
             <Descriptions.Item label="Latest Review Comment" span={2}>
-  {protocol.reviewComment || "No review comment recorded."}
-</Descriptions.Item>
+              {protocol.reviewComment || "No review comment recorded."}
+            </Descriptions.Item>
 
             <Descriptions.Item label="Project">
               {protocol.project ? (
@@ -250,65 +250,67 @@ const ProtocolDetailPage = () => {
                   </Popconfirm>
                 )}
 
-                
-                    <Button danger  onClick={openProtocolReviewCommentModal}>
-                      {protocol.approvalStatus === "changes_requested" ? "Request More Changes" : "Request Changes"}
-                    </Button>
-              
+                <Button danger onClick={openProtocolReviewCommentModal}>
+                  {protocol.approvalStatus === "changes_requested"
+                    ? "Request More Changes"
+                    : "Request Changes"}
+                </Button>
               </Space>
             </Card>
           )}
 
           <Modal
-  title={
-    protocol?.approvalStatus === "changes_requested"
-      ? "Request More Changes"
-      : "Request Changes"
-  }
-  open={isReviewCommentModalOpen}
-  onCancel={closeProtocolReviewCommentModal}
-  footer={null}
-  destroyOnHidden
->
-  <Form
-    layout="vertical"
-    form={reviewCommentForm}
-    onFinish={handleProtocolChangeRequestSubmit}
-  >
-    <Form.Item
-      label="Change Request Note"
-      name="reviewComment"
-      rules={[
-        {
-          required: true,
-          message: "Please explain what changes are needed.",
-        },
-        {
-          min: 10,
-          message: "Please provide a more specific change request.",
-        },
-      ]}
-    >
-      <Input.TextArea
-        rows={5}
-        placeholder="Explain what needs to be corrected, clarified, expanded, or revised."
-      />
-    </Form.Item>
+            title={
+              protocol?.approvalStatus === "changes_requested"
+                ? "Request More Changes"
+                : "Request Changes"
+            }
+            open={isReviewCommentModalOpen}
+            onCancel={closeProtocolReviewCommentModal}
+            footer={null}
+            destroyOnHidden
+          >
+            <Form
+              layout="vertical"
+              form={reviewCommentForm}
+              onFinish={handleProtocolChangeRequestSubmit}
+            >
+              <Form.Item
+                label="Change Request Note"
+                name="reviewComment"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please explain what changes are needed.",
+                  },
+                  {
+                    min: 10,
+                    message: "Please provide a more specific change request.",
+                  },
+                ]}
+              >
+                <Input.TextArea
+                  rows={5}
+                  placeholder="Explain what needs to be corrected, clarified, expanded, or revised."
+                />
+              </Form.Item>
 
-    <Space style={{ display: "flex", justifyContent: "flex-end" }}>
-      <Button onClick={closeProtocolReviewCommentModal}>Cancel</Button>
+              <Space style={{ display: "flex", justifyContent: "flex-end" }}>
+                <Button onClick={closeProtocolReviewCommentModal}>
+                  Cancel
+                </Button>
 
-      <Button
-        type="primary"
-        danger
-        htmlType="submit"
-        loading={isUpdatingApprovalStatus}
-      >
-        Save Change Request
-      </Button>
-    </Space>
-  </Form>
-</Modal>
+                <Button
+                  type="primary"
+                  danger
+                  htmlType="submit"
+                  loading={isUpdatingApprovalStatus}
+                >
+                  Save Change Request
+                </Button>
+              </Space>
+            </Form>
+          </Modal>
 
           <Card title="Protocol Content" style={{ marginTop: 24 }}>
             <Text>
@@ -326,8 +328,6 @@ const ProtocolDetailPage = () => {
         </>
       )}
     </Card>
-
-      
   );
 };
 

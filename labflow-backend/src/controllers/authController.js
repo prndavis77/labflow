@@ -5,7 +5,7 @@ const formatUserResponse = require("../utils/formatUserResponse");
 
 const SALT_ROUNDS = 12;
 
-async function registerUser(req, res) {
+const registerUser = async (req, res) => {
   try {
     // Public registration should not allow users to choose admin or supervisor roles
     const { name, email, password, department } = req.body;
@@ -65,9 +65,9 @@ async function registerUser(req, res) {
       message: "An error occurred while registering the user.",
     });
   }
-}
+};
 
-async function loginUser(req, res) {
+const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -118,16 +118,16 @@ async function loginUser(req, res) {
       message: "An error occurred while logging in.",
     });
   }
-}
+};
 
-async function getCurrentUser(req, res) {
+const getCurrentUser = async (req, res) => {
   return res.json({
     status: "success",
     data: {
       user: formatUserResponse(req.user),
     },
   });
-}
+};
 
 module.exports = {
   registerUser,

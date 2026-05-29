@@ -1,4 +1,10 @@
-const { Protocol, Project, User, Equipment } = require("../models");
+const {
+  Protocol,
+  Project,
+  User,
+  Equipment,
+  ReviewEvent,
+} = require("../models");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -32,7 +38,7 @@ const formatProjectSummary = (project) => {
 
 // Formats equipment data for protocol responses
 // This is useful for equipment-specific SOPs
-function formatEquipmentSummary(equipment) {
+const formatEquipmentSummary = (equipment) => {
   if (!equipment) {
     return null;
   }
@@ -44,7 +50,24 @@ function formatEquipmentSummary(equipment) {
     location: equipment.location,
     status: equipment.status,
   };
-}
+};
+
+// Creates a review history event for protocol approval decisions
+// This preserves repeated review cycles and protocol feedback
+const createProtocolReviewEvent = async ({
+  protocolId,
+  action,
+  comment,
+  reviewerId,
+}) => {
+  await ReviewEvent.create({
+    targetType: "protocol",
+    targetId: protocolId,
+    action,
+    comment: comment?.trim() || null,
+    reviewerId,
+  });
+};
 
 // Formats protocol data before sending it to the frontend
 const formatProtocolResponse = (protocol) => {
@@ -290,6 +313,36 @@ const updateProtocol = async (req, res) => {
       });
     }
 
+    const nextApprovalStatus =
+      approvalStatus !== undefined ? approvalStatus : protocol.approvalStatus;
+
+    const previousApprovalStatus = protocol.approvalStatus;
+
+    // Approval decisions are restricted to admins and supervisors
+    // This must happen before updating the protocol or creating review events
+    const isApprovalDecision =
+      approvalStatus !== undefined &&
+      ["approved", "changes_requested"].includes(approvalStatus);
+
+    if (
+      isApprovalDecision &&
+      !["admin", "supervisor"].includes(req.user.role)
+    ) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Only admins and supervisors can make protocol approval decisions.",
+      });
+    }
+
+    // Requesting changes must include review feedback.
+    if (approvalStatus === "changes_requested" && !reviewComment?.trim()) {
+      return res.status(400).json({
+        status: "error",
+        message: "A review comment is required when requesting changes.",
+      });
+    }
+
     if (projectId) {
       const project = await Project.findByPk(projectId);
 
@@ -312,11 +365,8 @@ const updateProtocol = async (req, res) => {
       }
     }
 
-    const nextApprovalStatus =
-      approvalStatus !== undefined ? approvalStatus : protocol.approvalStatus;
-
-    // When a protocol becomes approved, store approver metadata.
-    // When it leaves approved status, clear approval metadata.
+    // When a protocol becomes approved, store approver metadata
+    // When it leaves approved status, clear approval metadata
     let nextApprovedById = protocol.approvedById;
     let nextApprovedAt = protocol.approvedAt;
 
@@ -337,17 +387,40 @@ const updateProtocol = async (req, res) => {
         purpose !== undefined ? purpose?.trim() || null : protocol.purpose,
       content: content !== undefined ? content.trim() : protocol.content,
       approvalStatus: nextApprovalStatus,
+      reviewComment:
+        reviewComment !== undefined
+          ? reviewComment?.trim() || null
+          : protocol.reviewComment,
       projectId:
         projectId !== undefined ? projectId || null : protocol.projectId,
       equipmentId:
         equipmentId !== undefined ? equipmentId || null : protocol.equipmentId,
       approvedById: nextApprovedById,
       approvedAt: nextApprovedAt,
-      reviewComment:
-        reviewComment !== undefined
-          ? reviewComment?.trim() || null
-          : protocol.reviewComment,
     });
+
+    // Automatically create review history when a protocol review decision is made
+    // Repeated changes_requested actions should create additional review events
+    if (
+      approvalStatus !== undefined &&
+      ["approved", "changes_requested"].includes(nextApprovalStatus)
+    ) {
+      const shouldCreateReviewEvent =
+        nextApprovalStatus !== previousApprovalStatus ||
+        nextApprovalStatus === "changes_requested";
+
+      if (shouldCreateReviewEvent) {
+        await createProtocolReviewEvent({
+          protocolId: protocol.id,
+          action: nextApprovalStatus,
+          comment:
+            nextApprovalStatus === "changes_requested"
+              ? reviewComment
+              : reviewComment || "Protocol approved.",
+          reviewerId: req.user.id,
+        });
+      }
+    }
 
     const updatedProtocol = await Protocol.findByPk(protocol.id, {
       include: protocolInclude,
