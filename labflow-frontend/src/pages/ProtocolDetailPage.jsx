@@ -3,23 +3,29 @@ import {
   Button,
   Card,
   Descriptions,
+  Empty,
   Form,
   Input,
   Modal,
   Popconfirm,
   Space,
   Tag,
+  Timeline,
   Typography,
   message,
 } from "antd";
 import { ArrowLeftOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useParams } from "react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchProtocolById, updateProtocol } from "../api/protocolApi";
+import { fetchReviewEvents } from "../api/reviewEventApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import { useAuth } from "../context/AuthContext";
-import { APPROVAL_STATUS_COLORS } from "../constants/statusColors";
+import {
+  APPROVAL_STATUS_COLORS,
+  REVIEW_EVENT_ACTION_COLORS,
+} from "../constants/statusColors";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -30,12 +36,19 @@ const ProtocolDetailPage = () => {
   const { user } = useAuth();
 
   const [protocol, setProtocol] = useState(null);
+  const [reviewEvents, setReviewEvents] = useState([]);
+
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingReviewEvents, setIsLoadingReviewEvents] = useState(false);
+
   const [isUpdatingApprovalStatus, setIsUpdatingApprovalStatus] =
     useState(false);
   const [isReviewCommentModalOpen, setIsReviewCommentModalOpen] =
     useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
+  const [reviewHistoryErrorMessage, setReviewHistoryErrorMessage] =
+    useState("");
 
   const [reviewCommentForm] = Form.useForm();
 
@@ -82,12 +95,35 @@ const ProtocolDetailPage = () => {
     }
   }, [id]);
 
+  // Loads review history for the current protocol
+  const loadReviewEvents = useCallback(async () => {
+    try {
+      setIsLoadingReviewEvents(true);
+      setReviewHistoryErrorMessage("");
+
+      const result = await fetchReviewEvents({
+        targetType: "protocol",
+        targetId: id,
+      });
+
+      setReviewEvents(result.data.reviewEvents);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load review history.";
+
+      setReviewHistoryErrorMessage(messageText);
+    } finally {
+      setIsLoadingReviewEvents(false);
+    }
+  }, [id]);
+
   // Load protocol details after the first render or when the route ID changes
   useEffect(() => {
     queueMicrotask(() => {
       loadProtocolDetail();
+      loadReviewEvents();
     });
-  }, [loadProtocolDetail]);
+  }, [loadProtocolDetail, loadReviewEvents]);
 
   // Updates protocol approval status from the detail page
   // The backend handles approvedById and approvedAt when approvalStatus becomes approved
@@ -118,6 +154,7 @@ const ProtocolDetailPage = () => {
 
         closeProtocolReviewCommentModal();
         await loadProtocolDetail();
+        await loadReviewEvents();
       } catch (error) {
         const message =
           error.response?.data?.message ||
@@ -128,12 +165,43 @@ const ProtocolDetailPage = () => {
         setIsUpdatingApprovalStatus(false);
       }
     },
-    [protocol, loadProtocolDetail, closeProtocolReviewCommentModal],
+    [
+      protocol,
+      loadProtocolDetail,
+      closeProtocolReviewCommentModal,
+      loadReviewEvents,
+    ],
   );
 
   const handleProtocolChangeRequestSubmit = async (values) => {
     await handleProtocolReviewAction("changes_requested", values.reviewComment);
   };
+
+  // Converts review history events into timeline items
+  const reviewHistoryTimelineItems = useMemo(() => {
+    return reviewEvents.map((event) => ({
+      key: event.id,
+      children: (
+        <Card size="small">
+          <Space wrap style={{ marginBottom: 8 }}>
+            <Tag color={REVIEW_EVENT_ACTION_COLORS[event.action]}>
+              {formatLabel(event.action)}
+            </Tag>
+
+            <Text type="secondary">
+              Reviewer: {event.reviewer?.name || "Unknown"}
+            </Text>
+
+            <Text type="secondary">{formatDateTime(event.createdAt)}</Text>
+          </Space>
+
+          <Paragraph style={{ whiteSpace: "pre-line", marginBottom: 0 }}>
+            {event.comment || "No review comment recorded."}
+          </Paragraph>
+        </Card>
+      ),
+    }));
+  }, [reviewEvents]);
 
   if (errorMessage) {
     return (
@@ -162,7 +230,10 @@ const ProtocolDetailPage = () => {
 
         <Button
           icon={<ReloadOutlined />}
-          onClick={loadProtocolDetail}
+          onClick={() => {
+            loadProtocolDetail();
+            loadReviewEvents();
+          }}
           loading={isLoading}
         >
           Refresh
@@ -188,8 +259,8 @@ const ProtocolDetailPage = () => {
               </Tag>
             </Descriptions.Item>
 
-            <Descriptions.Item label="Latest Review Comment" span={2}>
-              {protocol.reviewComment || "No review comment recorded."}
+            <Descriptions.Item label="Latest Review Feedback" span={2}>
+              {protocol.reviewComment || "No current review feedback."}
             </Descriptions.Item>
 
             <Descriptions.Item label="Project">
@@ -232,6 +303,28 @@ const ProtocolDetailPage = () => {
               {formatDateTime(protocol.updatedAt)}
             </Descriptions.Item>
           </Descriptions>
+
+          <Card
+            title={`Review History (${reviewEvents.length})`}
+            style={{ marginTop: 24 }}
+          >
+            {reviewHistoryErrorMessage && (
+              <Alert
+                type="error"
+                message={reviewHistoryErrorMessage}
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
+
+            {isLoadingReviewEvents ? (
+              <Card loading />
+            ) : reviewEvents.length === 0 ? (
+              <Empty description="No review history recorded for this protocol yet." />
+            ) : (
+              <Timeline items={reviewHistoryTimelineItems} />
+            )}
+          </Card>
 
           {shouldShowProtocolReviewActions && (
             <Card title="Review Actions" style={{ marginTop: 24 }}>

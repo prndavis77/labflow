@@ -32,6 +32,7 @@ import {
   fetchNotebookEntries,
   updateNotebookEntry,
 } from "../api/notebookEntryApi";
+import { fetchReviewEvents } from "../api/reviewEventApi";
 import { useAuth } from "../context/AuthContext";
 import { NOTEBOOK_ENTRY_TYPE_OPTIONS } from "../constants/statusOptions";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
@@ -39,6 +40,7 @@ import {
   EXPERIMENT_STATUS_COLORS,
   REVIEW_STATUS_COLORS,
   NOTEBOOK_ENTRY_TYPE_COLORS,
+  REVIEW_EVENT_ACTION_COLORS,
 } from "../constants/statusColors";
 
 const { Title, Paragraph, Text } = Typography;
@@ -54,6 +56,7 @@ const ExperimentDetailPage = () => {
 
   const [experiment, setExperiment] = useState(null);
   const [notebookEntries, setNotebookEntries] = useState([]);
+  const [reviewEvents, setReviewEvents] = useState([]);
 
   // Stores the selected notebook entry type filter
   // Undefined means all notebook entries are shown
@@ -63,12 +66,16 @@ const ExperimentDetailPage = () => {
   const [isLoadingExperiment, setIsLoadingExperiment] = useState(false);
   const [isLoadingNotebookEntries, setIsLoadingNotebookEntries] =
     useState(false);
+  const [isLoadingReviewEvents, setIsLoadingReviewEvents] = useState(false);
+
   const [isSubmittingNotebookEntry, setIsSubmittingNotebookEntry] =
     useState(false);
   const [isUpdatingReviewStatus, setIsUpdatingReviewStatus] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [notebookErrorMessage, setNotebookErrorMessage] = useState("");
+  const [reviewHistoryErrorMessage, setReviewHistoryErrorMessage] =
+    useState("");
 
   const [isNotebookModalOpen, setIsNotebookModalOpen] = useState(false);
   const [editingNotebookEntry, setEditingNotebookEntry] = useState(null);
@@ -150,13 +157,36 @@ const ExperimentDetailPage = () => {
     }
   }, [id]);
 
+  // Loads review history for the current experiment
+  const loadReviewEvents = useCallback(async () => {
+    try {
+      setIsLoadingReviewEvents(true);
+      setReviewHistoryErrorMessage("");
+
+      const result = await fetchReviewEvents({
+        targetType: "experiment",
+        targetId: id,
+      });
+
+      setReviewEvents(result.data.reviewEvents);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load review history.";
+
+      setReviewHistoryErrorMessage(messageText);
+    } finally {
+      setIsLoadingReviewEvents(false);
+    }
+  }, [id]);
+
   // Load experiment details after the first render or when the route ID changes
   useEffect(() => {
     queueMicrotask(() => {
       loadExperimentDetail();
       loadNotebookEntries();
+      loadReviewEvents();
     });
-  }, [loadExperimentDetail, loadNotebookEntries]);
+  }, [loadExperimentDetail, loadNotebookEntries, loadReviewEvents]);
 
   const openCreateNotebookModal = () => {
     setEditingNotebookEntry(null);
@@ -377,6 +407,7 @@ const ExperimentDetailPage = () => {
 
         closeExperimentReviewCommentModal();
         await loadExperimentDetail();
+        await loadReviewEvents();
       } catch (error) {
         const messageText =
           error.response?.data?.message ||
@@ -387,7 +418,12 @@ const ExperimentDetailPage = () => {
         setIsUpdatingReviewStatus(false);
       }
     },
-    [experiment, loadExperimentDetail, closeExperimentReviewCommentModal],
+    [
+      experiment,
+      loadExperimentDetail,
+      closeExperimentReviewCommentModal,
+      loadReviewEvents,
+    ],
   );
 
   const handleExperimentChangeRequestSubmit = async (values) => {
@@ -396,6 +432,29 @@ const ExperimentDetailPage = () => {
       values.reviewComment,
     );
   };
+
+  // Converts review history events into timeline items
+  const reviewHistoryTimelineItems = useMemo(() => {
+    return reviewEvents.map((event) => ({
+      key: event.id,
+      children: (
+        <Card size="small">
+          <Space wrap style={{ marginBottom: 8 }}>
+            <Tag color={REVIEW_EVENT_ACTION_COLORS[event.action] || "default"}>
+              {formatLabel(event.action)}
+            </Tag>
+            <Text type="secondary">
+              Reviewer: {event.reviewer?.name || "Unknown"}
+            </Text>
+            <Text type="secondary">{formatDateTime(event.createdAt)}</Text>
+          </Space>
+          <Paragraph style={{ whiteSpace: "pre-line", marginBottom: 0 }}>
+            {event.comment || "No review comment recorded."}
+          </Paragraph>
+        </Card>
+      ),
+    }));
+  }, [reviewEvents]);
 
   if (errorMessage) {
     return (
@@ -434,8 +493,13 @@ const ExperimentDetailPage = () => {
             onClick={() => {
               loadExperimentDetail();
               loadNotebookEntries();
+              loadReviewEvents();
             }}
-            loading={isLoadingExperiment || isLoadingNotebookEntries}
+            loading={
+              isLoadingExperiment ||
+              isLoadingNotebookEntries ||
+              isLoadingReviewEvents
+            }
           >
             Refresh
           </Button>
@@ -464,8 +528,8 @@ const ExperimentDetailPage = () => {
                 </Tag>
               </Descriptions.Item>
 
-              <Descriptions.Item label="Latest Review Comment" span={2}>
-                {experiment.reviewComment || "No review comment recorded."}
+              <Descriptions.Item label="Latest Review Feedback" span={2}>
+                {experiment.reviewComment || "No current review feedback."}
               </Descriptions.Item>
 
               <Descriptions.Item label="Notebook Entries">
@@ -533,6 +597,25 @@ const ExperimentDetailPage = () => {
               </Paragraph>
             </Card>
           </>
+        )}
+      </Card>
+
+      <Card title={`Review History (${reviewEvents.length})`}>
+        {reviewHistoryErrorMessage && (
+          <Alert
+            type="error"
+            message={reviewHistoryErrorMessage}
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {isLoadingReviewEvents ? (
+          <Card loading />
+        ) : reviewEvents.length === 0 ? (
+          <Empty description="No review history recorded for this experiment yet." />
+        ) : (
+          <Timeline items={reviewHistoryTimelineItems} />
         )}
       </Card>
 
