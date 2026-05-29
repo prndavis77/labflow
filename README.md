@@ -8,7 +8,7 @@ The goal of LabFlow is to solve a common problem in academic labs: research work
 
 LabFlow MVP Version 1.1 is complete.
 
-This version includes authentication, role-based access control, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, experiment-linked notebook entries and demo seed data.
+This version includes authentication, role-based access control, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, experiment-linked notebook entries, and demo seed data.
 
 ---
 
@@ -84,7 +84,16 @@ Public registration creates researcher accounts only. Admin and supervisor accou
 
 ---
 
-## MVP Version 1 Features
+## MVP Version 1.1 Features
+
+- Experiment-linked notebook entries
+- Review Queue for supervisor/admin review workflows
+- Review actions for experiments and protocols
+- Required review notes when requesting changes
+- Equipment-specific SOP support
+- General lab SOP support without project linkage
+- Detail pages for projects, tasks, experiments, protocols, and equipment
+- Cross-linked navigation between related records
 
 ### Dashboard
 
@@ -167,6 +176,8 @@ Task priorities include:
 
 Experiments represent lab activities connected to research projects.
 
+Experiments include review status and optional supervisor review comments. Supervisors and admins can approve experiments or request changes from the experiment detail page.
+
 Experiment records include:
 
 - Title
@@ -200,9 +211,39 @@ Review statuses include:
 - Approved
 - Changes Requested
 
+### Experiment Notebook Entries
+
+Notebook entries are linked to experiments and provide a lightweight experiment notebook workflow.
+
+Notebook entry records include:
+
+- Title
+- Entry type
+- Content
+- Content format
+- Experiment
+- Project
+- Author
+- Created date
+- Updated date
+
+Notebook entry types include:
+
+- General Note
+- Procedure
+- Observation
+- Result
+- Issue
+- Conclusion
+- Supervisor Comment
+
+Notebook entries appear on experiment detail pages, project detail pages, and the dashboard.
+
 ### Protocols
 
 Protocols represent reusable lab methods, SOPs, or experimental procedures.
+
+Protocols can be linked to a project, linked to equipment, linked to both, or saved as general lab SOPs without a project. This allows LabFlow to support project-specific methods, instrument SOPs, and general lab procedures.
 
 Protocol records include:
 
@@ -211,7 +252,9 @@ Protocol records include:
 - Purpose
 - Content
 - Approval status
+- Review comment
 - Project
+- Equipment
 - Created by user
 - Approved by user
 - Approved date
@@ -269,6 +312,16 @@ The backend prevents overlapping confirmed bookings for the same equipment.
 
 For example, if an HPLC is booked from 09:00 to 11:00, another confirmed booking for the same HPLC from 10:00 to 12:00 will be rejected with a conflict error.
 
+## Review Workflow
+
+LabFlow includes a review workflow for experiments and protocols.
+
+Supervisors and admins can use the Review Queue to find experiments and protocols that are pending review or have requested changes. The Review Queue is used for triage and quick approval.
+
+For context-heavy decisions, reviewers can open the experiment or protocol detail page. Detail pages provide access to the full record and include review actions.
+
+When requesting changes, reviewers must provide a review note explaining what needs to be corrected, clarified, repeated, or improved. The latest review comment is displayed on the detail page so researchers can see what action is needed.
+
 ---
 
 ## Screenshots
@@ -305,6 +358,26 @@ For example, if an HPLC is booked from 09:00 to 11:00, another confirmed booking
 
 ![LabFlow booking conflict error showing that overlapping confirmed equipment bookings are rejected](docs/screenshots/booking-conflict.png)
 
+### Review Queue
+
+![LabFlow review queue showing experiments and protocols pending supervisor review](docs/screenshots/review-queue.png)
+
+### Experiment Review Actions
+
+![LabFlow experiment detail page showing approve and request changes review actions](docs/screenshots/experiment-review-actions.png)
+
+### Protocol Review Comment
+
+![LabFlow protocol detail page showing latest review comment and protocol approval workflow](docs/screenshots/protocol-review-comment.png)
+
+### Experiment Notebook
+
+![LabFlow experiment notebook showing experiment-linked notebook entries](docs/screenshots/experiment-notebook.png)
+
+### Equipment SOPs
+
+![LabFlow equipment detail page showing linked instrument SOPs and bookings](docs/screenshots/equipment-detail-sops.png)
+
 ---
 
 ## Technical Highlights
@@ -327,6 +400,11 @@ LabFlow demonstrates several full-stack development concepts:
 - Dashboard summary endpoint
 - Seed data script for demo data
 - Manual regression-tested MVP workflow
+- Experiment-linked notebook entry workflow
+- Review Queue for supervisor/admin workflows
+- Required review notes for change requests
+- Flexible protocol model for project protocols, equipment SOPs, and general SOPs
+- Cross-linked detail pages for related lab records
 
 ---
 
@@ -378,6 +456,7 @@ labflow/
         equipmentBookingController.js
         equipmentController.js
         experimentController.js
+        notebookEntryController.js
         projectController.js
         protocolController.js
         taskController.js
@@ -388,6 +467,7 @@ labflow/
         Equipment.js
         EquipmentBooking.js
         Experiment.js
+        NotebookEntry.js
         Project.js
         Protocol.js
         Task.js
@@ -399,6 +479,7 @@ labflow/
         equipmentBookingRoutes.js
         equipmentRoutes.js
         experimentRoutes.js
+        notebookEntryRoutes.js
         projectRoutes.js
         protocolRoutes.js
         taskRoutes.js
@@ -419,12 +500,14 @@ labflow/
         equipmentApi.js
         equipmentBookingApi.js
         experimentApi.js
+        notebookEntryApi.js
         projectApi.js
         protocolApi.js
         taskApi.js
         userApi.js
         axiosClient.js
       components/
+        ScrollToTop.jsx
       constants/
         statusColors.js
         statusOptions.js
@@ -433,13 +516,19 @@ labflow/
       layouts/
       pages/
         DashboardPage.jsx
+        EquipmentDetailPage.jsx
         EquipmentPage.jsx
+        ExperimentDetailPage.jsx
         ExperimentsPage.jsx
         LoginPage.jsx
         NotFoundPage.jsx
+        ProjectDetailPage.jsx
         ProjectsPage.jsx
+        ProtocolDetailPage.jsx
         ProtocolsPage.jsx
         RegisterPage.jsx
+        ReviewQueuePage.jsx
+        TaskDetailPage.jsx
         TasksPage.jsx
       routes/
         AppRoutes.jsx
@@ -452,211 +541,318 @@ labflow/
 
 ```
 
-Database Models
+## Database Models
 
-LabFlow MVP Version 1 includes the following main models:
+LabFlow MVP Version 1.1 includes the following main models.
 
-User
+### User
 
 Stores authenticated users and their roles.
 
 Relationships:
 
-User can supervise many projects
-User can be assigned many tasks
-User can create many tasks
-User can perform many experiments
-User can create many experiments
-User can create and approve protocols
-User can create equipment bookings
-Project
+- User can supervise many projects
+- User can be assigned many tasks
+- User can create many tasks
+- User can perform many experiments
+- User can create many experiments
+- User can create and approve protocols
+- User can create equipment bookings
+- User can author notebook entries
+
+### Project
 
 Represents a research project.
 
 Relationships:
 
-Project belongs to one supervisor
-Project has many tasks
-Project has many experiments
-Project has many protocols
-Project has many equipment bookings
-Task
+- Project belongs to one supervisor
+- Project has many tasks
+- Project has many experiments
+- Project has many protocols
+- Project has many equipment bookings
+- Project has many notebook entries
+
+### Task
 
 Represents a project-related action item.
 
 Relationships:
 
-Task belongs to one project
-Task may be assigned to one user
-Task is created by one user
-Task may have related experiments
-Experiment
+- Task belongs to one project
+- Task may be assigned to one user
+- Task is created by one user
+- Task may have related experiments
+
+### Experiment
 
 Represents a lab activity or experimental run.
 
 Relationships:
 
-Experiment belongs to one project
-Experiment belongs to one researcher
-Experiment may be linked to one task
-Experiment may use one protocol
-Experiment may have equipment bookings
-Protocol
+- Experiment belongs to one project
+- Experiment belongs to one researcher
+- Experiment may be linked to one task
+- Experiment may use one protocol
+- Experiment may have equipment bookings
+- Experiment has many notebook entries
 
-Represents a reusable lab method or SOP.
+### Protocol
+
+Represents a reusable lab method, SOP, or experimental procedure.
 
 Relationships:
 
-Protocol belongs to one project
-Protocol is created by one user
-Protocol may be approved by one user
-Protocol may be used by many experiments
-Equipment
+- Protocol may belong to one project
+- Protocol may belong to one equipment item
+- Protocol is created by one user
+- Protocol may be approved by one user
+- Protocol may be used by many experiments
+
+### Equipment
 
 Represents a shared lab instrument.
 
 Relationships:
 
-Equipment has many bookings
-EquipmentBooking
+- Equipment has many bookings
+- Equipment may have many linked SOPs or protocols
+
+### EquipmentBooking
 
 Represents a reserved equipment time slot.
 
 Relationships:
 
-Booking belongs to one equipment item
-Booking belongs to one user
-Booking may be linked to one project
-Booking may be linked to one experiment
-API Overview
-Authentication
+- Booking belongs to one equipment item
+- Booking belongs to one user
+- Booking may be linked to one project
+- Booking may be linked to one experiment
+
+### NotebookEntry
+
+Represents an experiment-linked notebook record.
+
+Relationships:
+
+- Notebook entry belongs to one experiment
+- Notebook entry belongs to one project
+- Notebook entry belongs to one author
+
+---
+
+## API Overview
+
+### Authentication
+
+```txt
 POST /api/auth/register
 POST /api/auth/login
 GET /api/auth/me
-Users
+```
+
+### Users
+
+```txt
 GET /api/users
-Dashboard
+```
+
+### Dashboard
+
+```txt
 GET /api/dashboard/summary
-Projects
+```
+
+### Projects
+
+```txt
 GET /api/projects
 GET /api/projects/:id
 POST /api/projects
 PATCH /api/projects/:id
 DELETE /api/projects/:id
-Tasks
+```
+
+### Tasks
+
+```txt
 GET /api/tasks
 GET /api/tasks/:id
 POST /api/tasks
 PATCH /api/tasks/:id
 DELETE /api/tasks/:id
-Experiments
+```
+
+### Experiments
+
+```txt
 GET /api/experiments
 GET /api/experiments/:id
 POST /api/experiments
 PATCH /api/experiments/:id
 DELETE /api/experiments/:id
-Protocols
+```
+
+### Protocols
+
+```txt
 GET /api/protocols
 GET /api/protocols/:id
 POST /api/protocols
 PATCH /api/protocols/:id
 DELETE /api/protocols/:id
-Equipment
+```
+
+### Equipment
+
+```txt
 GET /api/equipment
 GET /api/equipment/:id
 POST /api/equipment
 PATCH /api/equipment/:id
 DELETE /api/equipment/:id
-Equipment Bookings
+```
+
+### Equipment Bookings
+
+```txt
 GET /api/equipment-bookings
 GET /api/equipment-bookings/:id
 POST /api/equipment-bookings
 PATCH /api/equipment-bookings/:id
 DELETE /api/equipment-bookings/:id
-Local Setup
-Prerequisites
+```
+
+### Notebook Entries
+
+```txt
+GET    /api/notebook-entries
+GET    /api/notebook-entries/:id
+POST   /api/notebook-entries
+PATCH  /api/notebook-entries/:id
+DELETE /api/notebook-entries/:id
+```
+
+## Local Setup
+
+### Prerequisites
 
 Make sure you have installed:
 
-Node.js
-npm
-PostgreSQL
-Git
-Backend Setup
+- Node.js
+- npm
+- PostgreSQL
+- Git
+
+### Backend Setup
 
 Navigate to the backend folder:
 
+```bash
 cd labflow-backend
+```
 
 Install dependencies:
 
+```bash
 npm install
+```
 
 Create a .env file:
 
+```env
 PORT=5000
 DATABASE_URL=postgres://postgres:your_password@localhost:5432/labflow_db
 JWT_SECRET=replace_this_with_a_long_random_secret
 NODE_ENV=development
+```
 
 Create the PostgreSQL database:
 
+```sql
 CREATE DATABASE labflow_db;
+```
 
 Start the backend:
 
+```bash
 npm run dev
+```
 
 The backend should run on:
 
+```txt
 http://localhost:5000
+```
 
 Health check:
 
+```txt
 GET http://localhost:5000/api/health
-Frontend Setup
+```
+
+### Frontend Setup
 
 Navigate to the frontend folder:
 
+```bash
 cd labflow-frontend
+```
 
 Install dependencies:
 
+```bash
 npm install
+```
 
 Create a .env file:
 
+```env
 VITE_API_URL=http://localhost:5000/api
+```
 
 Start the frontend:
 
+```bash
 npm run dev
+```
 
 The frontend should run on:
 
+```txt
 http://localhost:5173
-Demo Seed Data
+```
+
+### Demo Seed Data
 
 LabFlow includes a demo seed script that creates realistic test data.
 
 The seed script creates:
 
-Demo users
-Demo projects
-Demo tasks
-Demo experiments
-Demo protocols
-Demo equipment
-Demo equipment bookings
+- Demo users
+- Demo projects
+- Demo tasks
+- Demo experiments
+- Demo protocols
+- Equipment-specific SOPs
+- Demo equipment
+- Demo equipment bookings
+- Demo notebook entries
+- Review queue examples
+- Review comments
 
 Run the seed script from the backend folder:
 
+```bash
 cd labflow-backend
 npm run seed
+```
 
 Warning: the seed script clears existing local data and replaces it with demo data.
 
-Demo Accounts
+### Demo Accounts
+
+```txt
 Admin:
 admin@labflow.test
 password123
@@ -672,136 +868,203 @@ password123
 Researcher 2:
 jonas.weber@labflow.test
 password123
+```
 
 These credentials are for local development and demo use only.
 
-Manual Regression Test Coverage
+## Manual Regression Test Coverage
 
-LabFlow MVP Version 1 was manually tested across the following workflows:
+LabFlow MVP Version 1.1 was manually tested across the following workflows:
 
-Authentication
-Register new researcher
-Login existing user
-Persist login after refresh
-Logout
-Prevent logged-in users from accessing login/register pages
-Projects
-Create project
-Edit project
-Delete project
-View projects as researcher
-Restrict project management actions by role
-Tasks
-Create task
-Assign task to user
-Link task to project
-Edit task
-Filter tasks
-Restrict task deletion by role
-Experiments
-Create experiment
-Link experiment to project
-Link experiment to researcher
-Link experiment to task
-Link experiment to protocol
-Edit experiment
-Filter experiments
-Restrict experiment deletion by role
-Protocols
-Create protocol
-Edit protocol
-Approve protocol
-Track approved by and approved date
-View protocols as researcher
-Restrict protocol management by role
-Equipment
-Create equipment
-Edit equipment
-View equipment as researcher
-Restrict equipment inventory management by role
-Equipment Bookings
-Create booking
-Edit booking
-Prevent overlapping confirmed bookings
-Allow non-overlapping bookings
-Allow cancelled bookings not to block new confirmed bookings
-Restrict booking deletion by role
-Dashboard
-Equipment total updates
-Equipment in use now updates
-Equipment offline updates
-Open tasks update
-Overdue tasks update
-Upcoming bookings update
-Pending protocols update
-Experiments needing review update
-Important Business Logic
-Equipment Booking Conflict Prevention
+### Authentication
+
+- Register new researcher
+- Login existing user
+- Persist login after refresh
+- Logout
+- Prevent logged-in users from accessing login/register pages
+
+### Projects
+
+- Create project
+- Edit project
+- Delete project
+- View projects as researcher
+- Restrict project management actions by role
+
+### Tasks
+
+- Create task
+- Assign task to user
+- Link task to project
+- Edit task
+- Filter tasks
+- Restrict task deletion by role
+
+### Experiments
+
+- Create experiment
+- Link experiment to project
+- Link experiment to researcher
+- Link experiment to task
+- Link experiment to protocol
+- Edit experiment
+- View experiment detail page
+- Create, edit, delete, and filter notebook entries
+- Approve experiment as supervisor/admin
+- Request changes with a required review note
+- Show latest review comment to researchers
+- Restrict experiment deletion by role
+
+### Protocols
+
+- Create protocol
+- Link protocol to project
+- Link protocol to equipment
+- Save general SOPs without project linkage
+- Edit protocol
+- View protocol detail page
+- Approve protocol as supervisor/admin
+- Request changes with a required review note
+- Track approved by and approved date
+- View protocols as researcher
+- Restrict protocol management by role
+
+### Equipment
+
+- Create equipment
+- Edit equipment
+- View equipment detail page
+- View upcoming and past bookings
+- View linked equipment SOPs
+- Restrict equipment inventory management by role
+
+### Equipment Bookings
+
+- Create booking
+- Edit booking
+- Prevent overlapping confirmed bookings
+- Allow non-overlapping bookings
+- Allow cancelled bookings not to block new confirmed bookings
+- Restrict booking deletion by role
+
+### Review Queue
+
+- View pending experiments
+- View experiments with changes requested
+- View pending protocols
+- View protocols with changes requested
+- Approve experiments from the queue
+- Approve protocols from the queue
+- Restrict review queue access to admin and supervisor users
+
+### Dashboard
+
+- Equipment total updates
+- Equipment in use now updates
+- Equipment offline updates
+- Open tasks update
+- Overdue tasks update
+- Upcoming bookings update
+- Pending protocols update
+- Experiments needing review update
+- Recent notebook entries update
+- Review attention card links to the review queue
+
+## Important Business Logic
+
+### Equipment Booking Conflict Prevention
 
 LabFlow prevents two confirmed bookings from overlapping for the same piece of equipment.
 
 The overlap rule is:
 
+```txt
 existing.startTime < newEndTime
 AND
 existing.endTime > newStartTime
+```
 
 This means:
 
-09:00 to 11:00 conflicts with 10:00 to 12:00
-09:00 to 11:00 does not conflict with 11:00 to 12:00
-Cancelled bookings do not block new confirmed bookings
+- 09:00 to 11:00 conflicts with 10:00 to 12:00
+- 09:00 to 11:00 does not conflict with 11:00 to 12:00
+- Cancelled bookings do not block new confirmed bookings
 
 This logic is handled in the backend, not only in the frontend.
 
-Current Limitations
+### Review Notes
 
-LabFlow MVP Version 1 is intentionally focused on core workflows.
+When a supervisor or admin requests changes on an experiment or protocol, a review note is required. The latest review comment is shown on the detail page so researchers can see what needs to be corrected, clarified, repeated, or improved.
+
+Currently, LabFlow stores the latest review comment only. A future version should use a review history table for repeated review cycles.
+
+## Current Limitations
+
+LabFlow MVP Version 1.1 is intentionally focused on core workflows.
 
 Current limitations include:
 
-No project membership table yet
-No lab or organization model yet
-Dashboard is not fully role-specific yet
-No file uploads
-No email notifications
-No audit log
-No soft delete or archive-only enforcement for all records
-No drag-and-drop calendar
-No production deployment setup yet
-No automated test suite yet
-Future Improvements
+- No project membership table yet
+- No lab or organization model yet
+- Dashboard is not fully role-specific yet
+- No file uploads
+- No email notifications
+- No audit log
+- No soft delete or archive-only enforcement for all records
+- No drag-and-drop calendar
+- No production deployment setup yet
+- No automated test suite yet
+- Review comments currently store only the latest comment, not a full review history
+- Notebook entries currently use plain text, not rich text
+- No file attachments or image uploads for notebook entries
+- No PDF export for experiment notebooks
+
+## Future Improvements
 
 Recommended Version 2 improvements:
 
-Project membership system
-Lab organization model
-Role-specific dashboards
-Admin user management page
-Soft delete and archive workflows
-Audit log for research history
-File uploads for experiment data and protocols
-Equipment maintenance logs
-Calendar view for equipment bookings
-Notifications for overdue tasks and upcoming bookings
-PDF or CSV export
-Automated backend tests
-Deployment with hosted PostgreSQL database
-Portfolio Notes
+- Project membership system
+- Lab organization model
+- Role-specific dashboards
+- Admin user management page
+- Soft delete and archive workflows
+- Audit log for research history
+- Review history table for repeated review cycles
+- Rich text notebook entries
+- File attachments and image uploads for notebook entries
+- PDF export for experiment notebooks
+- File uploads for experiment data and protocols
+- Equipment maintenance logs
+- Calendar view for equipment bookings
+- Notifications for overdue tasks and upcoming bookings
+- PDF or CSV export
+- Automated backend tests
+- Deployment with hosted PostgreSQL database
+
+---
+
+## Portfolio Notes
 
 LabFlow demonstrates practical full-stack application development with a real-world domain use case.
 
 Key portfolio talking points:
 
-Designed a relational PostgreSQL schema for a research lab workflow
-Built an Express API with protected routes and role-based access control
-Implemented JWT authentication and password hashing
-Created reusable frontend API modules with Axios
-Built data-heavy UI pages using Ant Design
-Implemented equipment booking conflict prevention
-Added a backend dashboard summary endpoint
-Created seed data for realistic demo workflows
-Manually regression-tested the MVP
-License
+- Designed a relational PostgreSQL schema for a research lab workflow
+- Built an Express API with protected routes and role-based access control
+- Implemented JWT authentication and password hashing
+- Created reusable frontend API modules with Axios
+- Built data-heavy UI pages using Ant Design
+- Implemented equipment booking conflict prevention
+- Added a backend dashboard summary endpoint
+- Built detail pages for connected lab workflows
+- Added experiment-linked notebook entries
+- Added a review queue with approval workflow
+- Added required review notes for change requests
+- Supported project protocols, equipment SOPs, and general SOPs
+- Created seed data for realistic demo workflows
+- Manually regression-tested the MVP
+
+## License
 
 This project is currently intended for personal portfolio and educational use.
