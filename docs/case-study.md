@@ -81,9 +81,11 @@ existing.endTime > newStartTime
 
 This ensures shared instruments cannot be double-booked.
 
-### Review Queue and Review Notes
+### Review Queue, Review Notes, and Review History
 
-LabFlow includes a review queue for supervisor/admin workflows. Experiments and protocols can be approved or sent back with required review notes. Review notes help researchers understand what needs to be corrected before approval.
+LabFlow includes a review queue for supervisor/admin workflows. Experiments and protocols can be approved or sent back with required review notes.
+
+The app stores the latest review feedback on the reviewed record for quick visibility and also records review events in a separate review history table. This preserves repeated review cycles such as changes requested, revised, more changes requested, and approved.
 
 The Review Queue helps supervisors find review work quickly, while detail pages provide the full context needed to approve or request changes.
 
@@ -131,13 +133,13 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 
 ## Current Limitations
 
-- Review comments currently store only the latest comment, not a full review history
 - Notebook entries currently use plain text, not rich text
 - No file attachments or image uploads yet
 - No PDF export for experiment notebooks yet
 - No production deployment setup yet
 - No automated test suite yet
 - No lab organization or project membership system yet
+- Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
 
 ## Future Improvements
 
@@ -145,7 +147,7 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Lab organization model
 - Role-specific dashboards
 - Admin user management
-- Full review history instead of only latest review comment
+- Stronger signed review/audit trail controls
 - Rich text editor for notebook entries
 - File attachments and image uploads
 - Experiment notebook PDF export

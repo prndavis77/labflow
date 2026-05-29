@@ -290,7 +290,7 @@ const createExperiments = async (users, projects, tasks, protocols) => {
     status: "needs_review",
     reviewStatus: "changes_requested",
     reviewComment:
-      "Please add the blank preparation details and clarify whether the same filter batch was used for both workflows.",
+      "The blank preparation details are clearer now, but the microscope inspection criteria still need to be specified.",
     startedAt: toDateOnly(daysFromNow(-1)),
     completedAt: null,
     projectId: projects.microplasticProject.id,
@@ -376,6 +376,53 @@ const createNotebookEntries = async (users, experiments) => {
     entryTwo,
     entryThree,
     entryFour,
+  };
+};
+
+// Creates demo review history events for experiments and protocols.
+// These records demonstrate repeated review cycles and the difference between
+// the latest review feedback and the full review history.
+const createReviewEvents = async (users, experiments, protocols) => {
+  const experimentChangeRequest = await ReviewEvent.create({
+    targetType: "experiment",
+    targetId: experiments.experimentTwo.id,
+    action: "changes_requested",
+    comment:
+      "Please add the blank preparation details and clarify whether the same filter batch was used for both workflows.",
+    reviewerId: users.supervisor.id,
+  });
+
+  const experimentFollowUpChangeRequest = await ReviewEvent.create({
+    targetType: "experiment",
+    targetId: experiments.experimentTwo.id,
+    action: "changes_requested",
+    comment:
+      "The blank preparation details are clearer now, but the microscope inspection criteria still need to be specified.",
+    reviewerId: users.supervisor.id,
+  });
+
+  const protocolChangeRequest = await ReviewEvent.create({
+    targetType: "protocol",
+    targetId: protocols.gcmsProtocol.id,
+    action: "changes_requested",
+    comment:
+      "Please add acceptance criteria for blank runs and specify the mass scan range before this protocol can be approved.",
+    reviewerId: users.supervisor.id,
+  });
+
+  const protocolApproval = await ReviewEvent.create({
+    targetType: "protocol",
+    targetId: protocols.caffeineProtocol.id,
+    action: "approved",
+    comment: "Protocol approved for caffeine quantification demo workflow.",
+    reviewerId: users.supervisor.id,
+  });
+
+  return {
+    experimentChangeRequest,
+    experimentFollowUpChangeRequest,
+    protocolChangeRequest,
+    protocolApproval,
   };
 };
 
@@ -533,6 +580,10 @@ const seedDemoData = async () => {
     console.log("Creating demo notebook entries...");
 
     await createNotebookEntries(users, experiments);
+
+    console.log("Creating demo review history...");
+
+    await createReviewEvents(users, experiments, protocols);
 
     console.log("Creating demo equipment...");
 

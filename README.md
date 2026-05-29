@@ -94,6 +94,7 @@ Public registration creates researcher accounts only. Admin and supervisor accou
 - General lab SOP support without project linkage
 - Detail pages for projects, tasks, experiments, protocols, and equipment
 - Cross-linked navigation between related records
+- Review history for experiment and protocol review decisions
 
 ### Dashboard
 
@@ -322,6 +323,8 @@ For context-heavy decisions, reviewers can open the experiment or protocol detai
 
 When requesting changes, reviewers must provide a review note explaining what needs to be corrected, clarified, repeated, or improved. The latest review comment is displayed on the detail page so researchers can see what action is needed.
 
+LabFlow also stores review history events for approvals and change requests. This allows repeated review cycles to be preserved instead of replacing earlier feedback. The latest review feedback is still shown on the detail page as the current actionable note, while the Review History section shows the full trail of previous decisions.
+
 ---
 
 ## Screenshots
@@ -329,34 +332,6 @@ When requesting changes, reviewers must provide a review note explaining what ne
 ### Dashboard
 
 ![LabFlow dashboard showing project, task, experiment, protocol, and equipment metrics](docs/screenshots/dashboard.png)
-
-### Projects
-
-![LabFlow projects page showing research projects, statuses, supervisors, and timelines](docs/screenshots/projects.png)
-
-### Tasks
-
-![LabFlow tasks page showing assigned tasks, priorities, statuses, due dates, and linked projects](docs/screenshots/tasks.png)
-
-### Experiments
-
-![LabFlow experiments page showing project-linked experiments, researchers, review status, protocols, and tasks](docs/screenshots/experiments.png)
-
-### Protocols
-
-![LabFlow protocols page showing lab methods, versions, approval status, and approved-by data](docs/screenshots/protocols.png)
-
-### Equipment Inventory
-
-![LabFlow equipment inventory page showing lab instruments, locations, equipment types, and availability status](docs/screenshots/equipment-inventory.png)
-
-### Equipment Bookings
-
-![LabFlow equipment bookings page showing instrument reservations, users, time ranges, projects, and experiments](docs/screenshots/equipment-bookings.png)
-
-### Booking Conflict Prevention
-
-![LabFlow booking conflict error showing that overlapping confirmed equipment bookings are rejected](docs/screenshots/booking-conflict.png)
 
 ### Review Queue
 
@@ -366,17 +341,31 @@ When requesting changes, reviewers must provide a review note explaining what ne
 
 ![LabFlow experiment detail page showing approve and request changes review actions](docs/screenshots/experiment-review-actions.png)
 
-### Protocol Review Comment
+### Review History
 
-![LabFlow protocol detail page showing latest review comment and protocol approval workflow](docs/screenshots/protocol-review-comment.png)
+![LabFlow experiment detail page showing review history events for repeated review cycles](docs/screenshots/review-history.png)
 
 ### Experiment Notebook
 
 ![LabFlow experiment notebook showing experiment-linked notebook entries](docs/screenshots/experiment-notebook.png)
 
+### Protocol Review Comment
+
+![LabFlow protocol detail page showing latest review comment and protocol approval workflow](docs/screenshots/protocol-review-comment.png)
+
 ### Equipment SOPs
 
 ![LabFlow equipment detail page showing linked instrument SOPs and bookings](docs/screenshots/equipment-detail-sops.png)
+
+### Equipment Bookings
+
+![LabFlow equipment bookings page showing instrument reservations, users, time ranges, projects, and experiments](docs/screenshots/equipment-bookings.png)
+
+### Booking Conflict Prevention
+
+![LabFlow booking conflict error showing that overlapping confirmed equipment bookings are rejected](docs/screenshots/booking-conflict.png)
+
+Additional screenshots for CRUD list pages are available in `docs/screenshots/`.
 
 ---
 
@@ -840,6 +829,7 @@ The seed script creates:
 - Demo notebook entries
 - Review queue examples
 - Review comments
+- Demo review history events
 
 Run the seed script from the backend folder:
 
@@ -1015,10 +1005,10 @@ Current limitations include:
 - No drag-and-drop calendar
 - No production deployment setup yet
 - No automated test suite yet
-- Review comments currently store only the latest comment, not a full review history
 - Notebook entries currently use plain text, not rich text
 - No file attachments or image uploads for notebook entries
 - No PDF export for experiment notebooks
+- Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
 
 ## Future Improvements
 
@@ -1030,7 +1020,7 @@ Recommended Version 2 improvements:
 - Admin user management page
 - Soft delete and archive workflows
 - Audit log for research history
-- Review history table for repeated review cycles
+- Stronger review/audit controls for signed or locked review history
 - Rich text notebook entries
 - File attachments and image uploads for notebook entries
 - PDF export for experiment notebooks
