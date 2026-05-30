@@ -78,3 +78,10 @@ export const NOTEBOOK_ENTRY_TYPE_OPTIONS = [
   { label: "Conclusion", value: "conclusion" },
   { label: "Supervisor Comment", value: "supervisor_comment" },
 ];
+
+// User roles must match backend role values
+export const USER_ROLE_OPTIONS = [
+  { label: "Admin", value: "admin" },
+  { label: "Supervisor", value: "supervisor" },
+  { label: "Researcher", value: "researcher" },
+];

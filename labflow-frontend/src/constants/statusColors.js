@@ -77,3 +77,10 @@ export const REVIEW_EVENT_ACTION_COLORS = {
   approved: "green",
   changes_requested: "orange",
 };
+
+// Centralized tag colors for user roles
+export const USER_ROLE_COLORS = {
+  admin: "red",
+  supervisor: "blue",
+  researcher: "green",
+};

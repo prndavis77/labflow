@@ -13,6 +13,7 @@ import ExperimentDetailPage from "../pages/ExperimentDetailPage";
 import ProtocolDetailPage from "../pages/ProtocolDetailPage";
 import TaskDetailPage from "../pages/TaskDetailPage";
 import ReviewQueuePage from "../pages/ReviewQueuePage";
+import AdminUsersPage from "../pages/AdminUsersPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -131,6 +132,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={["admin", "supervisor"]}>
             <ReviewQueuePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminUsersPage />
           </ProtectedRoute>
         }
       />

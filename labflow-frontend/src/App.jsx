@@ -8,6 +8,7 @@ import {
   FileTextOutlined,
   LogoutOutlined,
   AuditOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router";
 
@@ -32,6 +33,16 @@ const App = () => {
       icon: <DashboardOutlined />,
       label: "Dashboard",
     },
+
+    ...(user?.role === "admin"
+      ? [
+          {
+            key: "/admin/users",
+            icon: <TeamOutlined />,
+            label: "Users",
+          },
+        ]
+      : []),
 
     ...(user?.role === "admin" || user?.role === "supervisor"
       ? [
