@@ -5,6 +5,10 @@ const {
   Equipment,
   ReviewEvent,
 } = require("../models");
+const {
+  canCreateProtocol,
+  canEditProtocol,
+} = require("../utils/workflowPermissions");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -212,6 +216,13 @@ const createProtocol = async (req, res) => {
       equipmentId,
     } = req.body;
 
+    if (!canCreateProtocol(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to create protocols.",
+      });
+    }
+
     if (!title || !content) {
       return res.status(400).json({
         status: "error",
@@ -305,6 +316,13 @@ const updateProtocol = async (req, res) => {
     } = req.body;
 
     const protocol = await Protocol.findByPk(id);
+
+    if (!canEditProtocol(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to edit protocols.",
+      });
+    }
 
     if (!protocol) {
       return res.status(404).json({

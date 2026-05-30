@@ -5,6 +5,10 @@ function formatUserResponse(user) {
     email: user.email,
     role: user.role,
     department: user.department,
+    canCreateExperiments: user.canCreateExperiments,
+    canEditExperiments: user.canEditExperiments,
+    canCreateProtocols: user.canCreateProtocols,
+    canEditProtocols: user.canEditProtocols,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

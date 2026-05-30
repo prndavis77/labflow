@@ -7,9 +7,13 @@ const {
   ReviewEvent,
 } = require("../models");
 
+const {
+  canCreateExperiment,
+  canEditExperiment,
+} = require("../utils/workflowPermissions");
+
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
-
 const formatUserSummary = (user) => {
   if (!user) {
     return null;
@@ -249,6 +253,13 @@ const createExperiment = async (req, res) => {
       protocolId,
     } = req.body;
 
+    if (!canCreateExperiment(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to create experiments.",
+      });
+    }
+
     if (!title || !projectId) {
       return res.status(400).json({
         status: "error",
@@ -378,6 +389,13 @@ const updateExperiment = async (req, res) => {
     } = req.body;
 
     const experiment = await Experiment.findByPk(id);
+
+    if (!canEditExperiment(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to edit experiments.",
+      });
+    }
 
     if (!experiment) {
       return res.status(404).json({

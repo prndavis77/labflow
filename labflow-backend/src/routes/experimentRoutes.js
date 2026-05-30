@@ -7,7 +7,7 @@ const {
   deleteExperiment,
 } = require("../controllers/experimentController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
-const { ROLE_GROUPS } = require("../constants/roles");
+const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
@@ -32,10 +32,6 @@ router.patch(
 );
 
 // Only admins and supervisors can delete experiments for now
-router.delete(
-  "/:id",
-  authorizeRoles(...ROLE_GROUPS.MANAGERS),
-  deleteExperiment,
-);
+router.delete("/:id", authorizeRoles(ROLES.ADMIN), deleteExperiment);
 
 module.exports = router;

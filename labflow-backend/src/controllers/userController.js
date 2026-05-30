@@ -1,19 +1,13 @@
 const { User } = require("../models");
+const formatUserResponse = require("../utils/formatUserResponse");
 const { VALID_ROLES, ROLES } = require("../constants/roles");
 
-// Formats user records before sending them to the frontend
-// This prevents sensitive fields like passwordHash from being exposed
-const formatUserResponse = (user) => {
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    department: user.department,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
-};
+const WORKFLOW_PERMISSION_FIELDS = [
+  "canCreateExperiments",
+  "canEditExperiments",
+  "canCreateProtocols",
+  "canEditProtocols",
+];
 
 // GET /api/users
 // Returns all users who can potentially be assigned to tasks
@@ -26,6 +20,10 @@ const getUsers = async (req, res) => {
         "email",
         "role",
         "department",
+        "canCreateExperiments",
+        "canEditExperiments",
+        "canCreateProtocols",
+        "canEditProtocols",
         "createdAt",
         "updatedAt",
       ],
@@ -64,6 +62,10 @@ const getUserById = async (req, res) => {
         "email",
         "role",
         "department",
+        "canCreateExperiments",
+        "canEditExperiments",
+        "canCreateProtocols",
+        "canEditProtocols",
         "createdAt",
         "updatedAt",
       ],
@@ -154,4 +156,77 @@ const updateUserRole = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, getUserById, updateUserRole };
+// PATCH /api/users/:id/permissions
+// Allows admins to update researcher workflow permissions.
+// These permissions mainly affect researcher users.
+// Admins and supervisors have full workflow access by role.
+const updateUserWorkflowPermissions = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const userToUpdate = await User.findByPk(id);
+
+    if (!userToUpdate) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found.",
+      });
+    }
+
+    // Workflow permission toggles are intended for researchers.
+    // Admins and supervisors already have full access through their role.
+    if (userToUpdate.role !== ROLES.RESEARCHER) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Workflow permissions can only be customized for researcher accounts.",
+      });
+    }
+
+    const updates = {};
+
+    for (const field of WORKFLOW_PERMISSION_FIELDS) {
+      if (req.body[field] !== undefined) {
+        if (typeof req.body[field] !== "boolean") {
+          return res.status(400).json({
+            status: "error",
+            message: `${field} must be a boolean value.`,
+          });
+        }
+
+        updates[field] = req.body[field];
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "At least one workflow permission field is required.",
+      });
+    }
+
+    await userToUpdate.update(updates);
+
+    return res.json({
+      status: "success",
+      message: "User workflow permissions updated successfully.",
+      data: {
+        user: formatUserResponse(userToUpdate),
+      },
+    });
+  } catch (error) {
+    console.error("Update user workflow permissions error:", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "An error occurred while updating user workflow permissions.",
+    });
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  updateUserRole,
+  updateUserWorkflowPermissions,
+};
