@@ -30,11 +30,6 @@ router.patch(
   authorizeRoles(...ROLE_GROUPS.MANAGERS),
   updateProject,
 );
-router.delete(
-  "/:id",
-  protect,
-  authorizeRoles(...ROLE_GROUPS.MANAGERS),
-  deleteProject,
-);
+router.delete("/:id", protect, authorizeRoles(ROLES.ADMIN), deleteProject);
 
 module.exports = router;

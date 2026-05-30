@@ -416,7 +416,9 @@ const ProjectDetailPage = () => {
               </Descriptions.Item>
 
               <Descriptions.Item label="Supervisor">
-                {project.supervisor?.name || "Not assigned"}
+                {project.supervisor
+                  ? `${project.supervisor.name} (${formatLabel(project.supervisor.role)})`
+                  : "Not assigned"}
               </Descriptions.Item>
 
               <Descriptions.Item label="Start Date">

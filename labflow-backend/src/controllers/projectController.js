@@ -29,20 +29,47 @@ const formatProjectResponse = (project) => {
   };
 };
 
+const projectInclude = [
+  {
+    model: User,
+    as: "supervisor",
+    attributes: ["id", "name", "email", "role", "department"],
+  },
+];
+
+// Validates that the selected project supervisor exists and has a role that is allowed to supervise projects
+const validateProjectSupervisor = async (supervisorId) => {
+  const supervisor = await User.findByPk(supervisorId);
+
+  if (!supervisor) {
+    return {
+      isValid: false,
+      statusCode: 404,
+      message: "Supervisor not found.",
+    };
+  }
+
+  if (!["admin", "supervisor"].includes(supervisor.role)) {
+    return {
+      isValid: false,
+      statusCode: 400,
+      message: "Project supervisor must be an admin or supervisor.",
+    };
+  }
+
+  return {
+    isValid: true,
+    supervisor,
+  };
+};
+
 // GET /api/projects
 // Returns all projects for now
 // Later, we will filter by lab membership and project membership
 const getProjects = async (req, res) => {
   try {
     const projects = await Project.findAll({
-      include: [
-        {
-          model: User,
-          as: "supervisor",
-          attributes: ["id", "name", "email", "role", "department"],
-        },
-      ],
-      order: [["createdAt", "DESC"]],
+      include: projectInclude,
     });
 
     return res.json({
@@ -68,13 +95,7 @@ const getProjectById = async (req, res) => {
     const { id } = req.params;
 
     const project = await Project.findByPk(id, {
-      include: [
-        {
-          model: User,
-          as: "supervisor",
-          attributes: ["id", "name", "email", "role", "department"],
-        },
-      ],
+      include: projectInclude,
     });
 
     if (!project) {
@@ -114,7 +135,7 @@ const createProject = async (req, res) => {
       supervisorId,
     } = req.body;
 
-    if (!title) {
+    if (!title?.trim()) {
       return res.status(400).json({
         status: "error",
         message: "Project title is required.",
@@ -137,22 +158,15 @@ const createProject = async (req, res) => {
     }
 
     // If no supervisorId is provided, use the logged-in user as the supervisor
-    // This is convenient for supervisors creating their own projects
     const resolvedSupervisorId = supervisorId || req.user.id;
 
-    const supervisor = await User.findByPk(resolvedSupervisorId);
+    const supervisorValidation =
+      await validateProjectSupervisor(resolvedSupervisorId);
 
-    if (!supervisor) {
-      return res.status(404).json({
+    if (!supervisorValidation.isValid) {
+      return res.status(supervisorValidation.statusCode).json({
         status: "error",
-        message: "Supervisor not found.",
-      });
-    }
-
-    if (!["admin", "supervisor"].includes(req.user.role)) {
-      return res.status(400).json({
-        status: "error",
-        message: "Project supervisor must be an admin or supervisor.",
+        message: supervisorValidation.message,
       });
     }
 
@@ -166,23 +180,18 @@ const createProject = async (req, res) => {
     });
 
     const createdProject = await Project.findByPk(project.id, {
-      include: [
-        {
-          model: User,
-          as: "supervisor",
-          attributes: ["id", "name", "email", "role", "department"],
-        },
-      ],
+      include: projectInclude,
     });
 
     return res.status(201).json({
       status: "success",
+      message: "Project created successfully.",
       data: {
         project: formatProjectResponse(createdProject),
       },
     });
   } catch (error) {
-    console.error("Error creating project:", error);
+    console.error("Error creating project", error);
 
     return res.status(500).json({
       status: "error",
@@ -215,22 +224,11 @@ const updateProject = async (req, res) => {
       });
     }
 
-    if (supervisorId) {
-      const supervisor = await User.findByPk(supervisorId);
-
-      if (!supervisor) {
-        return res.status(404).json({
-          status: "error",
-          message: "Supervisor not found.",
-        });
-      }
-
-      if (!["admin", "supervisor"].includes(supervisor.role)) {
-        return res.status(400).json({
-          status: "error",
-          message: "Project supervisor must be an admin or supervisor.",
-        });
-      }
+    if (title !== undefined && !title?.trim()) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project title cannot be empty.",
+      });
     }
 
     // Validate updated project dates before writing to the database
@@ -259,6 +257,29 @@ const updateProject = async (req, res) => {
       });
     }
 
+    let resolvedSupervisorId = project.supervisorId;
+
+    if (supervisorId !== undefined) {
+      if (!supervisorId) {
+        return res.status(400).json({
+          status: "error",
+          message: "Project supervisor is required.",
+        });
+      }
+
+      const supervisorValidation =
+        await validateProjectSupervisor(supervisorId);
+
+      if (!supervisorValidation.isValid) {
+        return res.status(supervisorValidation.statusCode).json({
+          status: "error",
+          message: supervisorValidation.message,
+        });
+      }
+
+      resolvedSupervisorId = supervisorId;
+    }
+
     await project.update({
       title: title !== undefined ? title.trim() : project.title,
       description:
@@ -268,18 +289,11 @@ const updateProject = async (req, res) => {
       status: status !== undefined ? status : project.status,
       startDate: nextStartDate,
       targetEndDate: nextTargetEndDate,
-      supervisorId:
-        supervisorId !== undefined ? supervisorId : project.supervisorId,
+      supervisorId: resolvedSupervisorId,
     });
 
     const updatedProject = await Project.findByPk(project.id, {
-      include: [
-        {
-          model: User,
-          as: "supervisor",
-          attributes: ["id", "name", "email", "role", "department"],
-        },
-      ],
+      include: projectInclude,
     });
 
     return res.json({
@@ -290,7 +304,7 @@ const updateProject = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating project:", error);
+    console.error("Error updating project", error);
 
     return res.status(500).json({
       status: "error",
@@ -322,7 +336,7 @@ const deleteProject = async (req, res) => {
       message: "Project deleted successfully.",
     });
   } catch (error) {
-    console.error("Error deleting project:", error);
+    console.error("Error deleting project", error);
 
     return res.status(500).json({
       status: "error",

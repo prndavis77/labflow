@@ -25,6 +25,7 @@ import {
   fetchProjects,
   updateProject,
 } from "../api/projectApi";
+import { fetchUsers } from "../api/userApi";
 import { useAuth } from "../context/AuthContext";
 import { PROJECT_STATUS_OPTIONS } from "../constants/statusOptions";
 import { PROJECT_STATUS_COLORS } from "../constants/statusColors";
@@ -34,10 +35,14 @@ const { Title, Paragraph } = Typography;
 const { TextArea } = Input;
 
 const ProjectsPage = () => {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
 
   const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
+
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,7 +52,7 @@ const ProjectsPage = () => {
 
   // Admins and supervisors can manage projects
   // Researchers can view projects but cannot create, edit, or delete them
-  const canManageProjects = ["admin", "supervisor"].includes(user?.role);
+  const canManageProjects = ["admin", "supervisor"].includes(currentUser?.role);
 
   // Loads all projects from the backend and stores them in component state.
   const loadProjects = useCallback(async () => {
@@ -68,12 +73,31 @@ const ProjectsPage = () => {
     }
   }, []);
 
+  // Loads users so admins/supervisors can assign project supervisors
+  const loadUsers = useCallback(async () => {
+    try {
+      setIsLoadingUsers(true);
+
+      const result = await fetchUsers();
+
+      setUsers(result.data.users);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load users.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, []);
+
   // Load projects when the page first renders.
   useEffect(() => {
     queueMicrotask(() => {
       loadProjects();
+      loadUsers();
     });
-  }, [loadProjects]);
+  }, [loadProjects, loadUsers]);
 
   function openCreateModal() {
     setEditingProject(null);
@@ -81,9 +105,17 @@ const ProjectsPage = () => {
     // Reset the form so old values do not appear when creating a new project.
     form.resetFields();
 
-    // Give new projects a sensible default status.
+    // Default the supervisor dropdown to the logged-in admin/supervisor.
+    const defaultSupervisorId = ["admin", "supervisor"].includes(
+      currentUser?.role,
+    )
+      ? Number(currentUser.id)
+      : undefined;
+
+    // Give new projects a sensible default status
     form.setFieldsValue({
       status: "planning",
+      supervisorId: defaultSupervisorId,
     });
 
     setIsModalOpen(true);
@@ -103,6 +135,7 @@ const ProjectsPage = () => {
         targetEndDate: project.targetEndDate
           ? dayjs(project.targetEndDate)
           : null,
+        supervisorId: project.supervisorId || project.supervisor?.id,
       });
 
       setIsModalOpen(true);
@@ -131,6 +164,7 @@ const ProjectsPage = () => {
         targetEndDate: values.targetEndDate
           ? values.targetEndDate.format("YYYY-MM-DD")
           : null,
+        supervisorId: values.supervisorId,
       };
 
       if (editingProject) {
@@ -171,6 +205,16 @@ const ProjectsPage = () => {
     [loadProjects],
   );
 
+  // Project supervisors must be admin or supervisor users
+  const supervisorOptions = useMemo(() => {
+    return users
+      .filter((user) => ["admin", "supervisor"].includes(user.role))
+      .map((user) => ({
+        label: `${user.name} (${formatLabel(user.role)})`,
+        value: Number(user.id),
+      }));
+  }, [users]);
+
   // Table columns are memoized so they are not recreated unnecessarily on every render
   const columns = useMemo(() => {
     const baseColumns = [
@@ -205,7 +249,14 @@ const ProjectsPage = () => {
         dataIndex: "supervisor",
         key: "supervisor",
         width: 220,
-        render: (supervisor) => supervisor?.name || "Not assigned",
+        render: (supervisor) =>
+          supervisor ? (
+            <span>
+              {supervisor.name} ({formatLabel(supervisor.role)})
+            </span>
+          ) : (
+            "Not assigned"
+          ),
       },
       {
         title: "Start Date",
@@ -351,6 +402,23 @@ const ProjectsPage = () => {
             ]}
           >
             <Select options={PROJECT_STATUS_OPTIONS} />
+          </Form.Item>
+
+          <Form.Item
+            label="Supervisor"
+            name="supervisorId"
+            rules={[
+              {
+                required: true,
+                message: "Please select a project supervisor.",
+              },
+            ]}
+          >
+            <Select
+              placeholder="Select project supervisor"
+              loading={isLoadingUsers}
+              options={supervisorOptions}
+            />
           </Form.Item>
 
           <Form.Item label="Start Date" name="startDate">
