@@ -16,6 +16,7 @@ const equipmentBookingRoutes = require("./routes/equipmentBookingRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const notebookEntryRoutes = require("./routes/notebookEntryRoutes");
 const reviewEventRoutes = require("./routes/reviewEventRoutes");
+const projectMemberRoutes = require("./routes/projectMemberRoutes");
 
 const app = express();
 
@@ -41,6 +42,9 @@ app.use("/api/users", userRoutes);
 
 // Project CRUD routes
 app.use("/api/projects", projectRoutes);
+
+// Projectmember routes
+app.use("/api/project-members", projectMemberRoutes);
 
 // Task CRUD routes
 app.use("/api/tasks", taskRoutes);

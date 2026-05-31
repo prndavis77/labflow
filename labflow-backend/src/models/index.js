@@ -9,6 +9,7 @@ const Equipment = require("./Equipment");
 const EquipmentBooking = require("./EquipmentBooking");
 const NotebookEntry = require("./NotebookEntry");
 const ReviewEvent = require("./ReviewEvent");
+const ProjectMember = require("./ProjectMember");
 
 module.exports = {
   User,
@@ -20,4 +21,5 @@ module.exports = {
   EquipmentBooking,
   NotebookEntry,
   ReviewEvent,
+  ProjectMember,
 };

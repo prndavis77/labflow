@@ -12,6 +12,7 @@ const {
   EquipmentBooking,
   NotebookEntry,
   ReviewEvent,
+  ProjectMember,
 } = require("../models");
 
 const SALT_ROUNDS = 12;
@@ -43,6 +44,7 @@ const clearDatabase = async () => {
       equipment_bookings,
       notebook_entries,
       review_events,
+      project_members,
       protocols,
       experiments,
       tasks,
@@ -164,6 +166,36 @@ const createProjects = async (users) => {
     gcmsProject,
   };
 };
+
+async function createProjectMembers(users, projects) {
+  await ProjectMember.bulkCreate([
+    {
+      projectId: projects.caffeineProject.id,
+      userId: users.supervisor.id,
+      projectRole: "lead",
+    },
+    {
+      projectId: projects.caffeineProject.id,
+      userId: users.researcherOne.id,
+      projectRole: "member",
+    },
+    {
+      projectId: projects.gcmsProject.id,
+      userId: users.supervisor.id,
+      projectRole: "lead",
+    },
+    {
+      projectId: projects.gcmsProject.id,
+      userId: users.researcherTwo.id,
+      projectRole: "member",
+    },
+    {
+      projectId: projects.microplasticProject.id,
+      userId: users.researcherThree.id,
+      projectRole: "member",
+    },
+  ]);
+}
 
 // Creates project-linked tasks with different priorities and due dates
 const createTasks = async (users, projects) => {
@@ -579,6 +611,10 @@ const seedDemoData = async () => {
     console.log("Creating demo projects...");
 
     const projects = await createProjects(users);
+
+    console.log("Creating project memberships...");
+
+    await createProjectMembers(users, projects);
 
     console.log("Creating demo tasks...");
 
