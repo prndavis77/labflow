@@ -31,6 +31,9 @@ LabFlow centralizes key lab workflows into one application:
 - Review queue for supervisor/admin workflows
 - Required review notes for change requests
 - Dashboard metrics
+- Admin user management
+- Configurable researcher workflow permissions
+- Permission-aware experiment and protocol workflows
 
 ## My Role
 
@@ -46,6 +49,9 @@ I designed and built the full-stack MVP, including:
 - Experiment notebook workflow
 - Demo seed data
 - Manual regression testing
+- Admin user management workflow
+- Researcher permission controls
+- Reusable form modal refactor
 
 ## Tech Stack
 
@@ -68,6 +74,20 @@ LabFlow uses PostgreSQL with Sequelize associations between users, projects, tas
 ### Authentication and Authorization
 
 The app uses JWT authentication with role-based access control for admin, supervisor, and researcher users. Public registration creates researcher accounts only, while admin and supervisor accounts are reserved for controlled setup or future admin workflows.
+
+### Admin User Management and Researcher Permissions
+
+LabFlow includes an admin-only user management page where admins can view users, change user roles, and configure researcher workflow permissions.
+
+Researcher permissions allow admins to decide whether individual researchers can independently create or edit experiments and protocols. This supports different lab supervision styles, from tightly controlled labs to more independent research environments.
+
+The frontend uses these permission flags to hide create and edit actions when a researcher does not have access. Backend authorization still enforces the same rules, so the permission system does not rely only on hidden buttons.
+
+### Reusable Experiment and Protocol Modals
+
+Experiment and protocol create/edit forms were refactored into reusable modal components. This allows the list pages and detail pages to share the same form logic.
+
+Users can edit experiments and protocols directly from detail pages without navigating away, while the list pages still use the same modal components for create and edit workflows.
 
 ### Equipment Booking Conflict Prevention
 
@@ -125,6 +145,10 @@ Another challenge was modeling protocols flexibly. Some protocols belong to a pr
 
 A later workflow challenge was handling review feedback. A simple status field was not enough because researchers need to know why changes were requested. I added required review notes for change requests while keeping the current version limited to the latest review comment.
 
+Another challenge was balancing simple role-based access control with real lab supervision styles. Some supervisors want tight control over experiment and protocol creation, while others allow experienced researchers to work more independently. I solved this by keeping roles simple while adding configurable workflow permissions for researcher accounts.
+
+A frontend architecture challenge appeared when experiment and protocol editing needed to work from both list pages and detail pages. I refactored the forms into reusable modal components so both page types could share the same create/edit logic.
+
 ## Result
 
 LabFlow MVP Version 1.1 includes a working full-stack workflow from authentication to dashboard reporting, project tracking, task assignment, experiment documentation, protocol review, equipment booking, and experiment-linked notebook entries.
@@ -140,6 +164,8 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - No automated test suite yet
 - No lab organization or project membership system yet
 - Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
+- Researcher workflow permissions are global per user, not project-specific yet
+- User management does not yet include account deactivation or password reset
 
 ## Future Improvements
 
@@ -155,4 +181,7 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Calendar view for equipment bookings
 - Email notifications
 - Automated tests
+- Project membership system with project-specific permissions
+- Account deactivation workflow
+- Admin invitation or password reset workflow
 - Deployment

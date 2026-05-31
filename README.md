@@ -8,7 +8,7 @@ The goal of LabFlow is to solve a common problem in academic labs: research work
 
 LabFlow MVP Version 1.1 is complete.
 
-This version includes authentication, role-based access control, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, experiment-linked notebook entries, and demo seed data.
+This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
 ---
 
@@ -48,7 +48,7 @@ LabFlow provides a structured system for managing these workflows in one place.
 - Protected frontend routes
 - Protected backend API routes
 
-### Role-Based Access Control
+## Role-Based Access Control
 
 LabFlow supports three user roles:
 
@@ -59,6 +59,9 @@ LabFlow supports three user roles:
 - Can manage equipment inventory
 - Can manage equipment bookings
 - Can access all MVP resources
+- Can view users
+- Can change user roles
+- Can configure researcher workflow permissions
 
 #### Supervisor
 
@@ -70,17 +73,37 @@ LabFlow supports three user roles:
 
 #### Researcher
 
-- Can register publicly
 - Can view projects
-- Can create and update tasks
-- Can create and update experiments
+- Can create and update experiments when workflow permissions allow it
 - Can view protocols
-- Can view equipment
-- Can create and update equipment bookings
+- Can create and update protocols when workflow permissions allow it
+- Cannot approve experiments or protocols
+- Cannot request review changes
 - Cannot manage equipment inventory
 - Cannot delete protected records
 
+Researcher workflow permissions allow admins to support different lab supervision styles. Some labs may allow researchers to independently create experiments and protocols, while other labs may require supervisor control over those workflows.
+
 Public registration creates researcher accounts only. Admin and supervisor accounts should be created through development tools or a future admin user-management workflow.
+
+---
+
+## Researcher Workflow Permissions
+
+LabFlow includes configurable workflow permissions for researcher accounts.
+
+Admins can control whether each researcher can:
+
+- Create experiments
+- Edit experiments
+- Create protocols
+- Edit protocols
+
+Admins and supervisors have full workflow access by role. Researcher permissions provide finer control for labs with different supervision styles.
+
+For example, one researcher may be allowed to independently create and edit experiments but not protocols. Another researcher may be allowed to create and edit protocols but not experiments. A third researcher may be allowed to create and edit both.
+
+Researchers still cannot approve experiments, approve protocols, request review changes, or delete protected experiment/protocol records.
 
 ---
 
@@ -89,12 +112,17 @@ Public registration creates researcher accounts only. Admin and supervisor accou
 - Experiment-linked notebook entries
 - Review Queue for supervisor/admin review workflows
 - Review actions for experiments and protocols
+- Review history for experiment and protocol review decisions
 - Required review notes when requesting changes
+- Admin user management
+- Admin-controlled role changes
+- Configurable researcher workflow permissions
+- Permission-aware create/edit actions for experiments and protocols
+- Reusable experiment and protocol form modals
 - Equipment-specific SOP support
 - General lab SOP support without project linkage
 - Detail pages for projects, tasks, experiments, protocols, and equipment
 - Cross-linked navigation between related records
-- Review history for experiment and protocol review decisions
 
 ### Dashboard
 
@@ -179,6 +207,8 @@ Experiments represent lab activities connected to research projects.
 
 Experiments include review status and optional supervisor review comments. Supervisors and admins can approve experiments or request changes from the experiment detail page.
 
+Experiment create and edit actions are permission-aware. Admins and supervisors can create and edit experiments by role. Researcher access depends on configurable workflow permissions managed from the admin user management page.
+
 Experiment records include:
 
 - Title
@@ -245,6 +275,8 @@ Notebook entries appear on experiment detail pages, project detail pages, and th
 Protocols represent reusable lab methods, SOPs, or experimental procedures.
 
 Protocols can be linked to a project, linked to equipment, linked to both, or saved as general lab SOPs without a project. This allows LabFlow to support project-specific methods, instrument SOPs, and general lab procedures.
+
+Protocol create and edit actions are permission-aware. Admins and supervisors can manage protocols by role. Researcher access depends on configurable workflow permissions, which allows labs to decide whether researchers may independently create or edit reusable methods and SOPs.
 
 Protocol records include:
 
@@ -327,6 +359,24 @@ LabFlow also stores review history events for approvals and change requests. Thi
 
 ---
 
+## Admin User Management
+
+LabFlow includes an admin-only user management page.
+
+Admins can:
+
+- View all users
+- Filter users by role
+- Change another user's role
+- Configure researcher workflow permissions
+- View account creation and update dates
+
+The interface prevents admins from changing their own role from the admin users page. The backend also protects role updates and permission updates so only admin users can perform those actions.
+
+Workflow permission controls are shown for researcher accounts. Admin and supervisor accounts show full access by role.
+
+---
+
 ## Screenshots
 
 ### Dashboard
@@ -365,6 +415,10 @@ LabFlow also stores review history events for approvals and change requests. Thi
 
 ![LabFlow booking conflict error showing that overlapping confirmed equipment bookings are rejected](docs/screenshots/booking-conflict.png)
 
+### Admin User Management
+
+![LabFlow admin user management page showing researcher workflow permission controls](docs/screenshots/admin-user-management.png)
+
 Additional screenshots for CRUD list pages are available in `docs/screenshots/`.
 
 ---
@@ -394,6 +448,11 @@ LabFlow demonstrates several full-stack development concepts:
 - Required review notes for change requests
 - Flexible protocol model for project protocols, equipment SOPs, and general SOPs
 - Cross-linked detail pages for related lab records
+- Admin user management with role update workflow
+- Configurable researcher workflow permissions
+- Permission-aware frontend actions backed by backend authorization
+- Reusable experiment and protocol form modals
+- Detail-page editing through shared modal components
 
 ---
 
@@ -644,6 +703,9 @@ GET /api/auth/me
 
 ```txt
 GET /api/users
+GET    /api/users/:id
+PATCH  /api/users/:id/role
+PATCH  /api/users/:id/permissions
 ```
 
 ### Dashboard
@@ -830,6 +892,7 @@ The seed script creates:
 - Review queue examples
 - Review comments
 - Demo review history events
+- Researcher workflow permission examples
 
 Run the seed script from the backend folder:
 
@@ -861,6 +924,14 @@ password123
 ```
 
 These credentials are for local development and demo use only.
+
+The demo researcher accounts intentionally use different workflow permission profiles:
+
+- Maria Schmidt can create and edit experiments, but cannot create or edit protocols.
+- Jonas Weber can create and edit experiments and protocols.
+- Sam Dean demonstrates an alternate permission profile, with protocol permissions enabled but experiment permissions disabled.
+
+This demonstrates how LabFlow can support different lab supervision styles.
 
 ## Manual Regression Test Coverage
 
@@ -961,6 +1032,29 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Recent notebook entries update
 - Review attention card links to the review queue
 
+### Admin User Management
+
+- View all users as admin
+- Filter users by role
+- Change another user's role
+- Prevent an admin from changing their own role in the UI
+- Reject invalid roles in the backend
+- Restrict role changes to admin users
+
+### Researcher Workflow Permissions
+
+- Toggle researcher experiment permissions from the admin users page
+- Toggle researcher protocol permissions from the admin users page
+- Hide experiment create/edit actions when researcher permissions are disabled
+- Hide protocol create/edit actions when researcher permissions are disabled
+- Allow experiment create/edit actions when researcher permissions are enabled
+- Allow protocol create/edit actions when researcher permissions are enabled
+- Keep delete actions restricted to admins and supervisors
+- Keep approve/request changes actions restricted to admins and supervisors
+- Confirm backend rejects unauthorized experiment/protocol create and edit requests
+
+---
+
 ## Important Business Logic
 
 ### Equipment Booking Conflict Prevention
@@ -1009,6 +1103,8 @@ Current limitations include:
 - No file attachments or image uploads for notebook entries
 - No PDF export for experiment notebooks
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
+- Researcher workflow permissions are global per user, not project-specific yet
+- User management does not yet support account deactivation or password reset
 
 ## Future Improvements
 
@@ -1031,6 +1127,9 @@ Recommended Version 2 improvements:
 - PDF or CSV export
 - Automated backend tests
 - Deployment with hosted PostgreSQL database
+- Project membership system with project-specific permissions
+- Account deactivation workflow
+- Admin password reset or invitation workflow
 
 ---
 
