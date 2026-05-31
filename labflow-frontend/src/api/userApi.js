@@ -16,11 +16,20 @@ export const fetchUserById = async (userId) => {
 };
 
 // Updates a user's role
-// Admin-only backend endpoint
 export const updateUserRole = async (userId, newRole) => {
   const response = await axiosClient.patch(`/users/${userId}/role`, {
     role: newRole,
   });
+
+  return response.data;
+};
+
+// Updates researcher workflow permissions
+export const updateUserWorkflowPermissions = async (userId, permissions) => {
+  const response = await axiosClient.patch(
+    `/users/${userId}/permissions`,
+    permissions,
+  );
 
   return response.data;
 };

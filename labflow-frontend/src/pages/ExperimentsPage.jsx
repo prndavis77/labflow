@@ -2,10 +2,6 @@ import {
   Alert,
   Button,
   Card,
-  DatePicker,
-  Form,
-  Input,
-  Modal,
   Popconfirm,
   Select,
   Space,
@@ -17,19 +13,14 @@ import {
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import dayjs from "dayjs";
 
-import {
-  createExperiment,
-  deleteExperiment,
-  fetchExperiments,
-  updateExperiment,
-} from "../api/experimentApi";
+import { deleteExperiment, fetchExperiments } from "../api/experimentApi";
 import { fetchProjects } from "../api/projectApi";
 import { fetchTasks } from "../api/taskApi";
 import { fetchUsers } from "../api/userApi";
 import { fetchProtocols } from "../api/protocolApi";
 import { useAuth } from "../context/AuthContext";
+import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
 import { EXPERIMENT_STATUS_OPTIONS } from "../constants/statusOptions";
 import { EXPERIMENT_STATUS_COLORS } from "../constants/statusColors";
 import { REVIEW_STATUS_OPTIONS } from "../constants/statusOptions";
@@ -37,7 +28,6 @@ import { REVIEW_STATUS_COLORS } from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
 
 const { Title, Paragraph } = Typography;
-const { TextArea } = Input;
 
 const ExperimentsPage = () => {
   const { user } = useAuth();
@@ -53,7 +43,6 @@ const ExperimentsPage = () => {
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [isLoadingProtocols, setIsLoadingProtocols] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,12 +51,6 @@ const ExperimentsPage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState(undefined);
   const [selectedStatus, setSelectedStatus] = useState(undefined);
   const [selectedReviewStatus, setSelectedReviewStatus] = useState(undefined);
-
-  const [form] = Form.useForm();
-
-  // Watches the selected project inside the experiment form.
-  // This allows linked task and protocol dropdowns to update immediately.
-  const selectedExperimentFormProjectId = Form.useWatch("projectId", form);
 
   // Only admins and supervisors can delete experiment records
   // Researchers can create and update experiments, but not delete them
@@ -80,65 +63,6 @@ const ExperimentsPage = () => {
       value: project.id,
     }));
   }, [projects]);
-
-  // Converts users into researcher options
-  // Later, this should be scoped to project members or lab members
-  const userOptions = useMemo(() => {
-    return users.map((userItem) => ({
-      label: `${userItem.name} (${userItem.role})`,
-      value: userItem.id,
-    }));
-  }, [users]);
-
-  // Converts tasks into options
-  // If a project is selected in the form, the list is narrowed to that project
-  const taskOptions = useMemo(() => {
-    const selectedFormProjectId = selectedExperimentFormProjectId;
-
-    return tasks
-      .filter((task) => {
-        if (!selectedFormProjectId) {
-          return true;
-        }
-
-        return Number(task.projectId) === Number(selectedFormProjectId);
-      })
-      .map((task) => ({
-        label: task.title,
-        value: task.id,
-      }));
-  }, [tasks, selectedExperimentFormProjectId]);
-
-  // Converts protocols into options
-  // If a project is selected in the form, the list is narrowed to that project
-  const protocolOptions = useMemo(() => {
-    return protocols
-      .filter((protocol) => {
-        if (!selectedExperimentFormProjectId) {
-          return true;
-        }
-
-        // Allow protocols linked to the selected project
-        if (
-          Number(protocol.projectId) === Number(selectedExperimentFormProjectId)
-        ) {
-          return true;
-        }
-
-        // Allow general SOPs that are not tied to a specific project
-        if (!protocol.projectId) {
-          return true;
-        }
-
-        return false;
-      })
-      .map((protocol) => ({
-        label: protocol.equipment
-          ? `${protocol.title} v${protocol.version} (${protocol.equipment.name})`
-          : `${protocol.title} v${protocol.version}`,
-        value: protocol.id,
-      }));
-  }, [protocols, selectedExperimentFormProjectId]);
 
   // Builds the filter object used by the experiment API
   const experimentFilters = useMemo(() => {
@@ -271,95 +195,24 @@ const ExperimentsPage = () => {
 
   const openCreateModal = () => {
     setEditingExperiment(null);
-
-    // Reset form state so previous edit values do not leak into the create form
-    form.resetFields();
-
-    // Give new experiments sensible defaults
-    form.setFieldsValue({
-      status: "planned",
-      reviewStatus: "not_submitted",
-      projectId: selectedProjectId || undefined,
-      researcherId: user?.id,
-    });
-
     setIsModalOpen(true);
   };
 
-  const openEditModal = useCallback(
-    (experiment) => {
-      setEditingExperiment(experiment);
-
-      // DatePicker requires dayjs objects, not raw date strings.
-      form.setFieldsValue({
-        title: experiment.title,
-        objective: experiment.objective,
-        notes: experiment.notes,
-        status: experiment.status,
-        reviewStatus: experiment.reviewStatus,
-        startedAt: experiment.startedAt ? dayjs(experiment.startedAt) : null,
-        completedAt: experiment.completedAt
-          ? dayjs(experiment.completedAt)
-          : null,
-        projectId: experiment.projectId,
-        researcherId: experiment.researcherId,
-        taskId: experiment.taskId || undefined,
-        protocolId: experiment.protocolId || undefined,
-      });
-
-      setIsModalOpen(true);
-    },
-    [form],
-  );
+  const openEditModal = useCallback((experiment) => {
+    setEditingExperiment(experiment);
+    setIsModalOpen(true);
+  }, []);
 
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingExperiment(null);
-    form.resetFields();
   };
 
-  const handleSubmit = async (values) => {
-    try {
-      setIsSubmitting(true);
-      // Convert form values into the format expected by the backend.
-      const payload = {
-        title: values.title,
-        objective: values.objective,
-        notes: values.notes,
-        status: values.status,
-        reviewStatus: values.reviewStatus,
-        startedAt: values.startedAt
-          ? values.startedAt.format("YYYY-MM-DD")
-          : null,
-        completedAt: values.completedAt
-          ? values.completedAt.format("YYYY-MM-DD")
-          : null,
-        projectId: values.projectId,
-        researcherId: values.researcherId,
-        taskId: values.taskId || null,
-        protocolId: values.protocolId || null,
-      };
-
-      if (editingExperiment) {
-        await updateExperiment(editingExperiment.id, payload);
-        message.success("Experiment updated successfully.");
-      } else {
-        await createExperiment(payload);
-        message.success("Experiment created successfully.");
-      }
-
-      closeModal();
-      await loadExperiments();
-      await loadTasks();
-      await loadProtocols();
-    } catch (error) {
-      const messageText =
-        error.response?.data?.message || "Failed to save experiment.";
-
-      message.error(messageText);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleExperimentSaved = async () => {
+    closeModal();
+    await loadExperiments();
+    await loadTasks();
+    await loadProtocols();
   };
 
   const handleDelete = useCallback(
@@ -379,15 +232,6 @@ const ExperimentsPage = () => {
     },
     [loadExperiments],
   );
-
-  const handleProjectChange = (projectId) => {
-    // Changing project should clear the linked task if the old task belongs to another project
-    form.setFieldsValue({
-      projectId,
-      taskId: undefined,
-      protocolId: undefined,
-    });
-  };
 
   // Table columns are memoized because they include action callbacks
   const columns = useMemo(() => {
@@ -613,152 +457,22 @@ const ExperimentsPage = () => {
         />
       </Card>
 
-      <Modal
-        title={editingExperiment ? "Edit Experiment" : "Create Experiment"}
+      <ExperimentFormModal
         open={isModalOpen}
+        experiment={editingExperiment}
+        projects={projects}
+        users={users}
+        tasks={tasks}
+        protocols={protocols}
+        defaultProjectId={selectedProjectId}
+        currentUser={user}
+        isLoadingProjects={isLoadingProjects}
+        isLoadingUsers={isLoadingUsers}
+        isLoadingTasks={isLoadingTasks}
+        isLoadingProtocols={isLoadingProtocols}
         onCancel={closeModal}
-        footer={null}
-        destroyOnHidden
-        width={760}
-      >
-        <Form layout="vertical" form={form} onFinish={handleSubmit}>
-          <Form.Item
-            label="Experiment Title"
-            name="title"
-            rules={[
-              {
-                required: true,
-                message: "Please enter an experiment title.",
-              },
-              {
-                min: 3,
-                message: "Experiment title must be at least 3 characters.",
-              },
-            ]}
-          >
-            <Input placeholder="Caffeine calibration curve run 1" />
-          </Form.Item>
-
-          <Form.Item
-            label="Project"
-            name="projectId"
-            rules={[
-              {
-                required: true,
-                message: "Please select a project.",
-              },
-            ]}
-          >
-            <Select
-              placeholder="Select project"
-              loading={isLoadingProjects}
-              options={projectOptions}
-              onChange={handleProjectChange}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Researcher"
-            name="researcherId"
-            rules={[
-              {
-                required: true,
-                message: "Please select a researcher.",
-              },
-            ]}
-          >
-            <Select
-              placeholder="Select researcher"
-              loading={isLoadingUsers}
-              options={userOptions}
-            />
-          </Form.Item>
-
-          <Form.Item label="Linked Task" name="taskId">
-            <Select
-              allowClear
-              placeholder="Optionally link this experiment to a task"
-              loading={isLoadingTasks}
-              options={taskOptions}
-            />
-          </Form.Item>
-
-          <Form.Item label="Protocol Used" name="protocolId">
-            <Select
-              allowClear
-              placeholder="Optionally link the protocol used"
-              loading={isLoadingProtocols}
-              options={protocolOptions}
-            />
-          </Form.Item>
-
-          <Form.Item label="Objective" name="objective">
-            <TextArea
-              rows={3}
-              placeholder="Describe what this experiment is intended to test, measure, compare, or validate."
-            />
-          </Form.Item>
-
-          <Form.Item label="Notes" name="notes">
-            <TextArea
-              rows={4}
-              placeholder="Record setup details, observations, deviations, or early results."
-            />
-          </Form.Item>
-
-          <Space style={{ display: "flex", gap: 16 }} align="start">
-            <Form.Item
-              label="Experiment Status"
-              name="status"
-              rules={[
-                {
-                  required: true,
-                  message: "Please select experiment status.",
-                },
-              ]}
-              style={{ flex: 1 }}
-            >
-              <Select options={EXPERIMENT_STATUS_OPTIONS} />
-            </Form.Item>
-
-            <Form.Item
-              label="Review Status"
-              name="reviewStatus"
-              rules={[
-                {
-                  required: true,
-                  message: "Please select review status.",
-                },
-              ]}
-              style={{ flex: 1 }}
-            >
-              <Select options={REVIEW_STATUS_OPTIONS} />
-            </Form.Item>
-          </Space>
-
-          <Space style={{ display: "flex", gap: 16 }} align="start">
-            <Form.Item label="Started At" name="startedAt" style={{ flex: 1 }}>
-              <DatePicker style={{ width: "100%" }} />
-            </Form.Item>
-
-            <Form.Item
-              label="Completed At"
-              name="completedAt"
-              style={{ flex: 1 }}
-            >
-              <DatePicker style={{ width: "100%" }} />
-            </Form.Item>
-          </Space>
-
-          <Space style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button onClick={closeModal}>Cancel</Button>
-
-            <Button type="primary" htmlType="submit" loading={isSubmitting}>
-              {editingExperiment ? "Save Changes" : "Create Experiment"}
-            </Button>
-          </Space>
-        </Form>
-      </Modal>
+        onSuccess={handleExperimentSaved}
+      />
     </>
   );
 };

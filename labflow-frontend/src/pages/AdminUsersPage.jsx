@@ -5,6 +5,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -13,7 +14,11 @@ import {
 import { ReloadOutlined, UserOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchUsers, updateUserRole } from "../api/userApi";
+import {
+  fetchUsers,
+  updateUserRole,
+  updateUserWorkflowPermissions,
+} from "../api/userApi";
 import { USER_ROLE_OPTIONS } from "../constants/statusOptions";
 import { USER_ROLE_COLORS } from "../constants/statusColors";
 import { useAuth } from "../context/AuthContext";
@@ -29,6 +34,7 @@ const AdminUsersPage = () => {
 
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   // Loads all users for admin management
@@ -89,6 +95,55 @@ const AdminUsersPage = () => {
     [loadUsers],
   );
 
+  // Updates one workflow permission flag for a researcher
+  // Admins and supervisors do not use these flags because they have full access by role
+  const handleWorkflowPermissionChange = useCallback(
+    async (targetUser, field, checked) => {
+      try {
+        setIsUpdatingPermissions(true);
+
+        await updateUserWorkflowPermissions(targetUser.id, {
+          [field]: checked,
+        });
+
+        message.success("Workflow permission updated successfully.");
+
+        await loadUsers();
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message ||
+          "Failed to update workflow permission.";
+
+        message.error(messageText);
+      } finally {
+        setIsUpdatingPermissions(false);
+      }
+    },
+    [loadUsers],
+  );
+
+  // Renders one permission switch for researcher workflow permissions.
+  const renderPermissionSwitch = useCallback(
+    (record, field, label) => {
+      return (
+        <Space>
+          <Switch
+            size="small"
+            checked={Boolean(record[field])}
+            loading={isUpdatingPermissions}
+            disabled={isUpdatingPermissions}
+            onChange={(checked) =>
+              handleWorkflowPermissionChange(record, field, checked)
+            }
+          />
+
+          <Text>{label}</Text>
+        </Space>
+      );
+    },
+    [handleWorkflowPermissionChange, isUpdatingPermissions],
+  );
+
   const userColumns = useMemo(
     () => [
       {
@@ -127,6 +182,56 @@ const AdminUsersPage = () => {
         key: "department",
         width: 220,
         render: (department) => department || "Not set",
+      },
+      {
+        title: "Experiment Permissions",
+        key: "experimentPermissions",
+        width: 260,
+        render: (_, record) => {
+          if (record.role !== "researcher") {
+            return <Text type="secondary">Full access by role</Text>;
+          }
+
+          return (
+            <Space direction="vertical" size="small">
+              {renderPermissionSwitch(
+                record,
+                "canCreateExperiments",
+                "Create experiments",
+              )}
+              {renderPermissionSwitch(
+                record,
+                "canEditExperiments",
+                "Edit experiments",
+              )}
+            </Space>
+          );
+        },
+      },
+      {
+        title: "Protocol Permissions",
+        key: "protocolPermissions",
+        width: 260,
+        render: (_, record) => {
+          if (record.role !== "researcher") {
+            return <Text type="secondary">Full access by role</Text>;
+          }
+
+          return (
+            <Space direction="vertical" size="small">
+              {renderPermissionSwitch(
+                record,
+                "canCreateProtocols",
+                "Create protocols",
+              )}
+              {renderPermissionSwitch(
+                record,
+                "canEditProtocols",
+                "Edit protocols",
+              )}
+            </Space>
+          );
+        },
       },
       {
         title: "Created",
@@ -180,7 +285,7 @@ const AdminUsersPage = () => {
         },
       },
     ],
-    [currentUser?.id, handleRoleChange, isUpdatingRole],
+    [currentUser?.id, handleRoleChange, isUpdatingRole, renderPermissionSwitch],
   );
 
   return (
@@ -199,9 +304,15 @@ const AdminUsersPage = () => {
               Admin User Management
             </Title>
 
-            <Paragraph style={{ marginBottom: 0 }}>
+            <Paragraph style={{ marginBottom: 4 }}>
               View users and manage user roles. Role changes affect what users
               can access and modify across LabFlow.
+            </Paragraph>
+
+            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+              Researcher workflow permissions control whether researcher
+              accounts can independently create or edit experiments and
+              protocols. Admins and supervisors have full access by role.
             </Paragraph>
           </div>
 

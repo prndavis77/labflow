@@ -44,12 +44,23 @@ export const REVIEW_STATUS_OPTIONS = [
   { label: "Changes Requested", value: "changes_requested" },
 ];
 
+export const EDITABLE_REVIEW_STATUS_OPTIONS = [
+  { label: "Not Submitted", value: "not_submitted" },
+  { label: "Pending", value: "pending" },
+];
+
 // Protocol approval statuses must match the backend Protocol approvalStatus ENUM
 export const APPROVAL_STATUS_OPTIONS = [
   { label: "Draft", value: "draft" },
   { label: "Pending Review", value: "pending_review" },
   { label: "Approved", value: "approved" },
   { label: "Changes Requested", value: "changes_requested" },
+  { label: "Archived", value: "archived" },
+];
+
+export const EDITABLE_APPROVAL_STATUS_OPTIONS = [
+  { label: "Draft", value: "draft" },
+  { label: "Pending Review", value: "pending_review" },
   { label: "Archived", value: "archived" },
 ];
 

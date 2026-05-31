@@ -33,7 +33,12 @@ import {
   updateNotebookEntry,
 } from "../api/notebookEntryApi";
 import { fetchReviewEvents } from "../api/reviewEventApi";
+import { fetchProjects } from "../api/projectApi";
+import { fetchUsers } from "../api/userApi";
+import { fetchTasks } from "../api/taskApi";
+import { fetchProtocols } from "../api/protocolApi";
 import { useAuth } from "../context/AuthContext";
+import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
 import { NOTEBOOK_ENTRY_TYPE_OPTIONS } from "../constants/statusOptions";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
@@ -49,17 +54,21 @@ const { TextArea } = Input;
 const ExperimentDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
 
   // Only admins and supervisors can perform review decisions
-  const canReviewExperiment = ["admin", "supervisor"].includes(user?.role);
+  const canReviewExperiment = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
 
   const [experiment, setExperiment] = useState(null);
   const [notebookEntries, setNotebookEntries] = useState([]);
   const [reviewEvents, setReviewEvents] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [protocols, setProtocols] = useState([]);
 
-  // Stores the selected notebook entry type filter
-  // Undefined means all notebook entries are shown
   const [selectedNotebookEntryType, setSelectedNotebookEntryType] =
     useState(undefined);
 
@@ -67,6 +76,10 @@ const ExperimentDetailPage = () => {
   const [isLoadingNotebookEntries, setIsLoadingNotebookEntries] =
     useState(false);
   const [isLoadingReviewEvents, setIsLoadingReviewEvents] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [isLoadingProtocols, setIsLoadingProtocols] = useState(false);
 
   const [isSubmittingNotebookEntry, setIsSubmittingNotebookEntry] =
     useState(false);
@@ -77,6 +90,7 @@ const ExperimentDetailPage = () => {
   const [reviewHistoryErrorMessage, setReviewHistoryErrorMessage] =
     useState("");
 
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isNotebookModalOpen, setIsNotebookModalOpen] = useState(false);
   const [editingNotebookEntry, setEditingNotebookEntry] = useState(null);
   const [isReviewCommentModalOpen, setIsReviewCommentModalOpen] =
@@ -85,21 +99,27 @@ const ExperimentDetailPage = () => {
   const [notebookForm] = Form.useForm();
   const [reviewCommentForm] = Form.useForm();
 
+  // Admins and supervisors can create and edit experiments by role
+  // Researchers depend on configurable workflow permissions
+  const canEditExperiment =
+    ["admin", "supervisor"].includes(currentUser?.role) ||
+    Boolean(currentUser?.canEditExperiments);
+
   // Admins and supervisors can modify all notebook entries
   // Researchers can modify only entries they authored
   const canModifyNotebookEntry = useCallback(
     (entry) => {
-      if (!user || !entry) {
+      if (!currentUser || !entry) {
         return false;
       }
 
-      if (["admin", "supervisor"].includes(user.role)) {
+      if (["admin", "supervisor"].includes(currentUser.role)) {
         return true;
       }
 
-      return Number(entry.authorId) === Number(user.id);
+      return Number(entry.authorId) === Number(currentUser.id);
     },
-    [user],
+    [currentUser],
   );
 
   // Loads one experiment by route ID
@@ -120,6 +140,42 @@ const ExperimentDetailPage = () => {
       setIsLoadingExperiment(false);
     }
   }, [id]);
+
+  const loadFormOptions = useCallback(async () => {
+    try {
+      setIsLoadingProjects(true);
+      setIsLoadingUsers(true);
+      setIsLoadingTasks(true);
+      setIsLoadingProtocols(true);
+
+      const [projectResult, userResult, taskResult, protocolResult] =
+        await Promise.all([
+          fetchProjects(),
+          fetchUsers(),
+          fetchTasks(),
+          fetchProtocols(),
+        ]);
+
+      setProjects(projectResult.data.projects);
+      setUsers(userResult.data.users);
+      setTasks(taskResult.data.tasks);
+      setProtocols(protocolResult.data.protocols);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load edit form options.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingProjects(false);
+      setIsLoadingUsers(false);
+      setIsLoadingTasks(false);
+      setIsLoadingProtocols(false);
+    }
+  }, []);
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+  };
 
   const openExperimentReviewCommentModal = () => {
     reviewCommentForm.resetFields();
@@ -185,8 +241,21 @@ const ExperimentDetailPage = () => {
       loadExperimentDetail();
       loadNotebookEntries();
       loadReviewEvents();
+      loadFormOptions();
     });
-  }, [loadExperimentDetail, loadNotebookEntries, loadReviewEvents]);
+  }, [
+    loadExperimentDetail,
+    loadNotebookEntries,
+    loadReviewEvents,
+    loadFormOptions,
+  ]);
+
+  const handleExperimentSaved = async () => {
+    setIsEditModalOpen(false);
+    await loadExperimentDetail();
+    await loadReviewEvents();
+    await notebookEntries();
+  };
 
   const openCreateNotebookModal = () => {
     setEditingNotebookEntry(null);
@@ -503,6 +572,12 @@ const ExperimentDetailPage = () => {
           >
             Refresh
           </Button>
+
+          {canEditExperiment && experiment && (
+            <Button onClick={() => setIsEditModalOpen(true)}>
+              Edit Experiment
+            </Button>
+          )}
         </Space>
 
         {experiment && (
@@ -817,6 +892,21 @@ const ExperimentDetailPage = () => {
           </Space>
         </Form>
       </Modal>
+
+      <ExperimentFormModal
+        open={isEditModalOpen}
+        experiment={experiment}
+        projects={projects}
+        users={users}
+        tasks={tasks}
+        protocols={protocols}
+        isLoadingProjects={isLoadingProjects}
+        isLoadingUsers={isLoadingUsers}
+        isLoadingTasks={isLoadingTasks}
+        isLoadingProtocols={isLoadingProtocols}
+        onCancel={() => closeEditModal}
+        onSuccess={handleExperimentSaved}
+      />
     </Space>
   );
 };

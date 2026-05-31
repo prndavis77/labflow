@@ -2,9 +2,6 @@ import {
   Alert,
   Button,
   Card,
-  Form,
-  Input,
-  Modal,
   Popconfirm,
   Select,
   Space,
@@ -17,24 +14,19 @@ import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import {
-  createProtocol,
-  deleteProtocol,
-  fetchProtocols,
-  updateProtocol,
-} from "../api/protocolApi";
+import { deleteProtocol, fetchProtocols } from "../api/protocolApi";
 import { fetchProjects } from "../api/projectApi";
 import { fetchEquipment } from "../api/equipmentApi";
 import { useAuth } from "../context/AuthContext";
+import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
 import { APPROVAL_STATUS_OPTIONS } from "../constants/statusOptions";
 import { APPROVAL_STATUS_COLORS } from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
 
 const { Title, Paragraph } = Typography;
-const { TextArea } = Input;
 
 const ProtocolsPage = () => {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
 
   const [protocols, setProtocols] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -45,7 +37,6 @@ const ProtocolsPage = () => {
 
   const [isLoadingProtocols, setIsLoadingProtocols] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,11 +46,20 @@ const ProtocolsPage = () => {
   const [selectedApprovalStatus, setSelectedApprovalStatus] =
     useState(undefined);
 
-  const [form] = Form.useForm();
+  // Admins and supervisors can create and edit protocols by role
+  // Researchers depend on configurable workflow permissions
+  const canCreateProtocols =
+    ["admin", "supervisor"].includes(currentUser?.role) ||
+    Boolean(currentUser?.canCreateProtocols);
 
-  // Only admins and supervisors can manage protocols
-  // Researchers can view protocols but cannot create, edit, or delete them
-  const canManageProtocols = ["admin", "supervisor"].includes(user?.role);
+  const canEditProtocols =
+    ["admin", "supervisor"].includes(currentUser?.role) ||
+    Boolean(currentUser?.canEditProtocols);
+
+  // Only admins and supervisors can delete protocols by role
+  const canDeleteProtocols = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
 
   // Converts projects into options for Ant Design Select components
   const projectOptions = useMemo(() => {
@@ -170,80 +170,22 @@ const ProtocolsPage = () => {
 
   const openCreateModal = () => {
     setEditingProtocol(null);
-
-    // Reset form state so previous edit values do not leak into the create form
-    form.resetFields();
-
-    // Give new protocols sensible defaults
-    form.setFieldsValue({
-      version: "1.0",
-      approvalStatus: "draft",
-      projectId: selectedProjectId || undefined,
-      equipmentId: selectedEquipmentId || undefined,
-    });
-
     setIsModalOpen(true);
   };
 
-  const openEditModal = useCallback(
-    (protocol) => {
-      setEditingProtocol(protocol);
+  const openEditModal = useCallback((protocol) => {
+    setEditingProtocol(protocol);
+    setIsModalOpen(true);
+  }, []);
 
-      // Fill the form with the selected protocol's current values
-      form.setFieldsValue({
-        title: protocol.title,
-        version: protocol.version,
-        purpose: protocol.purpose,
-        content: protocol.content,
-        approvalStatus: protocol.approvalStatus,
-        projectId: protocol.projectId || undefined,
-        equipment: protocol.equipmentId || undefined,
-      });
-
-      setIsModalOpen(true);
-    },
-    [form],
-  );
-
-  const closeModal = () => {
+  const closeModal = async () => {
     setIsModalOpen(false);
     setEditingProtocol(null);
-    form.resetFields();
   };
 
-  const handleSubmit = async (values) => {
-    try {
-      setIsSubmitting(true);
-
-      // Convert form values into the format expected by the backend
-      const payload = {
-        title: values.title,
-        version: values.version,
-        purpose: values.purpose,
-        content: values.content,
-        approvalStatus: values.approvalStatus,
-        projectId: values.projectId || null,
-        equipmentId: values.equipmentId || null,
-      };
-
-      if (editingProtocol) {
-        await updateProtocol(editingProtocol.id, payload);
-        message.success("Protocol updated successfully.");
-      } else {
-        await createProtocol(payload);
-        message.success("Protocol created successfully.");
-      }
-
-      closeModal();
-      await loadProtocols();
-    } catch (error) {
-      const messageText =
-        error.response?.data?.message || "Failed to save protocol.";
-
-      message.error(messageText);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleProtocolSaved = async () => {
+    closeModal();
+    await loadProtocols();
   };
 
   const handleDelete = useCallback(
@@ -356,7 +298,7 @@ const ProtocolsPage = () => {
       {
         title: "Actions",
         key: "actions",
-        width: canManageProtocols ? 220 : 90,
+        width: canEditProtocols ? 220 : 90,
         render: (_, record) => (
           <Space>
             <Select
@@ -373,32 +315,33 @@ const ProtocolsPage = () => {
               <Button size="small">View</Button>
             </Link>
 
-            {canManageProtocols && (
-              <>
-                <Button size="small" onClick={() => openEditModal(record)}>
-                  Edit
-                </Button>
+            {canEditProtocols && (
+              <Button size="small" onClick={() => openEditModal(record)}>
+                Edit
+              </Button>
+            )}
 
-                <Popconfirm
-                  title="Delete protocol?"
-                  description="This cannot be undone."
-                  okText="Delete"
-                  cancelText="Cancel"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => handleDelete(record.id)}
-                >
-                  <Button size="small" danger>
-                    Delete
-                  </Button>
-                </Popconfirm>
-              </>
+            {canDeleteProtocols && (
+              <Popconfirm
+                title="Delete protocol?"
+                description="This cannot be undone."
+                okText="Delete"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
+                onConfirm={() => handleDelete(record.id)}
+              >
+                <Button size="small" danger>
+                  Delete
+                </Button>
+              </Popconfirm>
             )}
           </Space>
         ),
       },
     ];
   }, [
-    canManageProtocols,
+    canEditProtocols,
+    canDeleteProtocols,
     equipmentOptions,
     handleDelete,
     isLoadingEquipment,
@@ -427,7 +370,7 @@ const ProtocolsPage = () => {
             </Paragraph>
           </div>
 
-          {canManageProtocols && (
+          {canCreateProtocols && (
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -485,118 +428,16 @@ const ProtocolsPage = () => {
         />
       </Card>
 
-      <Modal
-        title={editingProtocol ? "Edit Protocol" : "Create Protocol"}
+      <ProtocolFormModal
         open={isModalOpen}
+        protocol={editingProtocol}
+        projects={projects}
+        equipment={equipment}
+        isLoadingProjects={isLoadingProjects}
+        isLoadingEquipment={isLoadingEquipment}
         onCancel={closeModal}
-        footer={null}
-        destroyOnHidden
-        width={800}
-      >
-        <Form layout="vertical" form={form} onFinish={handleSubmit}>
-          <Form.Item
-            label="Protocol Title"
-            name="title"
-            rules={[
-              {
-                required: true,
-                message: "Please enter a protocol title.",
-              },
-              {
-                min: 3,
-                message: "Protocol title must be at least 3 characters.",
-              },
-            ]}
-          >
-            <Input placeholder="HPLC Caffeine Quantification Method" />
-          </Form.Item>
-
-          <Space style={{ display: "flex", gap: 16 }} align="start">
-            <Form.Item
-              label="Version"
-              name="version"
-              rules={[
-                {
-                  required: true,
-                  message: "Please enter a version.",
-                },
-              ]}
-              style={{ flex: 1 }}
-            >
-              <Input placeholder="1.0" />
-            </Form.Item>
-
-            <Form.Item
-              label="Approval Status"
-              name="approvalStatus"
-              rules={[
-                {
-                  required: true,
-                  message: "Please select approval status.",
-                },
-              ]}
-              style={{ flex: 1 }}
-            >
-              <Select options={APPROVAL_STATUS_OPTIONS} />
-            </Form.Item>
-          </Space>
-
-          <Paragraph type="secondary">
-            Protocols can be linked to a project, an instrument, both, or
-            neither. General SOPs can be saved without a project.
-          </Paragraph>
-
-          <Form.Item label="Project" name="projectId">
-            <Select
-              placeholder="Select project"
-              loading={isLoadingProjects}
-              options={projectOptions}
-            />
-          </Form.Item>
-
-          <Form.Item label="Equipment" name="equipmentId">
-            <Select
-              allowClear
-              placeholder="Optionally link this protocol to an instrument"
-              loading={isLoadingEquipment}
-              options={equipmentOptions}
-            />
-          </Form.Item>
-
-          <Form.Item label="Purpose" name="purpose">
-            <TextArea
-              rows={3}
-              placeholder="Explain what this protocol is used for and when researchers should apply it."
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Protocol Content"
-            name="content"
-            rules={[
-              {
-                required: true,
-                message: "Please enter the protocol content.",
-              },
-            ]}
-          >
-            <TextArea
-              rows={10}
-              placeholder={
-                "1. Prepare reagents...\n2. Set instrument parameters...\n3. Run calibration standards...\n4. Analyze samples..."
-              }
-            />
-          </Form.Item>
-
-          <Space style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button onClick={closeModal}>Cancel</Button>
-
-            <Button type="primary" htmlType="submit" loading={isSubmitting}>
-              {editingProtocol ? "Save Changes" : "Create Protocol"}
-            </Button>
-          </Space>
-        </Form>
-      </Modal>
+        onSuccess={handleProtocolSaved}
+      />
     </>
   );
 };

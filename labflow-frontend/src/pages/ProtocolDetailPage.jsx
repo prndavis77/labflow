@@ -20,7 +20,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchProtocolById, updateProtocol } from "../api/protocolApi";
 import { fetchReviewEvents } from "../api/reviewEventApi";
+import { fetchProjects } from "../api/projectApi";
+import { fetchEquipment } from "../api/equipmentApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
+import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
 import { useAuth } from "../context/AuthContext";
 import {
   APPROVAL_STATUS_COLORS,
@@ -33,16 +36,21 @@ const ProtocolDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
 
   const [protocol, setProtocol] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [equipment, setEquipment] = useState([]);
   const [reviewEvents, setReviewEvents] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingReviewEvents, setIsLoadingReviewEvents] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isLoadingEquipment, setIsLoadingEquipment] = useState(false);
 
   const [isUpdatingApprovalStatus, setIsUpdatingApprovalStatus] =
     useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReviewCommentModalOpen, setIsReviewCommentModalOpen] =
     useState(false);
 
@@ -52,8 +60,47 @@ const ProtocolDetailPage = () => {
 
   const [reviewCommentForm] = Form.useForm();
 
+  // Admins and supervisors can create and edit protocols by role
+  // Researchers depend on configurable workflow permissions
+  const canEditProtocol =
+    ["admin", "supervisor"].includes(currentUser?.role) ||
+    Boolean(currentUser?.canEditProtocols);
+
   // Only admins and supervisors can perform protocol approval decisions
-  const canReviewProtocol = ["admin", "supervisor"].includes(user?.role);
+  const canReviewProtocol = ["admin", "supervisor"].includes(currentUser?.role);
+
+  const loadFormOptions = useCallback(async () => {
+    try {
+      setIsLoadingProjects(true);
+      setIsLoadingEquipment(true);
+
+      const [projectResult, equipmentResult] = await Promise.all([
+        fetchProjects(),
+        fetchEquipment(),
+      ]);
+
+      setProjects(projectResult.data.projects);
+      setEquipment(equipmentResult.data.equipment);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load edit form options.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingProjects(false);
+      setIsLoadingEquipment(false);
+    }
+  }, []);
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+  };
+
+  const handleProtocolSaved = async () => {
+    closeEditModal();
+    await loadProtocolDetail();
+    await loadReviewEvents();
+  };
 
   // Approval actions should only appear for protocols in review workflow
   const shouldShowProtocolReviewActions =
@@ -122,8 +169,9 @@ const ProtocolDetailPage = () => {
     queueMicrotask(() => {
       loadProtocolDetail();
       loadReviewEvents();
+      loadFormOptions();
     });
-  }, [loadProtocolDetail, loadReviewEvents]);
+  }, [loadProtocolDetail, loadReviewEvents, loadFormOptions]);
 
   // Updates protocol approval status from the detail page
   // The backend handles approvedById and approvedAt when approvalStatus becomes approved
@@ -238,6 +286,12 @@ const ProtocolDetailPage = () => {
         >
           Refresh
         </Button>
+
+        {canEditProtocol && protocol && (
+          <Button onClick={() => setIsEditModalOpen(true)}>
+            Edit Protocol
+          </Button>
+        )}
       </Space>
 
       {protocol && (
@@ -404,6 +458,17 @@ const ProtocolDetailPage = () => {
               </Space>
             </Form>
           </Modal>
+
+          <ProtocolFormModal
+            open={isEditModalOpen}
+            protocol={protocol}
+            projects={projects}
+            equipment={equipment}
+            isLoadingProjects={isLoadingProjects}
+            isLoadingEquipment={isLoadingEquipment}
+            onCancel={() => closeEditModal}
+            onSuccess={handleProtocolSaved}
+          />
 
           <Card title="Protocol Content" style={{ marginTop: 24 }}>
             <Text>
