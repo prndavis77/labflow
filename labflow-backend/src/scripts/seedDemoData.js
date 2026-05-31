@@ -63,6 +63,10 @@ const createUsers = async () => {
     passwordHash,
     role: "admin",
     department: "Research Administration",
+    canCreateExperiments: true,
+    canEditExperiments: true,
+    canCreateProtocols: true,
+    canEditProtocols: true,
   });
 
   const supervisor = await User.create({
@@ -71,22 +75,34 @@ const createUsers = async () => {
     passwordHash,
     role: "supervisor",
     department: "Analytical Chemistry",
+    canCreateExperiments: true,
+    canEditExperiments: true,
+    canCreateProtocols: true,
+    canEditProtocols: true,
   });
 
   const researcherOne = await User.create({
     name: "Maria Schmidt",
     email: "maria.schmidt@labflow.test",
-    passwordHash,
+    passwordHash: await bcrypt.hash("password123", 10),
     role: "researcher",
     department: "Analytical Chemistry",
+    canCreateExperiments: true,
+    canEditExperiments: true,
+    canCreateProtocols: false,
+    canEditProtocols: false,
   });
 
   const researcherTwo = await User.create({
     name: "Jonas Weber",
     email: "jonas.weber@labflow.test",
-    passwordHash,
+    passwordHash: await bcrypt.hash("password123", 10),
     role: "researcher",
     department: "Environmental Chemistry",
+    canCreateExperiments: true,
+    canEditExperiments: true,
+    canCreateProtocols: true,
+    canEditProtocols: true,
   });
 
   const researcherThree = await User.create({
@@ -95,6 +111,10 @@ const createUsers = async () => {
     passwordHash,
     role: "researcher",
     department: "Analytical Chemistry",
+    canCreateExperiments: false,
+    canEditExperiments: false,
+    canCreateProtocols: true,
+    canEditProtocols: true,
   });
 
   return {

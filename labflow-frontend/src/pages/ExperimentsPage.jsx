@@ -52,8 +52,15 @@ const ExperimentsPage = () => {
   const [selectedStatus, setSelectedStatus] = useState(undefined);
   const [selectedReviewStatus, setSelectedReviewStatus] = useState(undefined);
 
+  const canCreateExperiments =
+    ["admin", "supervisor"].includes(user?.role) ||
+    Boolean(user?.canCreateExperiments);
+
+  const canEditExperiments =
+    ["admin", "supervisor"].includes(user?.role) ||
+    Boolean(user?.canEditExperiments);
+
   // Only admins and supervisors can delete experiment records
-  // Researchers can create and update experiments, but not delete them
   const canDeleteExperiments = ["admin", "supervisor"].includes(user?.role);
 
   // Converts projects into options for Ant Design Select components
@@ -345,9 +352,11 @@ const ExperimentsPage = () => {
               <Button size="small">View</Button>
             </Link>
 
-            <Button size="small" onClick={() => openEditModal(record)}>
-              Edit
-            </Button>
+            {canEditExperiments && (
+              <Button size="small" onClick={() => openEditModal(record)}>
+                Edit
+              </Button>
+            )}
 
             {canDeleteExperiments && (
               <Popconfirm
@@ -369,7 +378,7 @@ const ExperimentsPage = () => {
     ];
 
     return baseColumns;
-  }, [canDeleteExperiments, handleDelete, openEditModal]);
+  }, [canDeleteExperiments, handleDelete, openEditModal, canEditExperiments]);
 
   return (
     <>
@@ -392,13 +401,15 @@ const ExperimentsPage = () => {
             </Paragraph>
           </div>
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={openCreateModal}
-          >
-            New Experiment
-          </Button>
+          {canCreateExperiments && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openCreateModal}
+            >
+              New Experiment
+            </Button>
+          )}
         </div>
 
         <Space style={{ marginBottom: 16 }} wrap>

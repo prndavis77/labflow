@@ -106,8 +106,8 @@ const loginUser = async (req, res) => {
       status: "success",
       message: "Login successful.",
       data: {
-        user: formatUserResponse(user),
         token,
+        user: formatUserResponse(user),
       },
     });
   } catch (error) {
