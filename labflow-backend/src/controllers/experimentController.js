@@ -405,13 +405,6 @@ const updateExperiment = async (req, res) => {
 
     const experiment = await Experiment.findByPk(id);
 
-    if (!canEditExperiment(req.user)) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have permission to edit experiments.",
-      });
-    }
-
     if (!experiment) {
       return res.status(404).json({
         status: "error",
@@ -419,10 +412,24 @@ const updateExperiment = async (req, res) => {
       });
     }
 
-    // Resolve the values that will be saved
-    // This makes validation easier because we can compare linked records against the final project/status values, not only the raw request body
-    const resolvedProjectId =
-      projectId !== undefined ? projectId : experiment.projectId;
+    if (!canEditExperiment(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to edit experiments.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      Number(projectId) !== Number(experiment.projectId)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment project cannot be changed after creation.",
+      });
+    }
+
+    const resolvedProjectId = experiment.projectId;
 
     const resolvedReviewStatus =
       reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus;
@@ -432,7 +439,6 @@ const updateExperiment = async (req, res) => {
     const previousReviewStatus = experiment.reviewStatus;
 
     // Review decisions are restricted to admins and supervisors
-    // This must happen before updating the experiment or creating ReviewEvent records
     const isReviewDecision =
       reviewStatus !== undefined &&
       ["approved", "changes_requested"].includes(reviewStatus);
@@ -445,7 +451,6 @@ const updateExperiment = async (req, res) => {
       });
     }
 
-    // Requesting changes must include a useful review comment
     if (reviewStatus === "changes_requested" && !reviewComment?.trim()) {
       return res.status(400).json({
         status: "error",
@@ -548,7 +553,6 @@ const updateExperiment = async (req, res) => {
         completedAt !== undefined
           ? completedAt || null
           : experiment.completedAt,
-      projectId: resolvedProjectId,
       researcherId:
         researcherId !== undefined ? researcherId : experiment.researcherId,
       taskId: taskId !== undefined ? taskId || null : experiment.taskId,

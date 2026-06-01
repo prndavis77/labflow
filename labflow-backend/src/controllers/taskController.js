@@ -288,30 +288,17 @@ const updateTask = async (req, res) => {
       });
     }
 
-    const resolvedProjectId =
-      projectId !== undefined ? projectId : task.projectId;
-
-    if (projectId) {
-      const project = await Project.findByPk(projectId);
-
-      if (!project) {
-        return res.status(404).json({
-          status: "error",
-          message: "Project not found.",
-        });
-      }
+    if (
+      projectId !== undefined &&
+      Number(projectId) !== Number(task.projectId)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task project cannot be changed after creation.",
+      });
     }
 
-    if (assignedToId) {
-      const assignedUser = await User.findByPk(assignedToId);
-
-      if (!assignedUser) {
-        return res.status(404).json({
-          status: "error",
-          message: "Assigned user not found.",
-        });
-      }
-    }
+    const resolvedProjectId = task.projectId;
 
     const canUseProject = await canUseProjectForResearchWork(
       req.user,
@@ -325,6 +312,17 @@ const updateTask = async (req, res) => {
       });
     }
 
+    if (assignedToId) {
+      const assignedUser = await User.findByPk(assignedToId);
+
+      if (!assignedUser) {
+        return res.status(404).json({
+          status: "error",
+          message: "Assigned user not found.",
+        });
+      }
+    }
+
     await task.update({
       title: title !== undefined ? title.trim() : task.title,
       description:
@@ -334,7 +332,6 @@ const updateTask = async (req, res) => {
       status: status !== undefined ? status : task.status,
       priority: priority !== undefined ? priority : task.priority,
       dueDate: dueDate !== undefined ? dueDate || null : task.dueDate,
-      projectId: resolvedProjectId,
       assignedToId:
         assignedToId !== undefined ? assignedToId || null : task.assignedToId,
     });

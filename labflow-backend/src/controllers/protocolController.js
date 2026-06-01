@@ -123,6 +123,16 @@ const protocolInclude = [
   },
 ];
 
+const normalizeOptionalId = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isNaN(numericValue) ? null : numericValue;
+};
+
 // GET /api/protocols
 // Returns protocols with optional filters for project and approval status
 const getProtocols = async (req, res) => {
@@ -333,6 +343,23 @@ const updateProtocol = async (req, res) => {
 
     const protocol = await Protocol.findByPk(id);
 
+    if (!protocol) {
+      return res.status(404).json({
+        status: "error",
+        message: "Protocol not found.",
+      });
+    }
+
+    const currentProjectId = normalizeOptionalId(protocol.projectId);
+    const requestedProjectId = normalizeOptionalId(projectId);
+
+    if (projectId !== undefined && requestedProjectId !== currentProjectId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol project cannot be changed after creation.",
+      });
+    }
+
     if (!canEditProtocol(req.user)) {
       return res.status(403).json({
         status: "error",
@@ -340,13 +367,10 @@ const updateProtocol = async (req, res) => {
       });
     }
 
-    const resolvedProjectId =
-      projectId !== undefined ? projectId || null : protocol.projectId;
-
-    if (resolvedProjectId) {
+    if (currentProjectId) {
       const canUseProject = await canUseProjectForResearchWork(
         req.user,
-        resolvedProjectId,
+        currentProjectId,
       );
 
       if (!canUseProject) {
@@ -357,20 +381,12 @@ const updateProtocol = async (req, res) => {
       }
     }
 
-    if (!protocol) {
-      return res.status(404).json({
-        status: "error",
-        message: "Protocol not found.",
-      });
-    }
-
     const nextApprovalStatus =
       approvalStatus !== undefined ? approvalStatus : protocol.approvalStatus;
 
     const previousApprovalStatus = protocol.approvalStatus;
 
     // Approval decisions are restricted to admins and supervisors
-    // This must happen before updating the protocol or creating review events
     const isApprovalDecision =
       approvalStatus !== undefined &&
       ["approved", "changes_requested"].includes(approvalStatus);
@@ -392,17 +408,6 @@ const updateProtocol = async (req, res) => {
         status: "error",
         message: "A review comment is required when requesting changes.",
       });
-    }
-
-    if (projectId) {
-      const project = await Project.findByPk(projectId);
-
-      if (!project) {
-        return res.status(404).json({
-          status: "error",
-          message: "Project not found.",
-        });
-      }
     }
 
     if (equipmentId) {
@@ -442,8 +447,6 @@ const updateProtocol = async (req, res) => {
         reviewComment !== undefined
           ? reviewComment?.trim() || null
           : protocol.reviewComment,
-      projectId:
-        projectId !== undefined ? projectId || null : protocol.projectId,
       equipmentId:
         equipmentId !== undefined ? equipmentId || null : protocol.equipmentId,
       approvedById: nextApprovedById,
@@ -451,7 +454,6 @@ const updateProtocol = async (req, res) => {
     });
 
     // Automatically create review history when a protocol review decision is made
-    // Repeated changes_requested actions should create additional review events
     if (
       approvalStatus !== undefined &&
       ["approved", "changes_requested"].includes(nextApprovalStatus)

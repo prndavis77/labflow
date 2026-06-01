@@ -50,6 +50,8 @@ const TasksPage = () => {
 
   const [form] = Form.useForm();
 
+  const isEditingTask = Boolean(editingTask);
+
   // Researchers can create and update tasks.
   // Only admins and supervisors can delete tasks.
   const canDeleteTasks = ["admin", "supervisor"].includes(user?.role);
@@ -174,7 +176,6 @@ const TasksPage = () => {
     form.setFieldsValue({
       status: "todo",
       priority: "medium",
-      projectId: selectedProjectId || undefined,
     });
 
     setIsModalOpen(true);
@@ -217,9 +218,12 @@ const TasksPage = () => {
         status: values.status,
         priority: values.priority,
         dueDate: values.dueDate ? values.dueDate.format("YYYY-MM-DD") : null,
-        projectId: values.projectId,
         assignedToId: values.assignedToId || null,
       };
+
+      if (!isEditingTask) {
+        payload.projectId = values.projectId;
+      }
 
       if (editingTask) {
         await updateTask(editingTask.id, payload);
@@ -473,6 +477,7 @@ const TasksPage = () => {
               placeholder="Select project"
               loading={isLoadingProjects}
               options={projectOptions}
+              disabled={isEditingTask}
             />
           </Form.Item>
 

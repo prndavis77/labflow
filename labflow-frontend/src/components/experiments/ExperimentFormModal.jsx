@@ -140,12 +140,12 @@ const ExperimentFormModal = ({
         completedAt: values.completedAt
           ? values.completedAt.format("YYYY-MM-DD")
           : null,
-        projectId: values.projectId,
         researcherId: values.researcherId,
         taskId: values.taskId || null,
         protocolId: values.protocolId || null,
       };
       if (!isEditing) {
+        payload.projectId = values.projectId;
         payload.reviewStatus = values.reviewStatus || "not_submitted";
       }
 
@@ -219,6 +219,7 @@ const ExperimentFormModal = ({
             placeholder="Select project"
             loading={isLoadingProjects}
             options={projectOptions}
+            disabled={isEditing} // Disable changing project when editing
           />
         </Form.Item>
 

@@ -70,11 +70,11 @@ const ProtocolFormModal = ({
         version: values.version,
         purpose: values.purpose,
         content: values.content,
-        projectId: values.projectId || null,
         equipmentId: values.equipmentId || null,
       };
 
       if (!isEditing) {
+        payload.projectId = values.projectId || null;
         payload.approvalStatus = values.approvalStatus || "draft";
       }
 
@@ -180,6 +180,7 @@ const ProtocolFormModal = ({
             placeholder="Optionally link this protocol to a project"
             loading={isLoadingProjects}
             options={projectOptions}
+            disabled={isEditing}
           />
         </Form.Item>
 
