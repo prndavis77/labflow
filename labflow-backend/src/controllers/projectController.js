@@ -1,4 +1,9 @@
 const { Project, User } = require("../models");
+const { Op } = require("sequelize");
+const {
+  getAccessibleProjectIds,
+  canViewProject,
+} = require("../utils/projectAccess");
 const {
   isValidDateOnly,
   isEndDateAfterStartDate,
@@ -68,8 +73,35 @@ const validateProjectSupervisor = async (supervisorId) => {
 // Later, we will filter by lab membership and project membership
 const getProjects = async (req, res) => {
   try {
+    const { status } = req.query;
+
+    const where = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (req.user.role === "researcher") {
+      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
+
+      if (accessibleProjectIds.length === 0) {
+        return res.json({
+          status: "success",
+          data: {
+            projects: [],
+          },
+        });
+      }
+
+      where.id = {
+        [Op.in]: accessibleProjectIds,
+      };
+    }
+
     const projects = await Project.findAll({
+      where,
       include: projectInclude,
+      order: [["createdAt", "DESC"]],
     });
 
     return res.json({
@@ -105,6 +137,15 @@ const getProjectById = async (req, res) => {
       });
     }
 
+    const hasAccess = await canViewProject(req.user, project.id);
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to this project.",
+      });
+    }
+
     return res.json({
       status: "success",
       data: {
@@ -112,11 +153,11 @@ const getProjectById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching project:", error);
+    console.error("Get project by ID error:", error);
 
     return res.status(500).json({
       status: "error",
-      message: "An error occurred while fetching the project.",
+      message: "Something went wrong while fetching the project.",
     });
   }
 };

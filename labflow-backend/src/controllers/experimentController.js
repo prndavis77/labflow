@@ -7,6 +7,8 @@ const {
   ReviewEvent,
 } = require("../models");
 
+const { canUseProjectForResearchWork } = require("../utils/projectAccess");
+
 const {
   canCreateExperiment,
   canEditExperiment,
@@ -276,7 +278,20 @@ const createExperiment = async (req, res) => {
       });
     }
 
-    // If no researcher is provided, default to the logged-in user.
+    const canUseProject = await canUseProjectForResearchWork(
+      req.user,
+      projectId,
+    );
+
+    if (!canUseProject) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "You do not have access to create experiments for this project.",
+      });
+    }
+
+    // If no researcher is provided, default to the logged-in user
     const resolvedResearcherId = researcherId || req.user.id;
 
     const researcher = await User.findByPk(resolvedResearcherId);
@@ -500,6 +515,18 @@ const updateExperiment = async (req, res) => {
             "Linked protocol must either be general or belong to the selected project.",
         });
       }
+    }
+
+    const canUseProject = await canUseProjectForResearchWork(
+      req.user,
+      resolvedProjectId,
+    );
+
+    if (!canUseProject) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to edit experiments for this project.",
+      });
     }
 
     await experiment.update({

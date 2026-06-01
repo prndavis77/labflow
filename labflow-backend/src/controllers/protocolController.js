@@ -9,6 +9,7 @@ const {
   canCreateProtocol,
   canEditProtocol,
 } = require("../utils/workflowPermissions");
+const { canUseProjectForResearchWork } = require("../utils/projectAccess");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -223,6 +224,21 @@ const createProtocol = async (req, res) => {
       });
     }
 
+    if (projectId) {
+      const canUseProject = await canUseProjectForResearchWork(
+        req.user,
+        projectId,
+      );
+
+      if (!canUseProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You do not have access to create protocols for this project.",
+        });
+      }
+    }
+
     if (!title || !content) {
       return res.status(400).json({
         status: "error",
@@ -322,6 +338,23 @@ const updateProtocol = async (req, res) => {
         status: "error",
         message: "You do not have permission to edit protocols.",
       });
+    }
+
+    const resolvedProjectId =
+      projectId !== undefined ? projectId || null : protocol.projectId;
+
+    if (resolvedProjectId) {
+      const canUseProject = await canUseProjectForResearchWork(
+        req.user,
+        resolvedProjectId,
+      );
+
+      if (!canUseProject) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have access to edit protocols for this project.",
+        });
+      }
     }
 
     if (!protocol) {

@@ -1,4 +1,9 @@
 const { ProjectMember, Project, User } = require("../models");
+const {
+  getAccessibleProjectIds,
+  canViewProject,
+} = require("../utils/projectAccess");
+const { Op } = require("sequelize");
 
 const VALID_PROJECT_ROLES = ["lead", "member", "viewer"];
 
@@ -75,6 +80,34 @@ const getProjectMembers = async (req, res) => {
       where.projectRole = projectRole;
     }
 
+    if (req.user.role === "researcher") {
+      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
+
+      if (accessibleProjectIds.length === 0) {
+        return res.json({
+          status: "success",
+          data: {
+            projectMembers: [],
+          },
+        });
+      }
+
+      if (projectId) {
+        const requestedProjectId = Number(projectId);
+
+        if (!accessibleProjectIds.map(Number).includes(requestedProjectId)) {
+          return res.status(403).json({
+            status: "error",
+            message: "You do not have access to this project's memberships.",
+          });
+        }
+      }
+
+      where.projectId = {
+        [Op.in]: accessibleProjectIds,
+      };
+    }
+
     const projectMembers = await ProjectMember.findAll({
       where,
       include: projectMemberInclude,
@@ -114,6 +147,15 @@ const getProjectMemberById = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Project member not found.",
+      });
+    }
+
+    const hasAccess = await canViewProject(req.user, projectMember.projectId);
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to this project membership.",
       });
     }
 

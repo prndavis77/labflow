@@ -1,4 +1,5 @@
 const { Task, Project, User } = require("../models");
+const { canUseProjectForResearchWork } = require("../utils/projectAccess");
 const {
   isValidDateOnly,
   isEndDateAfterStartDate,
@@ -202,6 +203,18 @@ const createTask = async (req, res) => {
       }
     }
 
+    const canUseProject = await canUseProjectForResearchWork(
+      req.user,
+      projectId,
+    );
+
+    if (!canUseProject) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to create tasks for this project.",
+      });
+    }
+
     const task = await Task.create({
       title: title.trim(),
       description: description?.trim() || null,
@@ -275,6 +288,9 @@ const updateTask = async (req, res) => {
       });
     }
 
+    const resolvedProjectId =
+      projectId !== undefined ? projectId : task.projectId;
+
     if (projectId) {
       const project = await Project.findByPk(projectId);
 
@@ -297,6 +313,18 @@ const updateTask = async (req, res) => {
       }
     }
 
+    const canUseProject = await canUseProjectForResearchWork(
+      req.user,
+      resolvedProjectId,
+    );
+
+    if (!canUseProject) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to update tasks for this project.",
+      });
+    }
+
     await task.update({
       title: title !== undefined ? title.trim() : task.title,
       description:
@@ -306,7 +334,7 @@ const updateTask = async (req, res) => {
       status: status !== undefined ? status : task.status,
       priority: priority !== undefined ? priority : task.priority,
       dueDate: dueDate !== undefined ? dueDate || null : task.dueDate,
-      projectId: projectId !== undefined ? projectId : task.projectId,
+      projectId: resolvedProjectId,
       assignedToId:
         assignedToId !== undefined ? assignedToId || null : task.assignedToId,
     });
@@ -339,7 +367,7 @@ const updateTask = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update task error:", error);
+    console.error("Error updating task:", error);
 
     return res.status(500).json({
       status: "error",
