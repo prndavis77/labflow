@@ -8,7 +8,7 @@ The goal of LabFlow is to solve a common problem in academic labs: research work
 
 LabFlow MVP Version 1.1 is complete.
 
-This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
+This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, project management, task assignment, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
 ---
 
@@ -62,6 +62,7 @@ LabFlow supports three user roles:
 - Can view users
 - Can change user roles
 - Can configure researcher workflow permissions
+- Can view and manage all project memberships
 
 #### Supervisor
 
@@ -70,13 +71,16 @@ LabFlow supports three user roles:
 - Can manage equipment inventory
 - Can manage equipment bookings
 - Can review lab workflows
+- Can manage project memberships in the current MVP
 
 #### Researcher
 
 - Can view projects
-- Can create and update experiments when workflow permissions allow it
-- Can view protocols
-- Can create and update protocols when workflow permissions allow it
+- Can only view projects where they are project members
+- Can create and update tasks for projects where they are members
+- Can create and update experiments when workflow permissions and project membership allow it
+- Can view available protocols
+- Can create and update protocols when workflow permissions and project membership allow it
 - Cannot approve experiments or protocols
 - Cannot request review changes
 - Cannot manage equipment inventory
@@ -107,6 +111,32 @@ Researchers still cannot approve experiments, approve protocols, request review 
 
 ---
 
+## Project Membership and Access Control
+
+LabFlow includes a project membership system that links users to specific projects.
+
+Each project member has a project-specific role:
+
+- Lead
+- Member
+- Viewer
+
+Project membership adds a project-level access layer on top of system roles and researcher workflow permissions.
+
+The current access model is:
+
+- Admins can view and manage all projects.
+- Supervisors can view and manage all projects in the current MVP.
+- Researchers can only view projects where they are listed as project members.
+- Researchers can only create or edit project-linked tasks, experiments, and protocols for projects where they are members.
+- Researcher workflow permissions still control whether a researcher can create or edit experiments and protocols at all.
+
+For example, a researcher may have permission to create protocols, but they can only create project-linked protocols for projects where they are a member.
+
+LabFlow also locks project linkage after record creation for tasks, experiments, and protocols. This prevents users from accidentally moving a record to a project they cannot access and losing the ability to correct it themselves.
+
+---
+
 ## MVP Version 1.1 Features
 
 - Experiment-linked notebook entries
@@ -117,7 +147,12 @@ Researchers still cannot approve experiments, approve protocols, request review 
 - Admin user management
 - Admin-controlled role changes
 - Configurable researcher workflow permissions
+- Project membership model
+- Project members section on project detail pages
+- Membership-aware project access for researchers
 - Permission-aware create/edit actions for experiments and protocols
+- Project-linked task, experiment, and protocol access rules
+- Locked project linkage after record creation
 - Reusable experiment and protocol form modals
 - Equipment-specific SOP support
 - General lab SOP support without project linkage
@@ -171,9 +206,29 @@ Project statuses include:
 - Completed
 - Archived
 
+Projects can have members. Project members connect users to specific research projects and prepare LabFlow for project-specific access control.
+
+Project membership roles include:
+
+- Lead
+- Member
+- Viewer
+
+Project-related membership records include:
+
+- Project
+- User
+- Project role
+- Created date
+- Updated date
+
+Researchers can only see projects where they are members. Admins and supervisors can view all projects in the current MVP.
+
 ### Tasks
 
 Tasks are linked to projects and represent actionable research work.
+
+Task project linkage is selected during task creation and locked afterward. This prevents accidental movement of a task to a project the user cannot access.
 
 Task records include:
 
@@ -208,6 +263,8 @@ Experiments represent lab activities connected to research projects.
 Experiments include review status and optional supervisor review comments. Supervisors and admins can approve experiments or request changes from the experiment detail page.
 
 Experiment create and edit actions are permission-aware. Admins and supervisors can create and edit experiments by role. Researcher access depends on configurable workflow permissions managed from the admin user management page.
+
+Experiment project linkage is selected during experiment creation and locked afterward. Researchers must have both experiment workflow permission and project membership to create or edit project-linked experiments.
 
 Experiment records include:
 
@@ -275,6 +332,8 @@ Notebook entries appear on experiment detail pages, project detail pages, and th
 Protocols represent reusable lab methods, SOPs, or experimental procedures.
 
 Protocols can be linked to a project, linked to equipment, linked to both, or saved as general lab SOPs without a project. This allows LabFlow to support project-specific methods, instrument SOPs, and general lab procedures.
+
+Project-linked protocols require project membership for researcher create/edit access. General SOPs without a project remain possible when protocol workflow permissions allow it. Protocol project linkage is locked after creation to avoid accidental access loss.
 
 Protocol create and edit actions are permission-aware. Admins and supervisors can manage protocols by role. Researcher access depends on configurable workflow permissions, which allows labs to decide whether researchers may independently create or edit reusable methods and SOPs.
 
@@ -419,6 +478,10 @@ Workflow permission controls are shown for researcher accounts. Admin and superv
 
 ![LabFlow admin user management page showing researcher workflow permission controls](docs/screenshots/admin-user-management.png)
 
+### Project Members
+
+![LabFlow project detail page showing project members and project-specific roles](docs/screenshots/project-members.png)
+
 Additional screenshots for CRUD list pages are available in `docs/screenshots/`.
 
 ---
@@ -453,6 +516,10 @@ LabFlow demonstrates several full-stack development concepts:
 - Permission-aware frontend actions backed by backend authorization
 - Reusable experiment and protocol form modals
 - Detail-page editing through shared modal components
+- Project membership model with unique project/user membership enforcement
+- Membership-aware project visibility for researchers
+- Membership-aware project-linked task, experiment, and protocol access rules
+- Locked project linkage on existing records to prevent accidental access loss
 
 ---
 
@@ -506,6 +573,7 @@ labflow/
         experimentController.js
         notebookEntryController.js
         projectController.js
+        projectMemberController.js
         protocolController.js
         taskController.js
         userController.js
@@ -517,6 +585,7 @@ labflow/
         Experiment.js
         NotebookEntry.js
         Project.js
+        ProjectMember.js
         Protocol.js
         Task.js
         User.js
@@ -529,6 +598,7 @@ labflow/
         experimentRoutes.js
         notebookEntryRoutes.js
         projectRoutes.js
+        projectMemberRoutes.js
         protocolRoutes.js
         taskRoutes.js
         userRoutes.js
@@ -538,6 +608,7 @@ labflow/
         dateUtils.js
         formatUserResponse.js
         generateToken.js
+        projectAccess.js
       server.js
 
   labflow-frontend/
@@ -550,11 +621,16 @@ labflow/
         experimentApi.js
         notebookEntryApi.js
         projectApi.js
+        projectMemberApi.js
         protocolApi.js
         taskApi.js
         userApi.js
         axiosClient.js
       components/
+        experiments/
+            ExperimentFormModal.jsx
+        protocols/
+            ProtocolFormModal.jsx
         ScrollToTop.jsx
       constants/
         statusColors.js
@@ -607,6 +683,7 @@ Relationships:
 - User can create and approve protocols
 - User can create equipment bookings
 - User can author notebook entries
+- User can have many project memberships
 
 ### Project
 
@@ -620,6 +697,26 @@ Relationships:
 - Project has many protocols
 - Project has many equipment bookings
 - Project has many notebook entries
+- Project has many project members
+
+### ProjectMember
+
+Represents a user's membership in a project.
+
+Relationships:
+
+- Project member belongs to one project
+- Project member belongs to one user
+- Project has many project members
+- User has many project memberships
+
+Project member roles include:
+
+- Lead
+- Member
+- Viewer
+
+A user can only be added once to the same project.
 
 ### Task
 
@@ -722,6 +819,16 @@ GET /api/projects/:id
 POST /api/projects
 PATCH /api/projects/:id
 DELETE /api/projects/:id
+```
+
+### Project Members
+
+```txt
+GET    /api/project-members
+GET    /api/project-members/:id
+POST   /api/project-members
+PATCH  /api/project-members/:id
+DELETE /api/project-members/:id
 ```
 
 ### Tasks
@@ -893,6 +1000,8 @@ The seed script creates:
 - Review comments
 - Demo review history events
 - Researcher workflow permission examples
+- Demo project memberships
+- Project-specific researcher access examples
 
 Run the seed script from the backend folder:
 
@@ -921,17 +1030,27 @@ password123
 Researcher 2:
 jonas.weber@labflow.test
 password123
+
+Researcher 3:
+sam.dean@labflow.test
+password123
 ```
 
 These credentials are for local development and demo use only.
 
-The demo researcher accounts intentionally use different workflow permission profiles:
+The demo seed data includes project memberships to demonstrate project-specific access.
 
-- Maria Schmidt can create and edit experiments, but cannot create or edit protocols.
-- Jonas Weber can create and edit experiments and protocols.
-- Sam Dean demonstrates an alternate permission profile, with protocol permissions enabled but experiment permissions disabled.
+Researchers intentionally have different project memberships and workflow permissions. This allows the demo to show that a researcher may have permission to create a type of record, such as protocols, while still being limited to projects where they are a member.
 
-This demonstrates how LabFlow can support different lab supervision styles.
+The seed data also demonstrates that project links for tasks, experiments, and protocols are selected during creation and locked afterward.
+
+The demo researcher accounts intentionally use different project memberships and workflow permission profiles:
+
+- Maria Schmidt can access only her assigned project memberships. She can create and edit experiments, but cannot create or edit protocols.
+- Jonas Weber can access his assigned project memberships and can create and edit both experiments and protocols.
+- Sam Dean demonstrates protocol permissions without experiment permissions.
+
+This demonstrates how LabFlow can support different lab supervision styles while still limiting researchers to the projects where they are members.
 
 ## Manual Regression Test Coverage
 
@@ -952,6 +1071,29 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Delete project
 - View projects as researcher
 - Restrict project management actions by role
+
+### Project Membership
+
+- Add a user to a project as admin/supervisor
+- Prevent duplicate project membership
+- Change a project member role
+- Remove a project member
+- Show project members on project detail pages
+- Hide membership management actions from researchers
+- Restrict project membership create/update/delete to admin and supervisor users
+
+### Membership-Aware Access
+
+- Researcher can view only projects where they are a member
+- Researcher cannot open a non-member project detail page by direct URL
+- Researcher can create project-linked tasks only for member projects
+- Researcher can create project-linked experiments only when workflow permissions and project membership allow it
+- Researcher can create project-linked protocols only when workflow permissions and project membership allow it
+- Researcher cannot change the project link on an existing task
+- Researcher cannot change the project link on an existing experiment
+- Researcher cannot change the project link on an existing protocol
+- Admin can still view all projects
+- Supervisor can still view all projects in the current MVP
 
 ### Tasks
 
@@ -1089,7 +1231,6 @@ LabFlow MVP Version 1.1 is intentionally focused on core workflows.
 
 Current limitations include:
 
-- No project membership table yet
 - No lab or organization model yet
 - Dashboard is not fully role-specific yet
 - No file uploads
@@ -1103,17 +1244,19 @@ Current limitations include:
 - No file attachments or image uploads for notebook entries
 - No PDF export for experiment notebooks
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
-- Researcher workflow permissions are global per user, not project-specific yet
+- Researcher workflow permissions are still global per user, while project membership controls project access separately
 - User management does not yet support account deactivation or password reset
+- Project membership exists, but supervisor access is still broad in the current MVP
+- Project member roles exist, but lead/member/viewer permissions are not fully differentiated yet
+- Project membership is not yet connected to notifications or invitations
 
 ## Future Improvements
 
 Recommended Version 2 improvements:
 
-- Project membership system
 - Lab organization model
 - Role-specific dashboards
-- Admin user management page
+- More granular project membership permissions with project-specific workflow controls
 - Soft delete and archive workflows
 - Audit log for research history
 - Stronger review/audit controls for signed or locked review history
@@ -1127,9 +1270,13 @@ Recommended Version 2 improvements:
 - PDF or CSV export
 - Automated backend tests
 - Deployment with hosted PostgreSQL database
-- Project membership system with project-specific permissions
+- More granular project membership permissions with project-specific workflow controls
 - Account deactivation workflow
 - Admin password reset or invitation workflow
+- More granular project member role permissions
+- Restrict supervisors to supervised projects or project memberships
+- Project invitations and membership approval workflow
+- Project-specific workflow permissions
 
 ---
 
@@ -1153,6 +1300,10 @@ Key portfolio talking points:
 - Supported project protocols, equipment SOPs, and general SOPs
 - Created seed data for realistic demo workflows
 - Manually regression-tested the MVP
+- Added project membership modeling for project-specific access control
+- Implemented membership-aware project visibility for researcher users
+- Combined role-based access, workflow permissions, and project membership checks
+- Locked project linkage after record creation to prevent accidental access loss
 
 ## License
 

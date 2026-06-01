@@ -191,6 +191,11 @@ async function createProjectMembers(users, projects) {
     },
     {
       projectId: projects.microplasticProject.id,
+      userId: users.supervisor.id,
+      projectRole: "lead",
+    },
+    {
+      projectId: projects.microplasticProject.id,
       userId: users.researcherThree.id,
       projectRole: "member",
     },

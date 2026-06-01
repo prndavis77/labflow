@@ -34,6 +34,9 @@ LabFlow centralizes key lab workflows into one application:
 - Admin user management
 - Configurable researcher workflow permissions
 - Permission-aware experiment and protocol workflows
+- Project membership
+- Membership-aware project access
+- Project-specific member roles
 
 ## My Role
 
@@ -52,6 +55,9 @@ I designed and built the full-stack MVP, including:
 - Admin user management workflow
 - Researcher permission controls
 - Reusable form modal refactor
+- Project membership model
+- Membership-aware backend access rules
+- Project members UI on project detail pages
 
 ## Tech Stack
 
@@ -82,6 +88,20 @@ LabFlow includes an admin-only user management page where admins can view users,
 Researcher permissions allow admins to decide whether individual researchers can independently create or edit experiments and protocols. This supports different lab supervision styles, from tightly controlled labs to more independent research environments.
 
 The frontend uses these permission flags to hide create and edit actions when a researcher does not have access. Backend authorization still enforces the same rules, so the permission system does not rely only on hidden buttons.
+
+### Project Membership and Membership-Aware Access
+
+LabFlow includes a project membership system that links users to specific projects with project-level roles such as lead, member, and viewer.
+
+This adds a project-level access layer on top of system roles and researcher workflow permissions. Researchers can only view projects where they are members and can only create or edit project-linked records for projects they can access.
+
+The backend enforces membership-aware access for project detail views and project-linked task, experiment, and protocol workflows. This prevents users from bypassing the UI by directly calling protected API routes.
+
+### Locked Project Linkage
+
+Tasks, experiments, and protocols are linked to a project during creation. After creation, the project link is locked in normal edit workflows.
+
+This prevents users from accidentally moving a record to a project they cannot access, which could cause them to lose the ability to correct the mistake.
 
 ### Reusable Experiment and Protocol Modals
 
@@ -149,9 +169,13 @@ Another challenge was balancing simple role-based access control with real lab s
 
 A frontend architecture challenge appeared when experiment and protocol editing needed to work from both list pages and detail pages. I refactored the forms into reusable modal components so both page types could share the same create/edit logic.
 
+Another challenge was introducing project membership without breaking existing workflows. I first added the membership model and UI, then added membership-aware access rules in a separate phase. This made it easier to test project visibility and project-linked record permissions step by step.
+
+A later access-control issue appeared when existing tasks, experiments, and protocols could be moved to another project. This could cause a researcher to lose access to a record after accidentally changing its project. I solved this by locking project linkage after creation and treating project reassignment as a future admin-level workflow.
+
 ## Result
 
-LabFlow MVP Version 1.1 includes a working full-stack workflow from authentication to dashboard reporting, project tracking, task assignment, experiment documentation, protocol review, equipment booking, and experiment-linked notebook entries.
+LabFlow MVP Version 1.1 includes a working full-stack workflow from authentication to dashboard reporting, project tracking, project membership, task assignment, experiment documentation, protocol review, equipment booking, review history, and experiment-linked notebook entries.
 
 The app includes seeded demo data, screenshots, a detailed README, and a case study for portfolio presentation.
 
@@ -162,17 +186,18 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - No PDF export for experiment notebooks yet
 - No production deployment setup yet
 - No automated test suite yet
-- No lab organization or project membership system yet
+- No lab or organization model yet
 - Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
 - Researcher workflow permissions are global per user, not project-specific yet
 - User management does not yet include account deactivation or password reset
+- Project member roles exist, but lead/member/viewer behavior is not fully differentiated yet
+- Supervisor access is still broad in the current MVP
+- Project invitations and membership approval workflows are not implemented yet
 
 ## Future Improvements
 
-- Project membership system
 - Lab organization model
 - Role-specific dashboards
-- Admin user management
 - Stronger signed review/audit trail controls
 - Rich text editor for notebook entries
 - File attachments and image uploads
@@ -181,7 +206,10 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Calendar view for equipment bookings
 - Email notifications
 - Automated tests
-- Project membership system with project-specific permissions
 - Account deactivation workflow
 - Admin invitation or password reset workflow
+- More granular project member role permissions
+- Supervisor access scoped to supervised or assigned projects
+- Project invitation workflow
+- Project-specific workflow permissions
 - Deployment
