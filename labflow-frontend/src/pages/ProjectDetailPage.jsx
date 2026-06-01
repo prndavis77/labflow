@@ -5,24 +5,42 @@ import {
   Col,
   Descriptions,
   Empty,
+  Form,
+  Modal,
+  Popconfirm,
   Row,
+  Select,
   Space,
   Table,
   Tag,
   Typography,
+  message,
 } from "antd";
-import { ArrowLeftOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  ArrowLeftOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 import { Link, useNavigate, useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useAuth } from "../context/AuthContext";
 import { fetchProjectById } from "../api/projectApi";
 import { fetchTasks } from "../api/taskApi";
 import { fetchExperiments } from "../api/experimentApi";
 import { fetchProtocols } from "../api/protocolApi";
 import { fetchEquipmentBookings } from "../api/equipmentBookingApi";
 import { fetchNotebookEntries } from "../api/notebookEntryApi";
+import { fetchUsers } from "../api/userApi";
+import {
+  createProjectMember,
+  deleteProjectMember,
+  fetchProjectMembers,
+  updateProjectMember,
+} from "../api/projectMemberApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 
+import { PROJECT_MEMBER_ROLE_OPTIONS } from "../constants/statusOptions";
 import {
   APPROVAL_STATUS_COLORS,
   BOOKING_STATUS_COLORS,
@@ -31,6 +49,7 @@ import {
   PROJECT_STATUS_COLORS,
   TASK_PRIORITY_COLORS,
   TASK_STATUS_COLORS,
+  PROJECT_MEMBER_ROLE_COLORS,
 } from "../constants/statusColors";
 
 const { Title, Paragraph } = Typography;
@@ -38,8 +57,11 @@ const { Title, Paragraph } = Typography;
 const ProjectDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   const [project, setProject] = useState(null);
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [experiments, setExperiments] = useState([]);
   const [protocols, setProtocols] = useState([]);
@@ -47,7 +69,60 @@ const ProjectDetailPage = () => {
   const [notebookEntries, setNotebookEntries] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProjectMembers, setIsLoadingProjectMembers] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isSubmittingProjectMember, setIsSubmittingProjectMember] =
+    useState(false);
+  const [isProjectMemberModalOpen, setIsProjectMemberModalOpen] =
+    useState(false);
+
+  const [projectMemberErrorMessage, setProjectMemberErrorMessage] =
+    useState("");
+
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [projectMemberForm] = Form.useForm();
+
+  const canManageProjectMembers = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
+
+  const loadProjectMembers = useCallback(async () => {
+    try {
+      setIsLoadingProjectMembers(true);
+      setProjectMemberErrorMessage("");
+
+      const result = await fetchProjectMembers({
+        projectId: id,
+      });
+
+      setProjectMembers(result.data.projectMembers);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load project members.";
+
+      setProjectMemberErrorMessage(messageText);
+    } finally {
+      setIsLoadingProjectMembers(false);
+    }
+  }, [id]);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setIsLoadingUsers(true);
+
+      const result = await fetchUsers();
+
+      setUsers(result.data.users);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load users.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, []);
 
   // Loads the selected project and all related project records.
   const loadProjectDetail = useCallback(async () => {
@@ -92,8 +167,189 @@ const ProjectDetailPage = () => {
   useEffect(() => {
     queueMicrotask(() => {
       loadProjectDetail();
+      loadProjectMembers();
+      loadUsers();
     });
-  }, [loadProjectDetail]);
+  }, [loadProjectDetail, loadProjectMembers, loadUsers]);
+
+  const existingProjectMemberUserIds = useMemo(() => {
+    return new Set(projectMembers.map((member) => Number(member.userId)));
+  }, [projectMembers]);
+
+  const availableUserOptions = useMemo(() => {
+    return users
+      .filter((user) => !existingProjectMemberUserIds.has(Number(user.id)))
+      .map((user) => ({
+        label: `${user.name} (${formatLabel(user.role)})`,
+        value: Number(user.id),
+      }));
+  }, [users, existingProjectMemberUserIds]);
+
+  const openProjectMemberModal = () => {
+    projectMemberForm.resetFields();
+
+    projectMemberForm.setFieldsValue({
+      projectRole: "member",
+    });
+
+    setIsProjectMemberModalOpen(true);
+  };
+
+  const closeProjectMemberModal = () => {
+    setIsProjectMemberModalOpen(false);
+    projectMemberForm.resetFields();
+  };
+
+  const handleAddProjectMember = async (values) => {
+    try {
+      setIsSubmittingProjectMember(true);
+
+      await createProjectMember({
+        projectId: Number(id),
+        userId: values.userId,
+        projectRole: values.projectRole,
+      });
+
+      message.success("Project member added successfully.");
+
+      closeProjectMemberModal();
+      await loadProjectMembers();
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to add project member.";
+
+      message.error(messageText);
+    } finally {
+      setIsSubmittingProjectMember(false);
+    }
+  };
+
+  const handleUpdateProjectMemberRole = useCallback(
+    async (projectMemberId, projectRole) => {
+      try {
+        await updateProjectMember(projectMemberId, {
+          projectRole,
+        });
+
+        message.success("Project member role updated successfully.");
+
+        await loadProjectMembers();
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message ||
+          "Failed to update project member role.";
+
+        message.error(messageText);
+      }
+    },
+    [loadProjectMembers],
+  );
+
+  const handleRemoveProjectMember = useCallback(
+    async (projectMemberId) => {
+      try {
+        await deleteProjectMember(projectMemberId);
+
+        message.success("Project member removed successfully.");
+
+        await loadProjectMembers();
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message || "Failed to remove project member.";
+
+        message.error(messageText);
+      }
+    },
+    [loadProjectMembers],
+  );
+
+  const projectMemberColumns = useMemo(
+    () => [
+      {
+        title: "User",
+        key: "user",
+        render: (_, record) => (
+          <div>
+            <strong>{record.user?.name || "Unknown user"}</strong>
+            <div style={{ color: "#666" }}>{record.user?.email}</div>
+          </div>
+        ),
+      },
+      {
+        title: "System Role",
+        key: "systemRole",
+        width: 150,
+        render: (_, record) => (
+          <Tag>{formatLabel(record.user?.role || "unknown")}</Tag>
+        ),
+      },
+      {
+        title: "Project Role",
+        dataIndex: "projectRole",
+        key: "projectRole",
+        width: 220,
+        render: (projectRole, record) => {
+          if (!canManageProjectMembers) {
+            return (
+              <Tag color={PROJECT_MEMBER_ROLE_COLORS[projectRole]}>
+                {formatLabel(projectRole)}
+              </Tag>
+            );
+          }
+
+          return (
+            <Select
+              value={projectRole}
+              options={PROJECT_MEMBER_ROLE_OPTIONS}
+              style={{ width: 150 }}
+              onChange={(nextProjectRole) =>
+                handleUpdateProjectMemberRole(record.id, nextProjectRole)
+              }
+            />
+          );
+        },
+      },
+      {
+        title: "Added",
+        dataIndex: "createdAt",
+        key: "createdAt",
+        width: 180,
+        render: formatDateTime,
+      },
+      {
+        title: "Actions",
+        key: "actions",
+        width: 140,
+        render: (_, record) => {
+          if (!canManageProjectMembers) {
+            return null;
+          }
+
+          return (
+            <Popconfirm
+              title="Remove project member?"
+              description={`Remove ${
+                record.user?.name || "this user"
+              } from this project?`}
+              okText="Remove"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => handleRemoveProjectMember(record.id)}
+            >
+              <Button size="small" danger>
+                Remove
+              </Button>
+            </Popconfirm>
+          );
+        },
+      },
+    ],
+    [
+      canManageProjectMembers,
+      handleRemoveProjectMember,
+      handleUpdateProjectMemberRole,
+    ],
+  );
 
   // Columns for project-linked tasks
   const taskColumns = useMemo(
@@ -391,8 +647,11 @@ const ProjectDetailPage = () => {
 
           <Button
             icon={<ReloadOutlined />}
-            onClick={loadProjectDetail}
-            loading={isLoading}
+            onClick={() => {
+              loadProjectDetail();
+              loadProjectMembers;
+            }}
+            loading={isLoading || isLoadingProjectMembers}
           >
             Refresh
           </Button>
@@ -444,6 +703,43 @@ const ProjectDetailPage = () => {
           </>
         ) : (
           <Empty description="Project not found" />
+        )}
+      </Card>
+
+      <Card
+        title={`Project Members (${projectMembers.length})`}
+        extra={
+          canManageProjectMembers ? (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openProjectMemberModal}
+            >
+              Add Member
+            </Button>
+          ) : null
+        }
+      >
+        {projectMemberErrorMessage && (
+          <Alert
+            type="error"
+            message={projectMemberErrorMessage}
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {projectMembers.length === 0 && !isLoadingProjectMembers ? (
+          <Empty description="No project members added yet." />
+        ) : (
+          <Table
+            rowKey="id"
+            columns={projectMemberColumns}
+            dataSource={projectMembers}
+            loading={isLoadingProjectMembers}
+            pagination={false}
+            scroll={{ x: 800 }}
+          />
         )}
       </Card>
 
@@ -516,6 +812,53 @@ const ProjectDetailPage = () => {
               scroll={{ x: 1000 }}
             />
           </Card>
+          <Modal
+            title="Add Project Member"
+            open={isProjectMemberModalOpen}
+            onCancel={closeProjectMemberModal}
+            onOk={() => projectMemberForm.submit()}
+            confirmLoading={isSubmittingProjectMember}
+            okText="Add Member"
+            destroyOnHidden
+          >
+            <Form
+              layout="vertical"
+              form={projectMemberForm}
+              onFinish={handleAddProjectMember}
+            >
+              <Form.Item
+                label="User"
+                name="userId"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a user.",
+                  },
+                ]}
+              >
+                <Select
+                  showSearch
+                  placeholder="Select user"
+                  loading={isLoadingUsers}
+                  options={availableUserOptions}
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Project Role"
+                name="projectRole"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a project role.",
+                  },
+                ]}
+              >
+                <Select options={PROJECT_MEMBER_ROLE_OPTIONS} />
+              </Form.Item>
+            </Form>
+          </Modal>
         </Col>
       </Row>
     </Space>

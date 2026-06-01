@@ -84,3 +84,10 @@ export const USER_ROLE_COLORS = {
   supervisor: "blue",
   researcher: "green",
 };
+
+// Centralized tag colors for project membership roles.
+export const PROJECT_MEMBER_ROLE_COLORS = {
+  lead: "purple",
+  member: "blue",
+  viewer: "default",
+};

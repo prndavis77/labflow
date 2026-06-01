@@ -37,6 +37,10 @@ router.patch(
 );
 
 // Only admins can delete project membership
-router.delete("/:id", authorizeRoles(ROLES.ADMIN), deleteProjectMember);
+router.delete(
+  "/:id",
+  authorizeRoles(...ROLE_GROUPS.MANAGERS),
+  deleteProjectMember,
+);
 
 module.exports = router;

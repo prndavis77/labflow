@@ -96,3 +96,10 @@ export const USER_ROLE_OPTIONS = [
   { label: "Supervisor", value: "supervisor" },
   { label: "Researcher", value: "researcher" },
 ];
+
+// Project-specific membership roles.
+export const PROJECT_MEMBER_ROLE_OPTIONS = [
+  { label: "Lead", value: "lead" },
+  { label: "Member", value: "member" },
+  { label: "Viewer", value: "viewer" },
+];
