@@ -7,12 +7,35 @@ const {
   ReviewEvent,
 } = require("../models");
 
-const { canUseProjectForResearchWork } = require("../utils/projectAccess");
+const { Op } = require("sequelize");
+
+const {
+  getAccessibleProjectIds,
+  canUseProjectForResearchWork,
+} = require("../utils/projectAccess");
 
 const {
   canCreateExperiment,
   canEditExperiment,
 } = require("../utils/workflowPermissions");
+
+const VALID_REVIEW_STATUSES = [
+  "not_submitted",
+  "pending",
+  "approved",
+  "changes_requested",
+];
+
+const VALID_EXPERIMENT_STATUSES = [
+  "planned",
+  "in_progress",
+  "waiting_for_data",
+  "needs_review",
+  "completed",
+  "failed",
+  "repeated",
+  "archived",
+];
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -179,6 +202,33 @@ const getExperiments = async (req, res) => {
       where.researcherId = researcherId;
     }
 
+    if (req.user.role === "researcher") {
+      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
+
+      if (accessibleProjectIds.length === 0) {
+        return res.json({
+          status: "success",
+          data: {
+            experiments: [],
+          },
+        });
+      }
+
+      if (
+        projectId &&
+        !accessibleProjectIds.map(Number).includes(Number(projectId))
+      ) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have access to this project's experiments.",
+        });
+      }
+
+      where.projectId = {
+        [Op.in]: accessibleProjectIds,
+      };
+    }
+
     const experiments = await Experiment.findAll({
       where,
       include: experimentInclude,
@@ -220,6 +270,19 @@ const getExperimentById = async (req, res) => {
         message: "Experiment not found.",
       });
     }
+
+    const canUseProject = await canUseProjectForResearchWork(
+      req.user,
+      experiment.projectId,
+    );
+
+    if (!canUseProject) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to this experiment.",
+      });
+    }
+
     return res.json({
       status: "success",
       data: {
@@ -266,6 +329,42 @@ const createExperiment = async (req, res) => {
       return res.status(400).json({
         status: "error",
         message: "Experiment title and project are required.",
+      });
+    }
+
+    if (status !== undefined && !VALID_EXPERIMENT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid experiment status.",
+      });
+    }
+
+    if (
+      reviewStatus !== undefined &&
+      !VALID_REVIEW_STATUSES.includes(reviewStatus)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid review status.",
+      });
+    }
+
+    if (
+      reviewStatus !== undefined &&
+      ["approved", "changes_requested"].includes(reviewStatus) &&
+      !["admin", "supervisor"].includes(req.user.role)
+    ) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Only admins and supervisors can create experiments with review decisions.",
+      });
+    }
+
+    if (reviewStatus === "changes_requested" && !reviewComment?.trim()) {
+      return res.status(400).json({
+        status: "error",
+        message: "A review comment is required when requesting changes.",
       });
     }
 
@@ -412,13 +511,6 @@ const updateExperiment = async (req, res) => {
       });
     }
 
-    if (!canEditExperiment(req.user)) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have permission to edit experiments.",
-      });
-    }
-
     if (
       projectId !== undefined &&
       Number(projectId) !== Number(experiment.projectId)
@@ -429,16 +521,46 @@ const updateExperiment = async (req, res) => {
       });
     }
 
+    if (status !== undefined && !VALID_EXPERIMENT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid experiment status.",
+      });
+    }
+
+    if (
+      reviewStatus !== undefined &&
+      !VALID_REVIEW_STATUSES.includes(reviewStatus)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid review status.",
+      });
+    }
+
+    if (!canEditExperiment(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to edit experiments.",
+      });
+    }
+
     const resolvedProjectId = experiment.projectId;
 
-    const resolvedReviewStatus =
-      reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus;
+    const canUseProject = await canUseProjectForResearchWork(
+      req.user,
+      resolvedProjectId,
+    );
 
-    const resolvedStatus = status !== undefined ? status : experiment.status;
+    if (!canUseProject) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to edit experiments for this project.",
+      });
+    }
 
     const previousReviewStatus = experiment.reviewStatus;
 
-    // Review decisions are restricted to admins and supervisors
     const isReviewDecision =
       reviewStatus !== undefined &&
       ["approved", "changes_requested"].includes(reviewStatus);
@@ -451,22 +573,23 @@ const updateExperiment = async (req, res) => {
       });
     }
 
+    const isSubmitForReview =
+      reviewStatus === "pending" &&
+      ["not_submitted", "changes_requested"].includes(previousReviewStatus);
+
+    if (reviewStatus === "pending" && !isSubmitForReview) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Only not submitted or changes requested experiments can be submitted for review.",
+      });
+    }
+
     if (reviewStatus === "changes_requested" && !reviewComment?.trim()) {
       return res.status(400).json({
         status: "error",
         message: "A review comment is required when requesting changes.",
       });
-    }
-
-    if (projectId) {
-      const project = await Project.findByPk(projectId);
-
-      if (!project) {
-        return res.status(404).json({
-          status: "error",
-          message: "Project not found.",
-        });
-      }
     }
 
     if (researcherId) {
@@ -498,6 +621,19 @@ const updateExperiment = async (req, res) => {
       }
     }
 
+    const resolvedReviewStatus =
+      reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus;
+
+    const resolvedStatus = status !== undefined ? status : experiment.status;
+
+    if (isReviewDecision && !["admin", "supervisor"].includes(req.user.role)) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Only admins and supervisors can make experiment review decisions.",
+      });
+    }
+
     if (protocolId) {
       const protocol = await Protocol.findByPk(protocolId);
 
@@ -508,11 +644,9 @@ const updateExperiment = async (req, res) => {
         });
       }
 
-      // Project-specific protocols must belong to the selected project
-      // General or equipment-specific SOPs with no project are allowed
       if (
         protocol.projectId &&
-        Number(protocol.projectId) !== Number(projectId)
+        Number(protocol.projectId) !== Number(resolvedProjectId)
       ) {
         return res.status(400).json({
           status: "error",
@@ -522,17 +656,10 @@ const updateExperiment = async (req, res) => {
       }
     }
 
-    const canUseProject = await canUseProjectForResearchWork(
-      req.user,
-      resolvedProjectId,
-    );
+    const nextReviewStatus =
+      reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus;
 
-    if (!canUseProject) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have access to edit experiments for this project.",
-      });
-    }
+    const nextStatus = status !== undefined ? status : experiment.status;
 
     await experiment.update({
       title: title !== undefined ? title.trim() : experiment.title,
@@ -541,8 +668,8 @@ const updateExperiment = async (req, res) => {
           ? objective?.trim() || null
           : experiment.objective,
       notes: notes !== undefined ? notes?.trim() || null : experiment.notes,
-      status: resolvedStatus,
-      reviewStatus: resolvedReviewStatus,
+      status: nextStatus,
+      reviewStatus: nextReviewStatus,
       reviewComment:
         reviewComment !== undefined
           ? reviewComment?.trim() || null
@@ -560,22 +687,20 @@ const updateExperiment = async (req, res) => {
         protocolId !== undefined ? protocolId || null : experiment.protocolId,
     });
 
-    // Automatically create review history when a review decision is made
-    // This records repeated review cycles instead of only storing the latest comment
     if (
       reviewStatus !== undefined &&
-      ["approved", "changes_requested"].includes(resolvedReviewStatus)
+      ["approved", "changes_requested"].includes(nextReviewStatus)
     ) {
       const shouldCreateReviewEvent =
-        resolvedReviewStatus !== previousReviewStatus ||
-        resolvedReviewStatus === "changes_requested";
+        nextReviewStatus !== previousReviewStatus ||
+        nextReviewStatus === "changes_requested";
 
       if (shouldCreateReviewEvent) {
         await createExperimentReviewEvent({
           experimentId: experiment.id,
-          action: resolvedReviewStatus,
+          action: nextReviewStatus,
           comment:
-            resolvedReviewStatus === "changes_requested"
+            nextReviewStatus === "changes_requested"
               ? reviewComment
               : reviewComment || "Experiment approved.",
           reviewerId: req.user.id,

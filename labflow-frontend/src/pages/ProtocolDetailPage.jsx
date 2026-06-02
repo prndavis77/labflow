@@ -69,6 +69,11 @@ const ProtocolDetailPage = () => {
   // Only admins and supervisors can perform protocol approval decisions
   const canReviewProtocol = ["admin", "supervisor"].includes(currentUser?.role);
 
+  const canSubmitProtocolForReview =
+    !canReviewProtocol &&
+    canEditProtocol &&
+    ["draft", "changes_requested"].includes(protocol?.approvalStatus);
+
   const loadFormOptions = useCallback(async () => {
     try {
       setIsLoadingProjects(true);
@@ -133,10 +138,10 @@ const ProtocolDetailPage = () => {
 
       setProtocol(result.data.protocol);
     } catch (error) {
-      const message =
+      const messageText =
         error.response?.data?.message || "Failed to load protocol details.";
 
-      setErrorMessage(message);
+      setErrorMessage(messageText);
     } finally {
       setIsLoading(false);
     }
@@ -172,6 +177,29 @@ const ProtocolDetailPage = () => {
       loadFormOptions();
     });
   }, [loadProtocolDetail, loadReviewEvents, loadFormOptions]);
+
+  const handleSubmitProtocolForReview = async () => {
+    try {
+      setIsUpdatingApprovalStatus(true);
+
+      await updateProtocol(protocol.id, {
+        approvalStatus: "pending_review",
+      });
+
+      message.success("Protocol submitted for review.");
+
+      await loadProtocolDetail();
+      await loadReviewEvents();
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message ||
+        "Failed to submit protocol for review.";
+
+      message.error(messageText);
+    } finally {
+      setIsUpdatingApprovalStatus(false);
+    }
+  };
 
   // Updates protocol approval status from the detail page
   // The backend handles approvedById and approvedAt when approvalStatus becomes approved
@@ -380,31 +408,95 @@ const ProtocolDetailPage = () => {
             )}
           </Card>
 
-          {shouldShowProtocolReviewActions && (
-            <Card title="Review Actions" style={{ marginTop: 24 }}>
-              <Space wrap>
-                {protocol.approvalStatus !== "approved" && (
+          <Card title="Review Workflow" style={{ marginTop: 24 }}>
+            <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="Approval Status">
+                  <Tag color={APPROVAL_STATUS_COLORS[protocol?.approvalStatus]}>
+                    {formatLabel(protocol?.approvalStatus)}
+                  </Tag>
+                </Descriptions.Item>
+
+                <Descriptions.Item label="Latest Review Comment">
+                  {protocol?.reviewComment || "No review comment yet."}
+                </Descriptions.Item>
+              </Descriptions>
+
+              {canSubmitProtocolForReview && (
+                <div>
+                  <Text strong>Author Actions</Text>
+
+                  <Paragraph
+                    type="secondary"
+                    style={{ marginTop: 4, marginBottom: 8 }}
+                  >
+                    Submit this protocol when it is ready for supervisor review.
+                  </Paragraph>
+
                   <Popconfirm
-                    title="Approve protocol?"
-                    description="This will approve the protocol and record approval metadata."
-                    okText="Approve"
+                    title={
+                      protocol?.approvalStatus === "changes_requested"
+                        ? "Resubmit protocol for review?"
+                        : "Submit protocol for review?"
+                    }
+                    description="This will move the protocol to pending review."
+                    okText="Submit"
                     cancelText="Cancel"
-                    onConfirm={() => handleProtocolReviewAction("approved")}
+                    onConfirm={handleSubmitProtocolForReview}
                   >
                     <Button type="primary" loading={isUpdatingApprovalStatus}>
-                      Approve Protocol
+                      {protocol?.approvalStatus === "changes_requested"
+                        ? "Resubmit for Review"
+                        : "Submit for Review"}
                     </Button>
                   </Popconfirm>
-                )}
+                </div>
+              )}
 
-                <Button danger onClick={openProtocolReviewCommentModal}>
-                  {protocol.approvalStatus === "changes_requested"
-                    ? "Request More Changes"
-                    : "Request Changes"}
-                </Button>
-              </Space>
-            </Card>
-          )}
+              {canReviewProtocol && shouldShowProtocolReviewActions && (
+                <div>
+                  <Text strong>Reviewer Actions</Text>
+
+                  <Paragraph
+                    type="secondary"
+                    style={{ marginTop: 4, marginBottom: 8 }}
+                  >
+                    Approve the protocol or request changes with a required
+                    review note.
+                  </Paragraph>
+
+                  <Space wrap>
+                    {protocol?.approvalStatus !== "approved" && (
+                      <Popconfirm
+                        title="Approve protocol?"
+                        description="This will approve the protocol and record approval metadata."
+                        okText="Approve"
+                        cancelText="Cancel"
+                        onConfirm={() => handleProtocolReviewAction("approved")}
+                      >
+                        <Button
+                          type="primary"
+                          loading={isUpdatingApprovalStatus}
+                        >
+                          Approve Protocol
+                        </Button>
+                      </Popconfirm>
+                    )}
+
+                    <Button
+                      danger
+                      loading={isUpdatingApprovalStatus}
+                      onClick={openProtocolReviewCommentModal}
+                    >
+                      {protocol?.approvalStatus === "changes_requested"
+                        ? "Request More Changes"
+                        : "Request Changes"}
+                    </Button>
+                  </Space>
+                </div>
+              )}
+            </Space>
+          </Card>
 
           <Modal
             title={
@@ -466,7 +558,7 @@ const ProtocolDetailPage = () => {
             equipment={equipment}
             isLoadingProjects={isLoadingProjects}
             isLoadingEquipment={isLoadingEquipment}
-            onCancel={() => closeEditModal}
+            onCancel={closeEditModal}
             onSuccess={handleProtocolSaved}
           />
 

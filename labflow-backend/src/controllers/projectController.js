@@ -1,4 +1,13 @@
-const { Project, User } = require("../models");
+const {
+  Project,
+  User,
+  Task,
+  Experiment,
+  Protocol,
+  EquipmentBooking,
+  NotebookEntry,
+  ProjectMember,
+} = require("../models");
 const { Op } = require("sequelize");
 const {
   getAccessibleProjectIds,
@@ -367,6 +376,37 @@ const deleteProject = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Project not found.",
+      });
+    }
+
+    const [
+      taskCount,
+      experimentCount,
+      protocolCount,
+      bookingCount,
+      notebookEntryCount,
+      projectMemberCount,
+    ] = await Promise.all([
+      Task.count({ where: { projectId: id } }),
+      Experiment.count({ where: { projectId: id } }),
+      Protocol.count({ where: { projectId: id } }),
+      EquipmentBooking.count({ where: { projectId: id } }),
+      NotebookEntry.count({ where: { projectId: id } }),
+      ProjectMember.count({ where: { projectId: id } }),
+    ]);
+
+    if (
+      taskCount > 0 ||
+      experimentCount > 0 ||
+      protocolCount > 0 ||
+      bookingCount > 0 ||
+      notebookEntryCount > 0 ||
+      projectMemberCount > 0
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Project cannot be deleted while it has related tasks, experiments, protocols, bookings, notebook entries, or project members. Archive the project instead.",
       });
     }
 

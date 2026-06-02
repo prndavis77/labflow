@@ -56,11 +56,6 @@ const ExperimentDetailPage = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
-  // Only admins and supervisors can perform review decisions
-  const canReviewExperiment = ["admin", "supervisor"].includes(
-    currentUser?.role,
-  );
-
   const [experiment, setExperiment] = useState(null);
   const [notebookEntries, setNotebookEntries] = useState([]);
   const [reviewEvents, setReviewEvents] = useState([]);
@@ -104,6 +99,16 @@ const ExperimentDetailPage = () => {
   const canEditExperiment =
     ["admin", "supervisor"].includes(currentUser?.role) ||
     Boolean(currentUser?.canEditExperiments);
+
+  // Only admins and supervisors can perform review decisions
+  const canReviewExperiment = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
+
+  const canSubmitExperimentForReview =
+    !canReviewExperiment &&
+    canEditExperiment &&
+    ["not_submitted", "changes_requested"].includes(experiment?.reviewStatus);
 
   // Admins and supervisors can modify all notebook entries
   // Researchers can modify only entries they authored
@@ -254,7 +259,7 @@ const ExperimentDetailPage = () => {
     setIsEditModalOpen(false);
     await loadExperimentDetail();
     await loadReviewEvents();
-    await notebookEntries();
+    await loadNotebookEntries();
   };
 
   const openCreateNotebookModal = () => {
@@ -345,6 +350,29 @@ const ExperimentDetailPage = () => {
     },
     [loadNotebookEntries],
   );
+
+  const handleSubmitExperimentForReview = async () => {
+    try {
+      setIsUpdatingReviewStatus(true);
+
+      await updateExperiment(experiment.id, {
+        reviewStatus: "pending",
+      });
+
+      message.success("Experiment submitted for review.");
+
+      await loadExperimentDetail();
+      await loadReviewEvents();
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message ||
+        "Failed to submit experiment for review.";
+
+      message.error(messageText);
+    } finally {
+      setIsUpdatingReviewStatus(false);
+    }
+  };
 
   // Filters notebook entries by selected entry type
   // If no type is selected, all entries are shown
@@ -694,35 +722,92 @@ const ExperimentDetailPage = () => {
         )}
       </Card>
 
-      {shouldShowExperimentReviewActions && (
-        <Card title="Review Actions">
-          <Space wrap>
-            {experiment.reviewStatus !== "approved" && (
+      <Card title="Review Workflow" style={{ marginTop: 24 }}>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Descriptions column={1} size="small">
+            <Descriptions.Item label="Approval Status">
+              <Tag color={EXPERIMENT_STATUS_COLORS[experiment?.reviewStatus]}>
+                {formatLabel(experiment?.reviewStatus)}
+              </Tag>
+            </Descriptions.Item>
+
+            <Descriptions.Item label="Latest Review Comment">
+              {experiment?.reviewComment || "No review comment yet."}
+            </Descriptions.Item>
+          </Descriptions>
+
+          {canSubmitExperimentForReview && (
+            <div>
+              <Text strong>Author Actions</Text>
+
+              <Paragraph
+                type="secondary"
+                style={{ marginTop: 4, marginBottom: 8 }}
+              >
+                Submit this experiment when it is ready for supervisor review.
+              </Paragraph>
+
               <Popconfirm
-                title="Approve experiment?"
-                description="This will mark the experiment review as approved and set the experiment status to completed."
-                okText="Approve"
+                title={
+                  experiment.reviewStatus === "changes_requested"
+                    ? "Resubmit experiment for review"
+                    : "Submit experiment for review?"
+                }
+                description="This will move the experiment to pending review."
+                okText="Submit"
                 cancelText="Cancel"
-                onConfirm={() => handleExperimentReviewAction("approved")}
+                onConfirm={handleSubmitExperimentForReview}
               >
                 <Button type="primary" loading={isUpdatingReviewStatus}>
-                  Approve Experiment
+                  {experiment?.reviewStatus === "changes_requested"
+                    ? "Resubmit for Review"
+                    : "Submit for Review"}
                 </Button>
               </Popconfirm>
-            )}
+            </div>
+          )}
 
-            <Button
-              danger
-              loading={isUpdatingReviewStatus}
-              onClick={openExperimentReviewCommentModal}
-            >
-              {experiment.reviewStatus === "changes_requested"
-                ? "Request More Changes"
-                : "Request Changes"}
-            </Button>
-          </Space>
-        </Card>
-      )}
+          {canReviewExperiment && shouldShowExperimentReviewActions && (
+            <div>
+              <Text strong>Reviewer Actions</Text>
+
+              <Paragraph
+                type="secondary"
+                style={{ marginTop: 4, marginBottom: 8 }}
+              >
+                Approve the experiment or request changes with a required review
+                note.
+              </Paragraph>
+
+              <Space wrap>
+                {experiment?.reviewStatus !== "approved" && (
+                  <Popconfirm
+                    title="Approve experiment?"
+                    description="This will approve the experiment and record approval metadata."
+                    okText="Approve"
+                    cancelText="Cancel"
+                    onConfirm={() => handleExperimentReviewAction("approved")}
+                  >
+                    <Button type="primary" loading={isUpdatingReviewStatus}>
+                      Approve Experiment
+                    </Button>
+                  </Popconfirm>
+                )}
+
+                <Button
+                  danger
+                  loading={isUpdatingReviewStatus}
+                  onClick={openExperimentReviewCommentModal}
+                >
+                  {experiment?.reviewStatus === "changes_requested"
+                    ? "Request More Changes"
+                    : "Request Changes"}
+                </Button>
+              </Space>
+            </div>
+          )}
+        </Space>
+      </Card>
 
       <Card
         title={`Experiment Notebook (${filteredNotebookEntries.length})`}
@@ -904,7 +989,7 @@ const ExperimentDetailPage = () => {
         isLoadingUsers={isLoadingUsers}
         isLoadingTasks={isLoadingTasks}
         isLoadingProtocols={isLoadingProtocols}
-        onCancel={() => closeEditModal}
+        onCancel={closeEditModal}
         onSuccess={handleExperimentSaved}
       />
     </Space>

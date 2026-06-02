@@ -133,6 +133,14 @@ const normalizeOptionalId = (value) => {
   return Number.isNaN(numericValue) ? null : numericValue;
 };
 
+const VALID_APPROVAL_STATUSES = [
+  "draft",
+  "pending_review",
+  "approved",
+  "changes_requested",
+  "archived",
+];
+
 // GET /api/protocols
 // Returns protocols with optional filters for project and approval status
 const getProtocols = async (req, res) => {
@@ -360,6 +368,16 @@ const updateProtocol = async (req, res) => {
       });
     }
 
+    if (
+      approvalStatus !== undefined &&
+      !VALID_APPROVAL_STATUSES.includes(approvalStatus)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid approval status.",
+      });
+    }
+
     if (!canEditProtocol(req.user)) {
       return res.status(403).json({
         status: "error",
@@ -399,6 +417,18 @@ const updateProtocol = async (req, res) => {
         status: "error",
         message:
           "Only admins and supervisors can make protocol approval decisions.",
+      });
+    }
+
+    const isSubmitForReview =
+      approvalStatus === "pending_review" &&
+      ["draft", "changes_requested"].includes(protocol.approvalStatus);
+
+    if (approvalStatus === "pending_review" && !isSubmitForReview) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Only draft or changes requested protocols can be submitted for review.",
       });
     }
 

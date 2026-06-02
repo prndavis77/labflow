@@ -32,6 +32,10 @@ router.patch(
 );
 
 // Only admins and supervisors can delete experiments for now
-router.delete("/:id", authorizeRoles(ROLES.ADMIN), deleteExperiment);
+router.delete(
+  "/:id",
+  authorizeRoles(...ROLE_GROUPS.MANAGERS),
+  deleteExperiment,
+);
 
 module.exports = router;
