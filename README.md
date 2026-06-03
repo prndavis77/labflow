@@ -465,7 +465,7 @@ Workflow permission controls are shown for researcher accounts. Admin and superv
 
 ### Review Queue
 
-![LabFlow review queue showing experiments and protocols pending supervisor review](docs/screenshots/review-queue.png)
+![LabFlow review queue showing supervisor and admin review workflows](docs/screenshots/review-queue.png)
 
 ### Experiment Review Actions
 
