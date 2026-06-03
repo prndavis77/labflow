@@ -4,16 +4,19 @@ import {
   Card,
   Descriptions,
   Empty,
+  Popconfirm,
   Space,
   Table,
   Tag,
   Typography,
+  message,
 } from "antd";
 import { ArrowLeftOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchTaskById } from "../api/taskApi";
+import { useAuth } from "../context/AuthContext";
+import { fetchTaskById, updateTask } from "../api/taskApi";
 import { fetchExperiments } from "../api/experimentApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
@@ -28,11 +31,22 @@ const { Title, Paragraph } = Typography;
 const TaskDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   const [task, setTask] = useState(null);
   const [relatedExperiments, setRelatedExperiments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const canRequestTaskCompletion =
+    currentUser?.role === "researcher" &&
+    Number(task?.assignedToId) === Number(currentUser?.id) &&
+    !["completion_requested", "done"].includes(task?.status);
+
+  const canConfirmTaskCompletion =
+    ["admin", "supervisor"].includes(currentUser?.role) &&
+    task?.status === "completion_requested";
 
   // Loads the selected task and experiments linked to that task
   const loadTaskDetail = useCallback(async () => {
@@ -40,19 +54,17 @@ const TaskDetailPage = () => {
       setIsLoading(true);
       setErrorMessage("");
 
-      // Fetch task and experiment data in parallel
-      // The experiment endpoint currently supports general fetching, so we filter by taskId on the frontend
-      const [taskResult, experimentsResult] = await Promise.all([
-        fetchTaskById(id),
-        fetchExperiments({ taskId: id }),
-      ]);
-
+      const taskResult = await fetchTaskById(id);
       const fetchedTask = taskResult.data.task;
 
-      const taskExperiments = experimentsResult.data.experiments;
-
       setTask(fetchedTask);
-      setRelatedExperiments(taskExperiments);
+
+      try {
+        const experimentsResult = await fetchExperiments({ taskId: id });
+        setRelatedExperiments(experimentsResult.data.experiments);
+      } catch {
+        setRelatedExperiments([]);
+      }
     } catch (error) {
       const message =
         error.response?.data?.message || "Failed to load task details.";
@@ -68,7 +80,51 @@ const TaskDetailPage = () => {
     queueMicrotask(() => {
       loadTaskDetail();
     });
-  }, [loadTaskDetail]);
+  }, [loadTaskDetail, currentUser?.id]);
+
+  const handleRequestTaskCompletion = async () => {
+    try {
+      setIsUpdatingTask(true);
+
+      await updateTask(task.id, {
+        status: "completion_requested",
+      });
+
+      message.success("Task completion submitted for review.");
+
+      await loadTaskDetail();
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to submit task completion.";
+
+      message.error(messageText);
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
+
+  const handleAdminTaskStatusUpdate = async (nextStatus) => {
+    try {
+      setIsUpdatingTask(true);
+
+      await updateTask(task.id, {
+        status: nextStatus,
+      });
+
+      message.success(
+        nextStatus === "done" ? "Task marked as done." : "Task reopened.",
+      );
+
+      await loadTaskDetail();
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to update task status.";
+
+      message.error(messageText);
+    } finally {
+      setIsUpdatingTask(false);
+    }
+  };
 
   // Columns for experiments linked to this task.
   const experimentColumns = useMemo(
@@ -177,6 +233,47 @@ const TaskDetailPage = () => {
               {task.description || "No description provided."}
             </Paragraph>
 
+            {(canRequestTaskCompletion || canConfirmTaskCompletion) && (
+              <Card
+                size="small"
+                title="Task Completion Workflow"
+                style={{ marginBottom: 24 }}
+              >
+                {canRequestTaskCompletion && (
+                  <Popconfirm
+                    title="Mark this task as complete?"
+                    description="This will notify admins and supervisors that the task is ready for review."
+                    okText="Mark Complete"
+                    cancelText="Cancel"
+                    onConfirm={handleRequestTaskCompletion}
+                  >
+                    <Button type="primary" loading={isUpdatingTask}>
+                      Mark Complete
+                    </Button>
+                  </Popconfirm>
+                )}
+
+                {canConfirmTaskCompletion && (
+                  <Space>
+                    <Button
+                      type="primary"
+                      loading={isUpdatingTask}
+                      onClick={() => handleAdminTaskStatusUpdate("done")}
+                    >
+                      Confirm Done
+                    </Button>
+
+                    <Button
+                      loading={isUpdatingTask}
+                      onClick={() => handleAdminTaskStatusUpdate("in_progress")}
+                    >
+                      Reopen Task
+                    </Button>
+                  </Space>
+                )}
+              </Card>
+            )}
+
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Status">
                 <Tag color={TASK_STATUS_COLORS[task.status]}>
@@ -226,21 +323,23 @@ const TaskDetailPage = () => {
         )}
       </Card>
 
-      <Card title="Related Experiments">
-        {relatedExperiments.length === 0 ? (
-          <Empty description="No experiments linked to this task yet." />
-        ) : (
-          <Table
-            rowKey="id"
-            columns={experimentColumns}
-            dataSource={relatedExperiments}
-            loading={isLoading}
-            pagination={{ pageSize: 5, showSizeChanger: false }}
-            size="small"
-            scroll={{ x: 1000 }}
-          />
-        )}
-      </Card>
+      {task?.projectId && (
+        <Card title="Related Experiments">
+          {relatedExperiments.length === 0 ? (
+            <Empty description="No experiments linked to this task yet." />
+          ) : (
+            <Table
+              rowKey="id"
+              columns={experimentColumns}
+              dataSource={relatedExperiments}
+              loading={isLoading}
+              pagination={{ pageSize: 5, showSizeChanger: false }}
+              size="small"
+              scroll={{ x: 1000 }}
+            />
+          )}
+        </Card>
+      )}
     </Space>
   );
 };

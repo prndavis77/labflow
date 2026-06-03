@@ -11,7 +11,7 @@ export const TASK_STATUS_COLORS = {
   todo: "default",
   in_progress: "blue",
   blocked: "red",
-  review: "orange",
+  completion_requested: "gold",
   done: "green",
 };
 

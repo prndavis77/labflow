@@ -29,7 +29,7 @@ import { TASK_STATUS_COLORS } from "../constants/statusColors";
 import { TASK_PRIORITY_COLORS } from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
 
-const { Title, Paragraph } = Typography;
+const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
 
 const TasksPage = () => {
@@ -55,6 +55,7 @@ const TasksPage = () => {
   // Researchers can create and update tasks.
   // Only admins and supervisors can delete tasks.
   const canDeleteTasks = ["admin", "supervisor"].includes(user?.role);
+  const canManageTaskAssignment = ["admin", "supervisor"].includes(user?.role);
 
   // Converts projects into options for Ant Design Select.
   const projectOptions = useMemo(() => {
@@ -288,11 +289,13 @@ const TasksPage = () => {
         dataIndex: "project",
         key: "project",
         width: 260,
-        render: (project) =>
-          project ? (
-            <Link to={`/projects/${project.id}`}>{project.title}</Link>
+        render: (project, record) =>
+          record.project ? (
+            <Link to={`/projects/${record.project.id}`}>
+              {record.project.title}
+            </Link>
           ) : (
-            "Not linked"
+            <Text type="secondary">No project</Text>
           ),
       },
       {
@@ -380,8 +383,8 @@ const TasksPage = () => {
               Tasks
             </Title>
             <Paragraph style={{ marginBottom: 0 }}>
-              Track project-linked lab tasks, priorities, deadlines, and review
-              status.
+              Track lab tasks, optional project links, assignees, priorities,
+              and deadlines. status.
             </Paragraph>
           </div>
 
@@ -463,18 +466,10 @@ const TasksPage = () => {
             <Input placeholder="Prepare caffeine calibration standards" />
           </Form.Item>
 
-          <Form.Item
-            label="Project"
-            name="projectId"
-            rules={[
-              {
-                required: true,
-                message: "Please select a project.",
-              },
-            ]}
-          >
+          <Form.Item label="Project" name="projectId">
             <Select
-              placeholder="Select project"
+              allowClear
+              placeholder="Optionally link this task to a project"
               loading={isLoadingProjects}
               options={projectOptions}
               disabled={isEditingTask}
@@ -487,6 +482,7 @@ const TasksPage = () => {
               placeholder="Assign to a lab member"
               loading={isLoadingUsers}
               options={userOptions}
+              disabled={isEditingTask && !canManageTaskAssignment}
             />
           </Form.Item>
 

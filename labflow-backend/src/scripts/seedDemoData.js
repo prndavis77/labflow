@@ -252,6 +252,30 @@ const createTasks = async (users, projects) => {
     createdById: users.supervisor.id,
   });
 
+  const taskFive = await Task.create({
+    title: "Clean and restock freezer",
+    description:
+      "Check storage boxes, remove expired material, and restock labels.",
+    status: "todo",
+    priority: "medium",
+    dueDate: null,
+    projectId: null,
+    assignedToId: users.researcherOne.id,
+    createdById: users.supervisor.id,
+  });
+
+  const taskSix = await Task.create({
+    title: "Change GC column and on Agilent GC-MS",
+    description:
+      "Install new DB-Wax GC column and run autotune after maintenance is complete.",
+    status: "todo",
+    priority: "medium",
+    dueDate: null,
+    projectId: null,
+    assignedToId: users.researcherTwo.id,
+    createdById: users.supervisor.id,
+  });
+
   return {
     taskOne,
     taskTwo,

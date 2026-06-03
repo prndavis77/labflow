@@ -1,9 +1,81 @@
 const { Task, Project, User } = require("../models");
+const { getAccessibleProjectIds } = require("../utils/projectAccess");
 const { canUseProjectForResearchWork } = require("../utils/projectAccess");
 const {
   isValidDateOnly,
   isEndDateAfterStartDate,
 } = require("../utils/dateUtils");
+const { Op } = require("sequelize");
+
+const isAdminOrSupervisor = (user) => {
+  return ["admin", "supervisor"].includes(user?.role);
+};
+
+const canViewTask = async (user, task) => {
+  if (!user || !task) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  if (Number(task.assignedToId) === Number(user.id)) {
+    return true;
+  }
+
+  if (task.projectId) {
+    return canUseProjectForResearchWork(user, task.projectId);
+  }
+
+  return false;
+};
+
+const canCreateTaskForPayload = async (user, projectId, assignedToId) => {
+  if (!user) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  if (projectId) {
+    return canUseProjectForResearchWork(user, projectId);
+  }
+
+  return Number(assignedToId) === Number(user.id);
+};
+
+const canUpdateTask = async (user, task) => {
+  if (!user || !task) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  if (Number(task.assignedToId) === Number(user.id)) {
+    return true;
+  }
+
+  if (task.projectId) {
+    return canUseProjectForResearchWork(user, task.projectId);
+  }
+
+  return false;
+};
+
+const normalizeOptionalId = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isNaN(numericValue) ? null : numericValue;
+};
 
 // Formats user data safely for API responses
 // This prevents password hashes and unnecessary fields from leaking to the frontend
@@ -72,6 +144,21 @@ const getTasks = async (req, res) => {
       where.status = status;
     }
 
+    if (req.user.role === "researcher") {
+      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
+
+      where[Op.or] = [
+        {
+          assignedToId: req.user.id,
+        },
+        {
+          projectId: {
+            [Op.in]: accessibleProjectIds,
+          },
+        },
+      ];
+    }
+
     const tasks = await Task.findAll({
       where,
       include: [
@@ -79,6 +166,7 @@ const getTasks = async (req, res) => {
           model: Project,
           as: "project",
           attributes: ["id", "title", "status"],
+          required: false,
         },
         {
           model: User,
@@ -125,6 +213,7 @@ const getTaskById = async (req, res) => {
           model: Project,
           as: "project",
           attributes: ["id", "title", "status"],
+          required: false,
         },
         {
           model: User,
@@ -143,6 +232,15 @@ const getTaskById = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Task not found.",
+      });
+    }
+
+    const hasAccess = await canViewTask(req.user, task);
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have access to this task.",
       });
     }
 
@@ -176,20 +274,22 @@ const createTask = async (req, res) => {
       assignedToId,
     } = req.body;
 
-    if (!title || !projectId) {
+    if (!title) {
       return res.status(400).json({
         status: "error",
-        message: "Task title and project are required.",
+        message: "Task title is required.",
       });
     }
 
-    const project = await Project.findByPk(projectId);
+    if (projectId) {
+      const project = await Project.findByPk(projectId);
 
-    if (!project) {
-      return res.status(404).json({
-        status: "error",
-        message: "Project not found.",
-      });
+      if (!project) {
+        return res.status(404).json({
+          status: "error",
+          message: "Project not found.",
+        });
+      }
     }
 
     if (assignedToId) {
@@ -203,15 +303,17 @@ const createTask = async (req, res) => {
       }
     }
 
-    const canUseProject = await canUseProjectForResearchWork(
+    const canCreateTask = await canCreateTaskForPayload(
       req.user,
       projectId,
+      assignedToId,
     );
 
-    if (!canUseProject) {
+    if (!canCreateTask) {
       return res.status(403).json({
         status: "error",
-        message: "You do not have access to create tasks for this project.",
+        message:
+          "You do not have permission to create this task. Researchers can create tasks for member projects or tasks assigned to themselves.",
       });
     }
 
@@ -221,7 +323,7 @@ const createTask = async (req, res) => {
       status: status || "todo",
       priority: priority || "medium",
       dueDate: dueDate || null,
-      projectId,
+      projectId: projectId || null,
       assignedToId: assignedToId || null,
       createdById: req.user.id,
     });
@@ -288,27 +390,29 @@ const updateTask = async (req, res) => {
       });
     }
 
-    if (
-      projectId !== undefined &&
-      Number(projectId) !== Number(task.projectId)
-    ) {
+    const currentProjectId = normalizeOptionalId(task.projectId);
+    const requestedProjectId = normalizeOptionalId(projectId);
+
+    if (projectId !== undefined && requestedProjectId !== currentProjectId) {
       return res.status(400).json({
         status: "error",
         message: "Task project cannot be changed after creation.",
       });
     }
 
-    const resolvedProjectId = task.projectId;
+    const canUpdate = await canUpdateTask(req.user, task);
 
-    const canUseProject = await canUseProjectForResearchWork(
-      req.user,
-      resolvedProjectId,
-    );
-
-    if (!canUseProject) {
+    if (!canUpdate) {
       return res.status(403).json({
         status: "error",
-        message: "You do not have access to update tasks for this project.",
+        message: "You do not have permission to update this task.",
+      });
+    }
+
+    if (assignedToId !== undefined && !isAdminOrSupervisor) {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and supervisors can change task assignment.",
       });
     }
 
@@ -321,6 +425,15 @@ const updateTask = async (req, res) => {
           message: "Assigned user not found.",
         });
       }
+    }
+
+    const isAdminOrSupervisor = ["admin", "supervisor"].includes(req.user.role);
+
+    if (status === "done" && !isAdminOrSupervisor) {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and supervisors can mark tasks as done.",
+      });
     }
 
     await task.update({

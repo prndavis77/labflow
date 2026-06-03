@@ -12,7 +12,7 @@ export const TASK_STATUS_OPTIONS = [
   { label: "To Do", value: "todo" },
   { label: "In Progress", value: "in_progress" },
   { label: "Blocked", value: "blocked" },
-  { label: "Review", value: "review" },
+  { label: "Completion Requested", value: "completion_requested" },
   { label: "Done", value: "done" },
 ];
 

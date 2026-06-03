@@ -34,7 +34,14 @@ const Task = sequelize.define(
     },
 
     status: {
-      type: DataTypes.ENUM("todo", "in_progress", "blocked", "review", "done"),
+      type: DataTypes.ENUM(
+        "todo",
+        "in_progress",
+        "blocked",
+        "review",
+        "completion_requested",
+        "done",
+      ),
       allowNull: false,
       defaultValue: "todo",
     },
@@ -53,7 +60,7 @@ const Task = sequelize.define(
 
     projectId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: "project_id",
       references: {
         model: Project,

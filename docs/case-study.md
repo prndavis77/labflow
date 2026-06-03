@@ -2,7 +2,7 @@
 
 ## Overview
 
-LabFlow is a full-stack project management application for university research laboratories. It helps lab teams manage projects, tasks, experiments, protocols, shared equipment, equipment bookings, review workflows, and experiment-linked notebook entries in one centralized system.
+LabFlow is a full-stack project management application for university research laboratories. It helps lab teams manage projects, standalone and project-linked tasks, experiments, protocols, shared equipment, equipment bookings, review workflows, and experiment-linked notebook entries in one centralized system.
 
 ## Problem
 
@@ -22,7 +22,7 @@ Common questions can become harder than they should be:
 LabFlow centralizes key lab workflows into one application:
 
 - Project management
-- Task assignment
+- Standalone and project-linked task assignment
 - Experiment tracking
 - Experiment-linked notebook entries
 - Protocol approval
@@ -37,6 +37,11 @@ LabFlow centralizes key lab workflows into one application:
 - Project membership
 - Membership-aware project access
 - Project-specific member roles
+- Standalone and project-linked task management
+- Assignment-aware researcher task visibility
+- Task completion request workflow
+- Task completion requests in the Review Queue
+- Role-aware dashboard filtering
 
 ## My Role
 
@@ -58,6 +63,11 @@ I designed and built the full-stack MVP, including:
 - Project membership model
 - Membership-aware backend access rules
 - Project members UI on project detail pages
+- Role-aware dashboard filtering
+- Standalone and project-linked task model
+- Assignment-aware task access rules
+- Task completion request workflow
+- Review Queue task completion integration
 
 ## Tech Stack
 
@@ -93,15 +103,23 @@ The frontend uses these permission flags to hide create and edit actions when a 
 
 LabFlow includes a project membership system that links users to specific projects with project-level roles such as lead, member, and viewer.
 
-This adds a project-level access layer on top of system roles and researcher workflow permissions. Researchers can only view projects where they are members and can only create or edit project-linked records for projects they can access.
+This adds a project-level access layer on top of system roles and researcher workflow permissions. Researchers can only view projects where they are members. For experiments and project-linked protocols, researchers must also have project access and the required workflow permissions. Tasks use an assignment-aware access model, so researchers can see tasks assigned to them, including standalone tasks without a project link.
 
-The backend enforces membership-aware access for project detail views and project-linked task, experiment, and protocol workflows. This prevents users from bypassing the UI by directly calling protected API routes.
+The backend enforces membership-aware access for project detail views and project-linked experiment and protocol workflows. Task access is enforced separately through assignment-aware rules and locked project linkage.
 
 ### Locked Project Linkage
 
-Tasks, experiments, and protocols are linked to a project during creation. After creation, the project link is locked in normal edit workflows.
+Experiments must be linked to a project, while protocols may be project-linked or saved as general SOPs. Tasks may be standalone or project-linked depending on the lab work being assigned.
 
-This prevents users from accidentally moving a record to a project they cannot access, which could cause them to lose the ability to correct the mistake.
+When a task, experiment, or protocol is created with a project link, that project link is locked in normal edit workflows. This prevents users from accidentally moving a record to a project they cannot access, which could cause them to lose the ability to correct the mistake.
+
+### Standalone Tasks and Task Completion Review
+
+LabFlow supports both project-linked tasks and standalone lab tasks. This reflects real lab work where tasks may involve shared equipment, freezer restocking, instrument tuning, column changes, or general assistance that does not belong directly to one research project.
+
+Researcher task visibility is assignment-aware. Researchers see tasks assigned to them, including standalone tasks without a project link. When a researcher finishes a task, they can mark it as ready for completion review instead of directly marking it as done.
+
+Admins and supervisors can confirm the task as done or reopen it from the task detail page. Completion-requested tasks also appear in the Review Queue so supervisors have one place to find experiments, protocols, and tasks needing attention.
 
 ### Reusable Experiment and Protocol Modals
 
@@ -123,11 +141,11 @@ This ensures shared instruments cannot be double-booked.
 
 ### Review Queue, Review Notes, and Review History
 
-LabFlow includes a review queue for supervisor/admin workflows. Experiments and protocols can be approved or sent back with required review notes.
+LabFlow includes a review queue for supervisor/admin workflows. Experiments and protocols can be approved or sent back with required review notes. The Review Queue also shows task completion requests so admins and supervisors can review completed task submissions.
 
 The app stores the latest review feedback on the reviewed record for quick visibility and also records review events in a separate review history table. This preserves repeated review cycles such as changes requested, revised, more changes requested, and approved.
 
-The Review Queue helps supervisors find review work quickly, while detail pages provide the full context needed to approve or request changes.
+The Review Queue helps supervisors find review work quickly, while detail pages provide the full context needed to approve experiments, approve protocols, request changes, confirm task completion, or reopen tasks.
 
 ### Experiment-Linked Notebook Entries
 
@@ -139,7 +157,11 @@ Protocols can exist without a project and may be linked directly to equipment. T
 
 ### Dashboard Summary Endpoint
 
-The dashboard uses a backend summary endpoint to calculate key metrics such as active projects, open tasks, overdue tasks, experiments needing review, pending protocols, equipment in use, equipment offline, upcoming bookings, and recent notebook entries.
+The dashboard uses a backend summary endpoint to calculate key metrics such as active projects, open tasks, overdue tasks, task completion requests, experiments needing review, pending protocols, equipment in use, equipment offline, upcoming bookings, and recent notebook entries.
+
+The dashboard is role-aware. Admins and supervisors see global MVP dashboard data, while researchers see project-linked dashboard data only for projects where they are members. Researcher task summaries are assignment-aware, so their dashboard shows tasks assigned to them, including standalone tasks without a project link.
+
+Equipment inventory metrics remain global in the current MVP because equipment is not project-owned yet.
 
 ### Cross-Linked Detail Pages
 
@@ -147,13 +169,15 @@ LabFlow includes detail pages for projects, tasks, experiments, protocols, and e
 
 Examples:
 
-- Project to tasks
+- Project to linked tasks
 - Project to experiments
 - Experiment to notebook entries
 - Experiment to protocol
 - Equipment to bookings
 - Equipment to SOPs
 - Review Queue to experiment/protocol detail pages
+- Review Queue to task completion requests
+- Task to related experiments
 
 ## Challenges
 
@@ -163,7 +187,7 @@ Another challenge was preventing overlapping bookings reliably at the backend le
 
 Another challenge was modeling protocols flexibly. Some protocols belong to a project, while others are general lab SOPs or equipment-specific SOPs. I updated the data model so protocols can optionally link to projects and equipment.
 
-A later workflow challenge was handling review feedback. A simple status field was not enough because researchers need to know why changes were requested. I added required review notes for change requests while keeping the current version limited to the latest review comment.
+A later workflow challenge was handling review feedback. A simple status field was not enough because researchers need to know why changes were requested. I added required review notes for change requests while storing the latest review comment for quick visibility and recording review events for repeated review cycles.
 
 Another challenge was balancing simple role-based access control with real lab supervision styles. Some supervisors want tight control over experiment and protocol creation, while others allow experienced researchers to work more independently. I solved this by keeping roles simple while adding configurable workflow permissions for researcher accounts.
 
@@ -171,11 +195,17 @@ A frontend architecture challenge appeared when experiment and protocol editing 
 
 Another challenge was introducing project membership without breaking existing workflows. I first added the membership model and UI, then added membership-aware access rules in a separate phase. This made it easier to test project visibility and project-linked record permissions step by step.
 
+Another workflow challenge appeared when tasks became broader than project work. In a real lab, a researcher may be asked to tune an instrument, restock a freezer, change a column, or help another researcher without the task belonging directly to one project. I updated the task model so tasks can be standalone or project-linked, then adjusted researcher task visibility to be assignment-aware rather than only membership-aware.
+
 A later access-control issue appeared when existing tasks, experiments, and protocols could be moved to another project. This could cause a researcher to lose access to a record after accidentally changing its project. I solved this by locking project linkage after creation and treating project reassignment as a future admin-level workflow.
+
+A later dashboard challenge was making summary data respect user context. Project-linked dashboard records needed to be scoped by project membership for researchers, while task summaries needed to show assigned tasks rather than all tasks in member projects. I solved this by separating project-linked dashboard filters from task-specific dashboard filters.
+
+Another workflow issue was that researchers needed a way to signal that assigned work was finished without directly marking it as done. I added a Completion Requested task status so researchers can submit completion requests, while admins and supervisors confirm done or reopen the task after review.
 
 ## Result
 
-LabFlow MVP Version 1.1 includes a working full-stack workflow from authentication to dashboard reporting, project tracking, project membership, task assignment, experiment documentation, protocol review, equipment booking, review history, and experiment-linked notebook entries.
+LabFlow MVP Version 1.1 includes a working full-stack workflow from authentication to role-aware dashboard reporting, project tracking, project membership, standalone and project-linked task management, task completion review, experiment documentation, protocol review, equipment booking, review history, and experiment-linked notebook entries.
 
 The app includes seeded demo data, screenshots, a detailed README, and a case study for portfolio presentation.
 
@@ -193,11 +223,13 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Project member roles exist, but lead/member/viewer behavior is not fully differentiated yet
 - Supervisor access is still broad in the current MVP
 - Project invitations and membership approval workflows are not implemented yet
+- Task completion review currently does not include separate completion notes or reviewer feedback when a task is reopened
+- Equipment inventory metrics are still global because equipment is not project-owned yet
 
 ## Future Improvements
 
 - Lab organization model
-- Role-specific dashboards
+- More advanced role-specific dashboards with role-specific layouts and recommended actions
 - Stronger signed review/audit trail controls
 - Rich text editor for notebook entries
 - File attachments and image uploads
@@ -212,4 +244,6 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Supervisor access scoped to supervised or assigned projects
 - Project invitation workflow
 - Project-specific workflow permissions
+- Task completion notes and reviewer feedback when reopening tasks
+- Equipment access model for lab-wide, project-specific, or restricted instruments
 - Deployment

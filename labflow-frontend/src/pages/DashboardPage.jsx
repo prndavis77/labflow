@@ -104,7 +104,7 @@ const DashboardPage = () => {
     openTasks: 0,
     overdueTasks: 0,
     experimentsNeedingReview: 0,
-    pendingProtocols: 0,
+    protocolsNeedingReview: 0,
     totalEquipment: 0,
     unavailableEquipment: 0,
     equipmentInUseNow: 0,
@@ -115,7 +115,7 @@ const DashboardPage = () => {
   const lists = dashboardData?.lists || {
     tasksDueSoon: [],
     experimentsNeedingReview: [],
-    pendingProtocols: [],
+    protocolsNeedingReview: [],
     upcomingBookings: [],
     recentProjects: [],
     recentTasks: [],
@@ -125,7 +125,7 @@ const DashboardPage = () => {
 
   // Combines the main review-related dashboard counts into one attention number
   const reviewAttentionCount =
-    metrics.experimentsNeedingReview + metrics.pendingProtocols;
+    metrics.experimentsNeedingReview + metrics.protocolsNeedingReview;
 
   // Columns for upcoming task summaries
   const taskColumns = useMemo(
@@ -531,28 +531,37 @@ const DashboardPage = () => {
         {canAccessReviewQueue && (
           <Col xs={24} sm={12} lg={6}>
             <Card>
-              <Statistic
-                title="Review Attention"
-                value={reviewAttentionCount}
-                prefix={<AuditOutlined />}
-                valueStyle={{
-                  color: reviewAttentionCount > 0 ? "#fa8c16" : undefined,
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 16,
                 }}
-                loading={isLoadingDashboard}
-              />
+              >
+                <Statistic
+                  title="Review Attention"
+                  value={reviewAttentionCount}
+                  prefix={<AuditOutlined />}
+                  valueStyle={{
+                    color: reviewAttentionCount > 0 ? "#fa8c16" : undefined,
+                  }}
+                  loading={isLoadingDashboard}
+                />
 
-              {canAccessReviewQueue && (
-                <Link to="/review">
-                  <Button
-                    type={reviewAttentionCount > 0 ? "primary" : "default"}
-                    size="small"
-                    icon={<RightOutlined />}
-                    style={{ marginTop: 12 }}
-                  >
-                    Open Review Queue
-                  </Button>
-                </Link>
-              )}
+                {canAccessReviewQueue && (
+                  <Link to="/review">
+                    <Button
+                      type={reviewAttentionCount > 0 ? "primary" : "default"}
+                      size="small"
+                      icon={<RightOutlined />}
+                      style={{ marginTop: 12 }}
+                    >
+                      Open Review Queue
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </Card>
           </Col>
         )}
@@ -572,7 +581,7 @@ const DashboardPage = () => {
           <Card>
             <Statistic
               title="Pending Protocols"
-              value={metrics.pendingProtocols}
+              value={metrics.protocolsNeedingReview}
               prefix={<FileTextOutlined />}
               loading={isLoadingDashboard}
             />
@@ -704,13 +713,13 @@ const DashboardPage = () => {
               ) : null
             }
           >
-            {lists.pendingProtocols.length === 0 ? (
-              <Empty description="No protocols pending review" />
+            {lists.protocolsNeedingReview.length === 0 ? (
+              <Empty description="No protocols needing review" />
             ) : (
               <Table
                 rowKey="id"
                 columns={protocolColumns}
-                dataSource={lists.pendingProtocols}
+                dataSource={lists.protocolsNeedingReview}
                 loading={isLoadingDashboard}
                 pagination={false}
                 size="small"

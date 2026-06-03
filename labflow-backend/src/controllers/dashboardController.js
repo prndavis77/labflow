@@ -9,6 +9,81 @@ const {
   NotebookEntry,
   User,
 } = require("../models");
+const { getAccessibleProjectIds } = require("../utils/projectAccess");
+
+const buildDashboardProjectScope = async (user) => {
+  if (!user) {
+    return {
+      isResearcherScoped: true,
+      accessibleProjectIds: [],
+      projectWhere: {
+        id: {
+          [Op.in]: [],
+        },
+      },
+      projectLinkedWhere: {
+        projectId: {
+          [Op.in]: [],
+        },
+      },
+    };
+  }
+
+  if (["admin", "supervisor"].includes(user.role)) {
+    return {
+      isResearcherScoped: false,
+      accessibleProjectIds: null,
+      projectWhere: {},
+      projectLinkedWhere: {},
+    };
+  }
+
+  const accessibleProjectIds = await getAccessibleProjectIds(user);
+
+  return {
+    isResearcherScoped: true,
+    accessibleProjectIds,
+    projectWhere: {
+      id: {
+        [Op.in]: accessibleProjectIds,
+      },
+    },
+    projectLinkedWhere: {
+      projectId: {
+        [Op.in]: accessibleProjectIds,
+      },
+    },
+  };
+};
+
+const buildProtocolWhere = (scope) => {
+  if (!scope.isResearcherScoped) {
+    return {};
+  }
+
+  return {
+    [Op.or]: [
+      {
+        projectId: {
+          [Op.in]: scope.accessibleProjectIds,
+        },
+      },
+      {
+        projectId: null,
+      },
+    ],
+  };
+};
+
+const buildDashboardTaskWhere = (scope, user) => {
+  if (!scope.isResearcherScoped) {
+    return {};
+  }
+
+  return {
+    assignedToId: user.id,
+  };
+};
 
 // Formats project data for dashboard responses
 const formatProjectSummary = (project) => {
@@ -190,6 +265,10 @@ const getDashboardSummary = async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     const now = new Date();
 
+    const scope = await buildDashboardProjectScope(req.user);
+    const protocolWhere = buildProtocolWhere(scope);
+    const taskWhere = buildDashboardTaskWhere(scope, req.user);
+
     // Run independent dashboard queries in parallel for better response time
     const [
       totalProjects,
@@ -199,22 +278,26 @@ const getDashboardSummary = async (req, res) => {
       overdueTasks,
       tasksDueSoon,
       experimentsNeedingReview,
-      pendingProtocols,
+      protocolsNeedingReview,
       totalEquipment,
       unavailableEquipment,
       equipmentInUseNow,
       upcomingBookings,
       recentProjects,
       recentTasks,
+      tasksAwaitingCompletionReview,
       recentExperiments,
       recentNotebookEntries,
     ] = await Promise.all([
       // Count all projects.
-      Project.count(),
+      Project.count({
+        where: scope.projectWhere,
+      }),
 
       // Count active projects.
       Project.count({
         where: {
+          ...scope.projectWhere,
           status: "active",
         },
       }),
@@ -222,6 +305,7 @@ const getDashboardSummary = async (req, res) => {
       // Count completed projects.
       Project.count({
         where: {
+          ...scope.projectWhere,
           status: "completed",
         },
       }),
@@ -229,6 +313,7 @@ const getDashboardSummary = async (req, res) => {
       // Count all tasks that are not done.
       Task.count({
         where: {
+          ...taskWhere,
           status: {
             [Op.ne]: "done",
           },
@@ -238,6 +323,7 @@ const getDashboardSummary = async (req, res) => {
       // Count tasks that are overdue and not done.
       Task.count({
         where: {
+          ...taskWhere,
           dueDate: {
             [Op.lt]: today,
           },
@@ -250,6 +336,7 @@ const getDashboardSummary = async (req, res) => {
       // Fetch upcoming unfinished tasks.
       Task.findAll({
         where: {
+          ...taskWhere,
           dueDate: {
             [Op.gte]: today,
           },
@@ -262,6 +349,7 @@ const getDashboardSummary = async (req, res) => {
             model: Project,
             as: "project",
             attributes: ["id", "title"],
+            required: false,
           },
           {
             model: User,
@@ -279,6 +367,7 @@ const getDashboardSummary = async (req, res) => {
       // Fetch experiments that need supervisor attention.
       Experiment.findAll({
         where: {
+          ...scope.projectLinkedWhere,
           [Op.or]: [
             {
               status: "needs_review",
@@ -310,7 +399,10 @@ const getDashboardSummary = async (req, res) => {
       // Fetch protocols waiting for review.
       Protocol.findAll({
         where: {
-          approvalStatus: "pending_review",
+          ...protocolWhere,
+          approvalStatus: {
+            [Op.in]: ["pending_review", "changes_requested"],
+          },
         },
         include: [
           {
@@ -354,6 +446,7 @@ const getDashboardSummary = async (req, res) => {
       // Fetch upcoming confirmed equipment bookings.
       EquipmentBooking.findAll({
         where: {
+          ...scope.projectLinkedWhere,
           status: "confirmed",
           startTime: {
             [Op.gte]: now,
@@ -382,6 +475,7 @@ const getDashboardSummary = async (req, res) => {
 
       // Fetch recently created projects.
       Project.findAll({
+        where: scope.projectWhere,
         include: [
           {
             model: User,
@@ -395,11 +489,35 @@ const getDashboardSummary = async (req, res) => {
 
       // Fetch recently updated tasks.
       Task.findAll({
+        where: taskWhere,
         include: [
           {
             model: Project,
             as: "project",
             attributes: ["id", "title"],
+            required: false,
+          },
+          {
+            model: User,
+            as: "assignedTo",
+            attributes: ["id", "name", "role"],
+          },
+        ],
+        order: [["updatedAt", "DESC"]],
+        limit: 5,
+      }),
+
+      Task.findAll({
+        where: {
+          ...taskWhere,
+          status: "completion_requested",
+        },
+        include: [
+          {
+            model: Project,
+            as: "project",
+            attributes: ["id", "title"],
+            required: false,
           },
           {
             model: User,
@@ -413,6 +531,7 @@ const getDashboardSummary = async (req, res) => {
 
       // Fetch recently updated experiments.
       Experiment.findAll({
+        where: scope.projectLinkedWhere,
         include: [
           {
             model: Project,
@@ -431,6 +550,7 @@ const getDashboardSummary = async (req, res) => {
 
       // Fetch recently created or updated notebook entries
       NotebookEntry.findAll({
+        where: scope.projectLinkedWhere,
         include: [
           {
             model: Experiment,
@@ -456,6 +576,13 @@ const getDashboardSummary = async (req, res) => {
     return res.json({
       status: "success",
       data: {
+        accessScope: {
+          role: req.user.role,
+          isProjectScoped: scope.isResearcherScoped,
+          accessibleProjectIds: scope.isResearcherScoped
+            ? scope.accessibleProjectIds
+            : "all",
+        },
         metrics: {
           totalProjects,
           activeProjects,
@@ -463,7 +590,8 @@ const getDashboardSummary = async (req, res) => {
           openTasks,
           overdueTasks,
           experimentsNeedingReview: experimentsNeedingReview.length,
-          pendingProtocols: pendingProtocols.length,
+          tasksAwaitingCompletionReview: tasksAwaitingCompletionReview.length,
+          protocolsNeedingReview: protocolsNeedingReview.length,
           totalEquipment,
           unavailableEquipment,
           equipmentInUseNow,
@@ -474,7 +602,11 @@ const getDashboardSummary = async (req, res) => {
           experimentsNeedingReview: experimentsNeedingReview.map(
             formatExperimentSummary,
           ),
-          pendingProtocols: pendingProtocols.map(formatProtocolSummary),
+          tasksAwaitingCompletionReview:
+            tasksAwaitingCompletionReview.map(formatTaskSummary),
+          protocolsNeedingReview: protocolsNeedingReview.map(
+            formatProtocolSummary,
+          ),
           upcomingBookings: upcomingBookings.map(formatBookingSummary),
           recentProjects: recentProjects.map(formatProjectSummary),
           recentTasks: recentTasks.map(formatTaskSummary),

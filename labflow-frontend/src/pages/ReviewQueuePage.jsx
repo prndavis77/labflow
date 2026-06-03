@@ -2,10 +2,8 @@ import {
   Alert,
   Button,
   Card,
-  Col,
   Empty,
   Popconfirm,
-  Row,
   Space,
   Statistic,
   Table,
@@ -24,11 +22,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchExperiments, updateExperiment } from "../api/experimentApi";
 import { fetchProtocols, updateProtocol } from "../api/protocolApi";
+import { fetchTasks } from "../api/taskApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
   APPROVAL_STATUS_COLORS,
   EXPERIMENT_STATUS_COLORS,
   REVIEW_STATUS_COLORS,
+  TASK_STATUS_COLORS,
+  TASK_PRIORITY_COLORS,
 } from "../constants/statusColors";
 
 const { Title, Paragraph } = Typography;
@@ -41,6 +42,9 @@ const ReviewQueuePage = () => {
   const [changesRequestedProtocols, setChangesRequestedProtocols] = useState(
     [],
   );
+
+  const [tasksAwaitingCompletionReview, setTasksAwaitingCompletionReview] =
+    useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdatingReviewStatus, setIsUpdatingReviewStatus] = useState(false);
@@ -58,11 +62,13 @@ const ReviewQueuePage = () => {
         changesRequestedExperimentResult,
         pendingProtocolResult,
         changesRequestedProtocolResult,
+        tasksAwaitingCompletionReviewResult,
       ] = await Promise.all([
         fetchExperiments({ reviewStatus: "pending" }),
         fetchExperiments({ reviewStatus: "changes_requested" }),
         fetchProtocols({ approvalStatus: "pending_review" }),
         fetchProtocols({ approvalStatus: "changes_requested" }),
+        fetchTasks({ status: "completion_requested" }),
       ]);
 
       setPendingExperiments(pendingExperimentResult.data.experiments);
@@ -72,6 +78,9 @@ const ReviewQueuePage = () => {
       setPendingProtocols(pendingProtocolResult.data.protocols);
       setChangesRequestedProtocols(
         changesRequestedProtocolResult.data.protocols,
+      );
+      setTasksAwaitingCompletionReview(
+        tasksAwaitingCompletionReviewResult.data.tasks,
       );
     } catch (error) {
       const messageText =
@@ -147,7 +156,10 @@ const ReviewQueuePage = () => {
   const protocolReviewCount =
     pendingProtocols.length + changesRequestedProtocols.length;
 
-  const totalReviewCount = experimentReviewCount + protocolReviewCount;
+  const taskCompletionReviewCount = tasksAwaitingCompletionReview.length;
+
+  const totalReviewCount =
+    experimentReviewCount + protocolReviewCount + taskCompletionReviewCount;
 
   // Columns for experiments that need review attention
   const experimentColumns = useMemo(
@@ -365,6 +377,86 @@ const ReviewQueuePage = () => {
     [handleApproveProtocol, isUpdatingReviewStatus],
   );
 
+  const taskCompletionColumns = useMemo(
+    () => [
+      {
+        title: "Task",
+        dataIndex: "title",
+        key: "title",
+        render: (title, record) => (
+          <div>
+            <Link to={`/tasks/${record.id}`}>
+              <strong>{title}</strong>
+            </Link>
+
+            {record.description && (
+              <div style={{ color: "#666", marginTop: 4 }}>
+                {record.description}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        title: "Assigned To",
+        dataIndex: "assignedTo",
+        key: "assignedTo",
+        width: 180,
+        render: (assignedTo) => assignedTo?.name || "Unassigned",
+      },
+      {
+        title: "Project",
+        dataIndex: "project",
+        key: "project",
+        width: 220,
+        render: (project) =>
+          project ? (
+            <Link to={`/projects/${project.id}`}>{project.title}</Link>
+          ) : (
+            "No project"
+          ),
+      },
+      {
+        title: "Priority",
+        dataIndex: "priority",
+        key: "priority",
+        width: 130,
+        render: (priority) => (
+          <Tag color={TASK_PRIORITY_COLORS[priority]}>
+            {formatLabel(priority)}
+          </Tag>
+        ),
+      },
+      {
+        title: "Status",
+        dataIndex: "status",
+        key: "status",
+        width: 150,
+        render: (status) => (
+          <Tag color={TASK_STATUS_COLORS[status]}>{formatLabel(status)}</Tag>
+        ),
+      },
+      {
+        title: "Due Date",
+        dataIndex: "dueDate",
+        key: "dueDate",
+        width: 130,
+        render: formatDate,
+      },
+      {
+        title: "Action",
+        key: "action",
+        width: 140,
+        render: (_, record) => (
+          <Link to={`/tasks/${record.id}`}>
+            <Button size="small">Review Task</Button>
+          </Link>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <Space direction="vertical" size="large" style={{ width: "100%" }}>
       <Card>
@@ -381,9 +473,9 @@ const ReviewQueuePage = () => {
             </Title>
 
             <Paragraph style={{ marginBottom: 0 }}>
-              Use the Review button to inspect full experiment or protocol
-              details before requesting changes. Change requests require a
-              review note on the detail page.
+              Use the Review button to inspect experiments, protocols, or task
+              completion requests before taking action. Change requests and task
+              completion decisions are handled on the detail pages.
             </Paragraph>
           </div>
 
@@ -399,54 +491,61 @@ const ReviewQueuePage = () => {
 
       {errorMessage && <Alert type="error" message={errorMessage} showIcon />}
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Total Review Items"
-              value={totalReviewCount}
-              prefix={<WarningOutlined />}
-              loading={isLoading}
-            />
-          </Card>
-        </Col>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 16,
+        }}
+      >
+        <Card>
+          <Statistic
+            title="Total Review Items"
+            value={totalReviewCount}
+            prefix={<WarningOutlined />}
+            loading={isLoading}
+          />
+        </Card>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Experiments Pending"
-              value={pendingExperiments.length}
-              prefix={<ExperimentOutlined />}
-              loading={isLoading}
-            />
-          </Card>
-        </Col>
+        <Card>
+          <Statistic
+            title="Experiments Pending"
+            value={pendingExperiments.length}
+            prefix={<ExperimentOutlined />}
+            loading={isLoading}
+          />
+        </Card>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Protocols Pending"
-              value={pendingProtocols.length}
-              prefix={<FileTextOutlined />}
-              loading={isLoading}
-            />
-          </Card>
-        </Col>
+        <Card>
+          <Statistic
+            title="Protocols Pending"
+            value={pendingProtocols.length}
+            prefix={<FileTextOutlined />}
+            loading={isLoading}
+          />
+        </Card>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Changes Requested"
-              value={
-                changesRequestedExperiments.length +
-                changesRequestedProtocols.length
-              }
-              prefix={<WarningOutlined />}
-              loading={isLoading}
-            />
-          </Card>
-        </Col>
-      </Row>
+        <Card>
+          <Statistic
+            title="Task Completion Requests"
+            value={tasksAwaitingCompletionReview.length}
+            prefix={<FileTextOutlined />}
+            loading={isLoading}
+          />
+        </Card>
+
+        <Card>
+          <Statistic
+            title="Changes Requested"
+            value={
+              changesRequestedExperiments.length +
+              changesRequestedProtocols.length
+            }
+            prefix={<WarningOutlined />}
+            loading={isLoading}
+          />
+        </Card>
+      </div>
 
       <Card title={`Experiments Pending Review (${pendingExperiments.length})`}>
         {pendingExperiments.length === 0 ? (
@@ -512,6 +611,24 @@ const ReviewQueuePage = () => {
             pagination={{ pageSize: 5, showSizeChanger: false }}
             size="small"
             scroll={{ x: 1200 }}
+          />
+        )}
+      </Card>
+
+      <Card
+        title={`Task Completion Requests (${tasksAwaitingCompletionReview.length})`}
+        loading={isLoading}
+      >
+        {tasksAwaitingCompletionReview.length === 0 ? (
+          <Empty description="No task completion requests." />
+        ) : (
+          <Table
+            rowKey="id"
+            columns={taskCompletionColumns}
+            dataSource={tasksAwaitingCompletionReview}
+            pagination={{ pageSize: 5, showSizeChanger: false }}
+            size="small"
+            scroll={{ x: 900 }}
           />
         )}
       </Card>
