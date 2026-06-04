@@ -1,6 +1,7 @@
 const { Task, Project, User } = require("../models");
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
 const { canUseProjectForResearchWork } = require("../utils/projectAccess");
+const { canEditProjectLinkedWork } = require("../utils/projectAccess");
 const {
   isValidDateOnly,
   isEndDateAfterStartDate,
@@ -292,6 +293,21 @@ const createTask = async (req, res) => {
       }
     }
 
+    if (projectId) {
+      const canEditProject = await canEditProjectLinkedWork(
+        req.user,
+        projectId,
+      );
+
+      if (!canEditProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You have read-only access to this project and cannot create project-linked tasks.",
+        });
+      }
+    }
+
     if (assignedToId) {
       const assignedUser = await User.findByPk(assignedToId);
 
@@ -407,6 +423,21 @@ const updateTask = async (req, res) => {
         status: "error",
         message: "You do not have permission to update this task.",
       });
+    }
+
+    if (task.projectId) {
+      const canEditProject = await canEditProjectLinkedWork(
+        req.user,
+        task.projectId,
+      );
+
+      if (!canEditProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You have read-only access to this project and cannot edit project-linked tasks.",
+        });
+      }
     }
 
     if (assignedToId !== undefined && !isAdminOrSupervisor) {

@@ -162,11 +162,11 @@ const getProjectById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get project by ID error:", error);
+    console.error("Error fetching project:", error);
 
     return res.status(500).json({
       status: "error",
-      message: "Something went wrong while fetching the project.",
+      message: "An error occurred while fetching the project.",
     });
   }
 };

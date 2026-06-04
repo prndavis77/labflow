@@ -10,6 +10,7 @@ const {
   canEditProtocol,
 } = require("../utils/workflowPermissions");
 const { canUseProjectForResearchWork } = require("../utils/projectAccess");
+const { canEditProjectLinkedWork } = require("../utils/projectAccess");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -257,6 +258,21 @@ const createProtocol = async (req, res) => {
       }
     }
 
+    if (projectId) {
+      const canEditProject = await canEditProjectLinkedWork(
+        req.user,
+        projectId,
+      );
+
+      if (!canEditProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You have read-only access to this project and cannot create project-linked protocols.",
+        });
+      }
+    }
+
     if (!title || !content) {
       return res.status(400).json({
         status: "error",
@@ -366,6 +382,21 @@ const updateProtocol = async (req, res) => {
         status: "error",
         message: "Protocol project cannot be changed after creation.",
       });
+    }
+
+    if (protocol.projectId) {
+      const canEditProject = await canEditProjectLinkedWork(
+        req.user,
+        protocol.projectId,
+      );
+
+      if (!canEditProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You have read-only access to this project and cannot edit project-linked protocols.",
+        });
+      }
     }
 
     if (

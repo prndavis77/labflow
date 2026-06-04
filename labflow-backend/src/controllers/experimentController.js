@@ -12,6 +12,7 @@ const { Op } = require("sequelize");
 const {
   getAccessibleProjectIds,
   canUseProjectForResearchWork,
+  canEditProjectLinkedWork,
 } = require("../utils/projectAccess");
 
 const {
@@ -390,6 +391,16 @@ const createExperiment = async (req, res) => {
       });
     }
 
+    const canEditProject = await canEditProjectLinkedWork(req.user, projectId);
+
+    if (!canEditProject) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "You have read-only access to this project and cannot create experiments.",
+      });
+    }
+
     // If no researcher is provided, default to the logged-in user
     const resolvedResearcherId = researcherId || req.user.id;
 
@@ -556,6 +567,19 @@ const updateExperiment = async (req, res) => {
       return res.status(403).json({
         status: "error",
         message: "You do not have access to edit experiments for this project.",
+      });
+    }
+
+    const canEditProject = await canEditProjectLinkedWork(
+      req.user,
+      experiment.projectId,
+    );
+
+    if (!canEditProject) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "You have read-only access to this project and cannot edit experiments.",
       });
     }
 

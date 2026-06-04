@@ -1,19 +1,13 @@
 const { ProjectMember, Project } = require("../models");
 
-const isAdminOrSupervisor = (user) => {
-  return ["admin", "supervisor"].includes(user?.role);
+const PROJECT_MEMBER_ROLES = {
+  LEAD: "lead",
+  MEMBER: "member",
+  VIEWER: "viewer",
 };
 
-const isProjectMember = async (userId, projectId) => {
-  if (!userId || !projectId) {
-    return false;
-  }
-
-  const membership = await ProjectMember.findOne({
-    where: { userId, projectId },
-  });
-
-  return Boolean(membership);
+const isAdminOrSupervisor = (user) => {
+  return ["admin", "supervisor"].includes(user?.role);
 };
 
 const getProjectMembership = async (userId, projectId) => {
@@ -55,7 +49,7 @@ const canViewProject = (user, projectId) => {
     return true;
   }
 
-  return isProjectMember(user.id, projectId);
+  return isProjectMember(user, projectId);
 };
 
 const canUseProjectForResearchWork = (user, projectId) => {
@@ -67,14 +61,117 @@ const canUseProjectForResearchWork = (user, projectId) => {
     return true;
   }
 
-  return isProjectMember(user.id, projectId);
+  return isProjectMember(user, projectId);
+};
+
+const getProjectMemberRole = async (user, projectId) => {
+  if (!user || !projectId) {
+    return null;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return null;
+  }
+
+  const membership = await ProjectMember.findOne({
+    where: {
+      userId: user.id,
+      projectId,
+    },
+  });
+
+  return membership?.projectRole || null;
+};
+
+const isProjectLead = async (user, projectId) => {
+  if (!user || !projectId) {
+    return false;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  return projectRole === PROJECT_MEMBER_ROLES.LEAD;
+};
+
+const isProjectMember = async (user, projectId) => {
+  if (!user || !projectId) {
+    return false;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  return Boolean(projectRole);
+};
+
+const canViewProjectLinkedRecord = async (user, projectId) => {
+  if (!user || !projectId) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  return Boolean(projectRole);
+};
+
+const canEditProjectLinkedWork = async (user, projectId) => {
+  if (!user || !projectId) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  return [PROJECT_MEMBER_ROLES.LEAD, PROJECT_MEMBER_ROLES.MEMBER].includes(
+    projectRole,
+  );
+};
+
+const canCreateProjectTask = async (user, projectId) => {
+  return canEditProjectLinkedWork(user, projectId);
+};
+
+const canAssignProjectTask = async (user, projectId) => {
+  if (!user || !projectId) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  return projectRole === PROJECT_MEMBER_ROLES.LEAD;
+};
+
+const canManageProjectMembers = async (user, projectId) => {
+  if (!user) {
+    return false;
+  }
+
+  return isAdminOrSupervisor(user);
 };
 
 module.exports = {
+  PROJECT_MEMBER_ROLES,
   isAdminOrSupervisor,
   isProjectMember,
   getProjectMembership,
   getAccessibleProjectIds,
   canViewProject,
   canUseProjectForResearchWork,
+  getProjectMemberRole,
+  isProjectLead,
+  isProjectMember,
+  canViewProjectLinkedRecord,
+  canEditProjectLinkedWork,
+  canCreateProjectTask,
+  canAssignProjectTask,
+  canManageProjectMembers,
 };
