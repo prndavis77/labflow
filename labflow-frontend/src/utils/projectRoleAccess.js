@@ -8,7 +8,11 @@ export const isAdminOrSupervisor = (user) => {
   return ["admin", "supervisor"].includes(user?.role);
 };
 
-export const getCurrentUserProjectRole = (projectMembers, currentUser) => {
+export const getCurrentUserProjectRole = (
+  projectMembers,
+  currentUser,
+  projectId,
+) => {
   if (!Array.isArray(projectMembers) || !currentUser?.id) {
     return null;
   }
