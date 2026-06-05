@@ -16,6 +16,11 @@ import { Link } from "react-router";
 
 import { deleteProtocol, fetchProtocols } from "../api/protocolApi";
 import { fetchProjects } from "../api/projectApi";
+import { fetchProjectMembers } from "../api/projectMemberApi";
+import {
+  getCurrentUserProjectRole,
+  canEditProjectLinkedWork,
+} from "../utils/projectRoleAccess";
 import { fetchEquipment } from "../api/equipmentApi";
 import { useAuth } from "../context/AuthContext";
 import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
@@ -46,6 +51,12 @@ const ProtocolsPage = () => {
   const [selectedApprovalStatus, setSelectedApprovalStatus] =
     useState(undefined);
 
+  const [projectRoleByProjectId, setProjectRoleByProjectId] = useState({});
+
+  const isAdminOrSupervisor = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
+
   // Admins and supervisors can create and edit protocols by role
   // Researchers depend on configurable workflow permissions
   const canCreateProtocols =
@@ -53,8 +64,7 @@ const ProtocolsPage = () => {
     Boolean(currentUser?.canCreateProtocols);
 
   const canEditProtocols =
-    ["admin", "supervisor"].includes(currentUser?.role) ||
-    Boolean(currentUser?.canEditProtocols);
+    isAdminOrSupervisor || Boolean(currentUser?.canEditProtocols);
 
   // Only admins and supervisors can delete protocols by role
   const canDeleteProtocols = ["admin", "supervisor"].includes(
@@ -114,6 +124,52 @@ const ProtocolsPage = () => {
     }
   }, []);
 
+  const loadProjectRolesForProtocols = useCallback(
+    async (protocolList) => {
+      if (isAdminOrSupervisor) {
+        setProjectRoleByProjectId({});
+        return;
+      }
+
+      const projectIds = [
+        ...new Set(
+          protocolList
+            .map((protocolItem) => protocolItem.projectId)
+            .filter(Boolean),
+        ),
+      ];
+
+      if (projectIds.length === 0) {
+        setProjectRoleByProjectId({});
+        return;
+      }
+
+      try {
+        const results = await Promise.all(
+          projectIds.map(async (projectId) => {
+            const result = await fetchProjectMembers({ projectId });
+
+            const projectRole = getCurrentUserProjectRole(
+              result.data.projectMembers,
+              currentUser,
+              projectId,
+            );
+
+            return [Number(projectId), projectRole];
+          }),
+        );
+
+        setProjectRoleByProjectId(Object.fromEntries(results));
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message || "Failed to load project roles.";
+
+        message.error(messageText);
+      }
+    },
+    [currentUser, isAdminOrSupervisor],
+  );
+
   // Loads equipment so protocols can optionally be linked to instruments
   const loadEquipment = useCallback(async () => {
     try {
@@ -139,8 +195,11 @@ const ProtocolsPage = () => {
       setErrorMessage("");
 
       const result = await fetchProtocols(protocolFilters);
+      const fetchedProtocols = result.data.protocols;
 
-      setProtocols(result.data.protocols);
+      setProtocols(fetchedProtocols);
+
+      await loadProjectRolesForProtocols(fetchedProtocols);
     } catch (error) {
       const messageText =
         error.response?.data?.message || "Failed to load protocols.";
@@ -149,7 +208,7 @@ const ProtocolsPage = () => {
     } finally {
       setIsLoadingProtocols(false);
     }
-  }, [protocolFilters]);
+  }, [protocolFilters, loadProjectRolesForProtocols]);
 
   // Load projects after the first render
   // queueMicrotask avoids direct synchronous state updates inside the effect body
@@ -204,6 +263,32 @@ const ProtocolsPage = () => {
       }
     },
     [loadProtocols],
+  );
+
+  const canEditProtocolRecord = useCallback(
+    (record) => {
+      if (!record) {
+        return false;
+      }
+
+      if (isAdminOrSupervisor) {
+        return true;
+      }
+
+      if (!currentUser?.canEditProtocols) {
+        return false;
+      }
+
+      // General SOPs are not controlled by project membership.
+      if (!record.projectId) {
+        return true;
+      }
+
+      const projectRole = projectRoleByProjectId[Number(record.projectId)];
+
+      return canEditProjectLinkedWork(currentUser, projectRole);
+    },
+    [currentUser, isAdminOrSupervisor, projectRoleByProjectId],
   );
 
   // Table columns are memoized because they include action callbacks
@@ -301,22 +386,16 @@ const ProtocolsPage = () => {
         width: canEditProtocols ? 220 : 90,
         render: (_, record) => (
           <Space>
-            <Select
-              allowClear
-              placeholder="Filter by equipment"
-              style={{ width: 300 }}
-              loading={isLoadingEquipment}
-              options={equipmentOptions}
-              value={selectedEquipmentId}
-              onChange={setSelectedEquipmentId}
-            />
-
             <Link to={`/protocols/${record.id}`}>
               <Button size="small">View</Button>
             </Link>
 
             {canEditProtocols && (
-              <Button size="small" onClick={() => openEditModal(record)}>
+              <Button
+                size="small"
+                onClick={() => openEditModal(record)}
+                disabled={!canEditProtocolRecord(record)}
+              >
                 Edit
               </Button>
             )}
@@ -342,11 +421,9 @@ const ProtocolsPage = () => {
   }, [
     canEditProtocols,
     canDeleteProtocols,
-    equipmentOptions,
     handleDelete,
-    isLoadingEquipment,
     openEditModal,
-    selectedEquipmentId,
+    canEditProtocolRecord,
   ]);
 
   return (
@@ -390,6 +467,16 @@ const ProtocolsPage = () => {
             options={projectOptions}
             value={selectedProjectId}
             onChange={setSelectedProjectId}
+          />
+
+          <Select
+            allowClear
+            placeholder="Filter by equipment"
+            style={{ width: 300 }}
+            loading={isLoadingEquipment}
+            options={equipmentOptions}
+            value={selectedEquipmentId}
+            onChange={setSelectedEquipmentId}
           />
 
           <Select

@@ -34,12 +34,17 @@ import {
 } from "../api/notebookEntryApi";
 import { fetchReviewEvents } from "../api/reviewEventApi";
 import { fetchProjects } from "../api/projectApi";
+import { fetchProjectMembers } from "../api/projectMemberApi";
 import { fetchUsers } from "../api/userApi";
 import { fetchTasks } from "../api/taskApi";
 import { fetchProtocols } from "../api/protocolApi";
 import { useAuth } from "../context/AuthContext";
 import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
 import { NOTEBOOK_ENTRY_TYPE_OPTIONS } from "../constants/statusOptions";
+import {
+  getCurrentUserProjectRole,
+  canEditProjectLinkedWork,
+} from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
   EXPERIMENT_STATUS_COLORS,
@@ -76,6 +81,9 @@ const ExperimentDetailPage = () => {
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [isLoadingProtocols, setIsLoadingProtocols] = useState(false);
 
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [isLoadingProjectMembers, setIsLoadingProjectMembers] = useState(false);
+
   const [isSubmittingNotebookEntry, setIsSubmittingNotebookEntry] =
     useState(false);
   const [isUpdatingReviewStatus, setIsUpdatingReviewStatus] = useState(false);
@@ -94,16 +102,27 @@ const ExperimentDetailPage = () => {
   const [notebookForm] = Form.useForm();
   const [reviewCommentForm] = Form.useForm();
 
-  // Admins and supervisors can create and edit experiments by role
-  // Researchers depend on configurable workflow permissions
-  const canEditExperiment =
-    ["admin", "supervisor"].includes(currentUser?.role) ||
-    Boolean(currentUser?.canEditExperiments);
-
-  // Only admins and supervisors can perform review decisions
-  const canReviewExperiment = ["admin", "supervisor"].includes(
+  const isAdminOrSupervisor = ["admin", "supervisor"].includes(
     currentUser?.role,
   );
+
+  const currentUserProjectRole = useMemo(() => {
+    return getCurrentUserProjectRole(projectMembers, currentUser);
+  }, [projectMembers, currentUser]);
+
+  const canEditThisProjectWork = canEditProjectLinkedWork(
+    currentUser,
+    currentUserProjectRole,
+  );
+
+  const canEditExperiment =
+    isAdminOrSupervisor ||
+    (canEditThisProjectWork && Boolean(currentUser?.canEditExperiments));
+
+  // Only admins and supervisors can perform review decisions
+  const canReviewExperiment = isAdminOrSupervisor;
+
+  const isProjectViewer = currentUserProjectRole === "viewer";
 
   const canSubmitExperimentForReview =
     !canReviewExperiment &&
@@ -127,6 +146,30 @@ const ExperimentDetailPage = () => {
     [currentUser],
   );
 
+  const loadProjectMembersForExperiment = useCallback(async (projectId) => {
+    if (!projectId) {
+      setProjectMembers([]);
+      return;
+    }
+
+    try {
+      setIsLoadingProjectMembers(true);
+
+      const result = await fetchProjectMembers({
+        projectId,
+      });
+
+      setProjectMembers(result.data.projectMembers);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load project role.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingProjectMembers(false);
+    }
+  }, []);
+
   // Loads one experiment by route ID
   const loadExperimentDetail = useCallback(async () => {
     try {
@@ -135,7 +178,11 @@ const ExperimentDetailPage = () => {
 
       const result = await fetchExperimentById(id);
 
-      setExperiment(result.data.experiment);
+      const fetchedExperiment = result.data.experiment;
+
+      setExperiment(fetchedExperiment);
+
+      await loadProjectMembersForExperiment(fetchedExperiment.projectId);
     } catch (error) {
       const message =
         error.response?.data?.message || "Failed to load experiment details.";
@@ -144,7 +191,7 @@ const ExperimentDetailPage = () => {
     } finally {
       setIsLoadingExperiment(false);
     }
-  }, [id]);
+  }, [id, loadProjectMembersForExperiment]);
 
   const loadFormOptions = useCallback(async () => {
     try {
@@ -617,6 +664,16 @@ const ExperimentDetailPage = () => {
             <Paragraph>
               {experiment.objective || "No objective provided."}
             </Paragraph>
+
+            {isProjectViewer && (
+              <Alert
+                type="info"
+                showIcon
+                message="You have read-only access to this project."
+                description="You can view this experiment, but you cannot edit project-linked experiment work."
+                style={{ marginBottom: 16 }}
+              />
+            )}
 
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Experiment Status">

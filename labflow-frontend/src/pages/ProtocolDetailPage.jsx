@@ -21,7 +21,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchProtocolById, updateProtocol } from "../api/protocolApi";
 import { fetchReviewEvents } from "../api/reviewEventApi";
 import { fetchProjects } from "../api/projectApi";
+import { fetchProjectMembers } from "../api/projectMemberApi";
 import { fetchEquipment } from "../api/equipmentApi";
+import {
+  getCurrentUserProjectRole,
+  canEditProjectLinkedWork,
+} from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
 import { useAuth } from "../context/AuthContext";
@@ -43,6 +48,9 @@ const ProtocolDetailPage = () => {
   const [equipment, setEquipment] = useState([]);
   const [reviewEvents, setReviewEvents] = useState([]);
 
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [isLoadingProjectMembers, setIsLoadingProjectMembers] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingReviewEvents, setIsLoadingReviewEvents] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
@@ -60,19 +68,84 @@ const ProtocolDetailPage = () => {
 
   const [reviewCommentForm] = Form.useForm();
 
-  // Admins and supervisors can create and edit protocols by role
-  // Researchers depend on configurable workflow permissions
+  const isAdminOrSupervisor = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
+  const isProjectLinkedProtocol = Boolean(protocol?.projectId);
+
+  const currentUserProjectRole = useMemo(() => {
+    return getCurrentUserProjectRole(
+      projectMembers,
+      currentUser,
+      protocol?.projectId,
+    );
+  }, [projectMembers, currentUser, protocol?.projectId]);
+
+  const canEditThisProjectWork = canEditProjectLinkedWork(
+    currentUser,
+    currentUserProjectRole,
+  );
+
   const canEditProtocol =
-    ["admin", "supervisor"].includes(currentUser?.role) ||
-    Boolean(currentUser?.canEditProtocols);
+    isAdminOrSupervisor ||
+    (Boolean(currentUser?.canEditProtocols) &&
+      (!isProjectLinkedProtocol || canEditThisProjectWork));
 
   // Only admins and supervisors can perform protocol approval decisions
-  const canReviewProtocol = ["admin", "supervisor"].includes(currentUser?.role);
+  const canReviewProtocol = isAdminOrSupervisor;
 
   const canSubmitProtocolForReview =
     !canReviewProtocol &&
     canEditProtocol &&
     ["draft", "changes_requested"].includes(protocol?.approvalStatus);
+
+  const isProjectViewer = currentUserProjectRole === "viewer";
+
+  const loadProjectMembersForProtocol = useCallback(async (projectId) => {
+    if (!projectId) {
+      setProjectMembers([]);
+      return;
+    }
+
+    try {
+      setIsLoadingProjectMembers(true);
+
+      const result = await fetchProjectMembers({
+        projectId,
+      });
+
+      setProjectMembers(result.data.projectMembers);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load project role.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingProjectMembers(false);
+    }
+  }, []);
+
+  // Loads one protocol by route ID
+  const loadProtocolDetail = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      const result = await fetchProtocolById(id);
+      const fetchedProtocol = result.data.protocol;
+
+      setProtocol(fetchedProtocol);
+
+      await loadProjectMembersForProtocol(fetchedProtocol.projectId);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load protocol details.";
+
+      setErrorMessage(messageText);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id, loadProjectMembersForProtocol]);
 
   const loadFormOptions = useCallback(async () => {
     try {
@@ -127,25 +200,6 @@ const ProtocolDetailPage = () => {
     setIsReviewCommentModalOpen(false);
     reviewCommentForm.resetFields();
   }, [reviewCommentForm]);
-
-  // Loads one protocol by route ID
-  const loadProtocolDetail = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setErrorMessage("");
-
-      const result = await fetchProtocolById(id);
-
-      setProtocol(result.data.protocol);
-    } catch (error) {
-      const messageText =
-        error.response?.data?.message || "Failed to load protocol details.";
-
-      setErrorMessage(messageText);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
 
   // Loads review history for the current protocol
   const loadReviewEvents = useCallback(async () => {
@@ -315,7 +369,7 @@ const ProtocolDetailPage = () => {
           Refresh
         </Button>
 
-        {canEditProtocol && protocol && (
+        {canEditProtocol && protocol && !isLoadingProjectMembers && (
           <Button onClick={() => setIsEditModalOpen(true)}>
             Edit Protocol
           </Button>
@@ -329,6 +383,16 @@ const ProtocolDetailPage = () => {
           </Title>
 
           <Paragraph>{protocol.purpose || "No purpose provided."}</Paragraph>
+
+          {isProjectViewer && (
+            <Alert
+              type="info"
+              showIcon
+              message="You have read-only access to this project."
+              description="You can view this protocol, but you cannot edit project-linked protocol work."
+              style={{ marginBottom: 16 }}
+            />
+          )}
 
           <Descriptions bordered column={2}>
             <Descriptions.Item label="Version">

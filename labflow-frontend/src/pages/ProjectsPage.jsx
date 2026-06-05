@@ -2,12 +2,7 @@ import {
   Alert,
   Button,
   Card,
-  DatePicker,
-  Form,
-  Input,
-  Modal,
   Popconfirm,
-  Select,
   Space,
   Table,
   Tag,
@@ -17,22 +12,15 @@ import {
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import dayjs from "dayjs";
 
-import {
-  createProject,
-  deleteProject,
-  fetchProjects,
-  updateProject,
-} from "../api/projectApi";
+import { deleteProject, fetchProjects } from "../api/projectApi";
 import { fetchUsers } from "../api/userApi";
 import { useAuth } from "../context/AuthContext";
-import { PROJECT_STATUS_OPTIONS } from "../constants/statusOptions";
 import { PROJECT_STATUS_COLORS } from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
+import ProjectFormModal from "../components/projects/ProjectFormModal";
 
 const { Title, Paragraph } = Typography;
-const { TextArea } = Input;
 
 const ProjectsPage = () => {
   const { user: currentUser } = useAuth();
@@ -43,12 +31,9 @@ const ProjectsPage = () => {
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-
-  const [form] = Form.useForm();
 
   // Admins and supervisors can manage projects
   // Researchers can view projects but cannot create, edit, or delete them
@@ -99,93 +84,26 @@ const ProjectsPage = () => {
     });
   }, [loadProjects, loadUsers]);
 
-  function openCreateModal() {
+  const openCreateModal = () => {
     setEditingProject(null);
-
-    // Reset the form so old values do not appear when creating a new project.
-    form.resetFields();
-
-    // Default the supervisor dropdown to the logged-in admin/supervisor.
-    const defaultSupervisorId = ["admin", "supervisor"].includes(
-      currentUser?.role,
-    )
-      ? Number(currentUser.id)
-      : undefined;
-
-    // Give new projects a sensible default status
-    form.setFieldsValue({
-      status: "planning",
-      supervisorId: defaultSupervisorId,
-    });
-
     setIsModalOpen(true);
-  }
+  };
 
   // Opens the modal in edit mode and fills the form with the selected project's data.
-  const openEditModal = useCallback(
-    (project) => {
-      setEditingProject(project);
+  const openEditModal = useCallback((project) => {
+    setEditingProject(project);
+    setIsModalOpen(true);
+  }, []);
 
-      // DatePicker expects dayjs objects, so date strings from the API must be converted
-      form.setFieldsValue({
-        title: project.title,
-        description: project.description,
-        status: project.status,
-        startDate: project.startDate ? dayjs(project.startDate) : null,
-        targetEndDate: project.targetEndDate
-          ? dayjs(project.targetEndDate)
-          : null,
-        supervisorId: project.supervisorId || project.supervisor?.id,
-      });
-
-      setIsModalOpen(true);
-    },
-    [form],
-  );
-
-  function closeModal() {
+  const closeModal = () => {
     setIsModalOpen(false);
     setEditingProject(null);
-    form.resetFields();
-  }
+  };
 
-  async function handleSubmit(values) {
-    try {
-      setIsSubmitting(true);
-
-      // Convert Ant Design DatePicker values into YYYY-MM-DD strings for the backend
-      const payload = {
-        title: values.title,
-        description: values.description,
-        status: values.status,
-        startDate: values.startDate
-          ? values.startDate.format("YYYY-MM-DD")
-          : null,
-        targetEndDate: values.targetEndDate
-          ? values.targetEndDate.format("YYYY-MM-DD")
-          : null,
-        supervisorId: values.supervisorId,
-      };
-
-      if (editingProject) {
-        await updateProject(editingProject.id, payload);
-        message.success("Project updated successfully.");
-      } else {
-        await createProject(payload);
-        message.success("Project created successfully.");
-      }
-
-      closeModal();
-      await loadProjects();
-    } catch (error) {
-      const messageText =
-        error.response?.data?.message || "Failed to save project.";
-
-      message.error(messageText);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const handleProjectSaved = async () => {
+    closeModal();
+    await loadProjects();
+  };
 
   const handleDelete = useCallback(
     async (projectId) => {
@@ -204,16 +122,6 @@ const ProjectsPage = () => {
     },
     [loadProjects],
   );
-
-  // Project supervisors must be admin or supervisor users
-  const supervisorOptions = useMemo(() => {
-    return users
-      .filter((user) => ["admin", "supervisor"].includes(user.role))
-      .map((user) => ({
-        label: `${user.name} (${formatLabel(user.role)})`,
-        value: Number(user.id),
-      }));
-  }, [users]);
 
   // Table columns are memoized so they are not recreated unnecessarily on every render
   const columns = useMemo(() => {
@@ -365,79 +273,14 @@ const ProjectsPage = () => {
         />
       </Card>
 
-      <Modal
-        title={editingProject ? "Edit Project" : "Create Project"}
+      <ProjectFormModal
         open={isModalOpen}
+        project={editingProject}
+        users={users}
+        isLoadingUsers={isLoadingUsers}
         onCancel={closeModal}
-        footer={null}
-        destroyOnHidden
-      >
-        <Form layout="vertical" form={form} onFinish={handleSubmit}>
-          <Form.Item
-            label="Project Title"
-            name="title"
-            rules={[
-              { required: true, message: "Please enter a project title" },
-              {
-                min: 3,
-                message: "Project title must be at least 3 characters.",
-              },
-            ]}
-          >
-            <Input placeholder="HPLC Method Development for Caffeine Analysis" />
-          </Form.Item>
-
-          <Form.Item label="Description" name="description">
-            <TextArea
-              rows={4}
-              placeholder="Briefly describe the research objective, scope, or study goal."
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Status"
-            name="status"
-            rules={[
-              { required: true, message: "Please select a project status." },
-            ]}
-          >
-            <Select options={PROJECT_STATUS_OPTIONS} />
-          </Form.Item>
-
-          <Form.Item
-            label="Supervisor"
-            name="supervisorId"
-            rules={[
-              {
-                required: true,
-                message: "Please select a project supervisor.",
-              },
-            ]}
-          >
-            <Select
-              placeholder="Select project supervisor"
-              loading={isLoadingUsers}
-              options={supervisorOptions}
-            />
-          </Form.Item>
-
-          <Form.Item label="Start Date" name="startDate">
-            <DatePicker style={{ width: "100%" }} />
-          </Form.Item>
-
-          <Form.Item label="Target End Date" name="targetEndDate">
-            <DatePicker style={{ width: "100%" }} />
-          </Form.Item>
-
-          <Space style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button onClick={closeModal}>Cancel</Button>
-
-            <Button type="primary" htmlType="submit" loading={isSubmitting}>
-              {editingProject ? "Save Changes" : "Create Project"}
-            </Button>
-          </Space>
-        </Form>
-      </Modal>
+        onSuccess={handleProjectSaved}
+      />
     </>
   );
 };

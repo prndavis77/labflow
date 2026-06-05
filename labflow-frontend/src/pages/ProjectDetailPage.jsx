@@ -18,6 +18,7 @@ import {
 } from "antd";
 import {
   ArrowLeftOutlined,
+  EditOutlined,
   PlusOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
@@ -32,6 +33,7 @@ import { fetchProtocols } from "../api/protocolApi";
 import { fetchEquipmentBookings } from "../api/equipmentBookingApi";
 import { fetchNotebookEntries } from "../api/notebookEntryApi";
 import { fetchUsers } from "../api/userApi";
+import ProjectFormModal from "../components/projects/ProjectFormModal";
 import {
   createProjectMember,
   deleteProjectMember,
@@ -39,6 +41,10 @@ import {
   updateProjectMember,
 } from "../api/projectMemberApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
+import {
+  getCurrentUserProjectRole,
+  canManageProjectMembers,
+} from "../utils/projectRoleAccess";
 
 import { PROJECT_MEMBER_ROLE_OPTIONS } from "../constants/statusOptions";
 import {
@@ -68,9 +74,11 @@ const ProjectDetailPage = () => {
   const [bookings, setBookings] = useState([]);
   const [notebookEntries, setNotebookEntries] = useState([]);
 
+  const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProjectMembers, setIsLoadingProjectMembers] = useState(false);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isSubmittingProjectMember, setIsSubmittingProjectMember] =
     useState(false);
   const [isProjectMemberModalOpen, setIsProjectMemberModalOpen] =
@@ -83,9 +91,13 @@ const ProjectDetailPage = () => {
 
   const [projectMemberForm] = Form.useForm();
 
-  const canManageProjectMembers = ["admin", "supervisor"].includes(
-    currentUser?.role,
-  );
+  const currentUserProjectRole = useMemo(() => {
+    return getCurrentUserProjectRole(projectMembers, currentUser);
+  }, [projectMembers, currentUser]);
+
+  const canManageMembersForThisProject = canManageProjectMembers(currentUser);
+
+  const isProjectViewer = currentUserProjectRole === "viewer";
 
   const loadProjectMembers = useCallback(async () => {
     try {
@@ -123,6 +135,18 @@ const ProjectDetailPage = () => {
       setIsLoadingUsers(false);
     }
   }, []);
+
+  // Opens the reusable project form modal in edit mode.
+  const openEditModal = () => {
+    if (!project) {
+      return;
+    }
+    setIsEditProjectModalOpen(true);
+  };
+
+  const closeEditProjectModal = () => {
+    setIsEditProjectModalOpen(false);
+  };
 
   // Loads the selected project and all related project records.
   const loadProjectDetail = useCallback(async () => {
@@ -171,6 +195,11 @@ const ProjectDetailPage = () => {
       loadUsers();
     });
   }, [loadProjectDetail, loadProjectMembers, loadUsers]);
+
+  const handleProjectSaved = async () => {
+    closeEditProjectModal();
+    await loadProjectDetail();
+  };
 
   const existingProjectMemberUserIds = useMemo(() => {
     return new Set(projectMembers.map((member) => Number(member.userId)));
@@ -263,8 +292,8 @@ const ProjectDetailPage = () => {
     [loadProjectMembers],
   );
 
-  const projectMemberColumns = useMemo(
-    () => [
+  const projectMemberColumns = useMemo(() => {
+    const baseColumns = [
       {
         title: "User",
         key: "user",
@@ -289,7 +318,7 @@ const ProjectDetailPage = () => {
         key: "projectRole",
         width: 220,
         render: (projectRole, record) => {
-          if (!canManageProjectMembers) {
+          if (!canManageMembersForThisProject) {
             return (
               <Tag color={PROJECT_MEMBER_ROLE_COLORS[projectRole]}>
                 {formatLabel(projectRole)}
@@ -316,12 +345,20 @@ const ProjectDetailPage = () => {
         width: 180,
         render: formatDateTime,
       },
+    ];
+
+    if (!canManageMembersForThisProject) {
+      return baseColumns;
+    }
+
+    return [
+      ...baseColumns,
       {
         title: "Actions",
         key: "actions",
         width: 140,
         render: (_, record) => {
-          if (!canManageProjectMembers) {
+          if (!canManageMembersForThisProject) {
             return null;
           }
 
@@ -343,13 +380,12 @@ const ProjectDetailPage = () => {
           );
         },
       },
-    ],
-    [
-      canManageProjectMembers,
-      handleRemoveProjectMember,
-      handleUpdateProjectMemberRole,
-    ],
-  );
+    ];
+  }, [
+    handleRemoveProjectMember,
+    handleUpdateProjectMemberRole,
+    canManageMembersForThisProject,
+  ]);
 
   // Columns for project-linked tasks
   const taskColumns = useMemo(
@@ -647,14 +683,19 @@ const ProjectDetailPage = () => {
 
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => {
-              loadProjectDetail();
-              loadProjectMembers;
+            onClick={async () => {
+              await Promise.all([loadProjectDetail(), loadProjectMembers()]);
             }}
             loading={isLoading || isLoadingProjectMembers}
           >
             Refresh
           </Button>
+
+          {canManageMembersForThisProject && project && (
+            <Button icon={<EditOutlined />} onClick={openEditModal}>
+              Edit Project
+            </Button>
+          )}
         </Space>
 
         {project ? (
@@ -666,6 +707,16 @@ const ProjectDetailPage = () => {
             <Paragraph>
               {project.description || "No description provided."}
             </Paragraph>
+
+            {isProjectViewer && (
+              <Alert
+                type="info"
+                showIcon
+                message="You have read-only access to this project."
+                description="You can view project information and linked records, but you cannot create or edit project-linked work."
+                style={{ marginBottom: 16 }}
+              />
+            )}
 
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Status">
@@ -709,7 +760,7 @@ const ProjectDetailPage = () => {
       <Card
         title={`Project Members (${projectMembers.length})`}
         extra={
-          canManageProjectMembers ? (
+          canManageMembersForThisProject && (
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -717,7 +768,7 @@ const ProjectDetailPage = () => {
             >
               Add Member
             </Button>
-          ) : null
+          )
         }
       >
         {projectMemberErrorMessage && (
@@ -812,55 +863,65 @@ const ProjectDetailPage = () => {
               scroll={{ x: 1000 }}
             />
           </Card>
-          <Modal
-            title="Add Project Member"
-            open={isProjectMemberModalOpen}
-            onCancel={closeProjectMemberModal}
-            onOk={() => projectMemberForm.submit()}
-            confirmLoading={isSubmittingProjectMember}
-            okText="Add Member"
-            destroyOnHidden
-          >
-            <Form
-              layout="vertical"
-              form={projectMemberForm}
-              onFinish={handleAddProjectMember}
-            >
-              <Form.Item
-                label="User"
-                name="userId"
-                rules={[
-                  {
-                    required: true,
-                    message: "Please select a user.",
-                  },
-                ]}
-              >
-                <Select
-                  showSearch
-                  placeholder="Select user"
-                  loading={isLoadingUsers}
-                  options={availableUserOptions}
-                  optionFilterProp="label"
-                />
-              </Form.Item>
-
-              <Form.Item
-                label="Project Role"
-                name="projectRole"
-                rules={[
-                  {
-                    required: true,
-                    message: "Please select a project role.",
-                  },
-                ]}
-              >
-                <Select options={PROJECT_MEMBER_ROLE_OPTIONS} />
-              </Form.Item>
-            </Form>
-          </Modal>
         </Col>
       </Row>
+
+      <Modal
+        title="Add Project Member"
+        open={isProjectMemberModalOpen}
+        onCancel={closeProjectMemberModal}
+        onOk={() => projectMemberForm.submit()}
+        confirmLoading={isSubmittingProjectMember}
+        okText="Add Member"
+        destroyOnHidden
+      >
+        <Form
+          layout="vertical"
+          form={projectMemberForm}
+          onFinish={handleAddProjectMember}
+        >
+          <Form.Item
+            label="User"
+            name="userId"
+            rules={[
+              {
+                required: true,
+                message: "Please select a user.",
+              },
+            ]}
+          >
+            <Select
+              showSearch
+              placeholder="Select user"
+              loading={isLoadingUsers}
+              options={availableUserOptions}
+              optionFilterProp="label"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Project Role"
+            name="projectRole"
+            rules={[
+              {
+                required: true,
+                message: "Please select a project role.",
+              },
+            ]}
+          >
+            <Select options={PROJECT_MEMBER_ROLE_OPTIONS} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <ProjectFormModal
+        open={isEditProjectModalOpen}
+        project={project}
+        users={users}
+        isLoadingUsers={isLoadingUsers}
+        onCancel={closeEditProjectModal}
+        onSuccess={handleProjectSaved}
+      />
     </Space>
   );
 };

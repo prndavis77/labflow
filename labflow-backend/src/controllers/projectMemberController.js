@@ -103,9 +103,13 @@ const getProjectMembers = async (req, res) => {
         }
       }
 
-      where.projectId = {
-        [Op.in]: accessibleProjectIds,
-      };
+      if (projectId) {
+        where.projectId = Number(projectId);
+      } else {
+        where.projectId = {
+          [Op.in]: accessibleProjectIds,
+        };
+      }
     }
 
     const projectMembers = await ProjectMember.findAll({

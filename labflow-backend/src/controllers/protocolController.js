@@ -10,7 +10,10 @@ const {
   canEditProtocol,
 } = require("../utils/workflowPermissions");
 const { canUseProjectForResearchWork } = require("../utils/projectAccess");
-const { canEditProjectLinkedWork } = require("../utils/projectAccess");
+const {
+  canEditProjectLinkedWork,
+  canViewProjectLinkedRecord,
+} = require("../utils/projectAccess");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -203,6 +206,20 @@ const getProtocolById = async (req, res) => {
         status: "error",
         message: "Protocol not found.",
       });
+    }
+
+    if (protocol.projectId) {
+      const canViewProject = await canViewProjectLinkedRecord(
+        req.user,
+        protocol.projectId,
+      );
+
+      if (!canViewProject) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have access to this protocol.",
+        });
+      }
     }
 
     return res.json({
