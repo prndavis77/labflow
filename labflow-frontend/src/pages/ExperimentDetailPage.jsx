@@ -38,7 +38,7 @@ import { fetchProjectMembers } from "../api/projectMemberApi";
 import { fetchUsers } from "../api/userApi";
 import { fetchTasks } from "../api/taskApi";
 import { fetchProtocols } from "../api/protocolApi";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
 import { NOTEBOOK_ENTRY_TYPE_OPTIONS } from "../constants/statusOptions";
 import {
@@ -648,7 +648,7 @@ const ExperimentDetailPage = () => {
             Refresh
           </Button>
 
-          {canEditExperiment && experiment && (
+          {canEditExperiment && experiment && !isLoadingProjectMembers && (
             <Button onClick={() => setIsEditModalOpen(true)}>
               Edit Experiment
             </Button>

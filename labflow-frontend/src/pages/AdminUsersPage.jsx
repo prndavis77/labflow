@@ -21,7 +21,7 @@ import {
 } from "../api/userApi";
 import { USER_ROLE_OPTIONS } from "../constants/statusOptions";
 import { USER_ROLE_COLORS } from "../constants/statusColors";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { formatDateTime, formatLabel } from "../utils/formatters";
 
 const { Title, Paragraph, Text } = Typography;

@@ -16,10 +16,15 @@ import { Link } from "react-router";
 
 import { deleteExperiment, fetchExperiments } from "../api/experimentApi";
 import { fetchProjects } from "../api/projectApi";
+import { fetchProjectMembers } from "../api/projectMemberApi";
 import { fetchTasks } from "../api/taskApi";
 import { fetchUsers } from "../api/userApi";
 import { fetchProtocols } from "../api/protocolApi";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
+import {
+  getCurrentUserProjectRole,
+  canEditProjectLinkedWork,
+} from "../utils/projectRoleAccess";
 import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
 import { EXPERIMENT_STATUS_OPTIONS } from "../constants/statusOptions";
 import { EXPERIMENT_STATUS_COLORS } from "../constants/statusColors";
@@ -30,7 +35,7 @@ import { formatLabel } from "../utils/formatters";
 const { Title, Paragraph } = Typography;
 
 const ExperimentsPage = () => {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
 
   const [experiments, setExperiments] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -52,16 +57,24 @@ const ExperimentsPage = () => {
   const [selectedStatus, setSelectedStatus] = useState(undefined);
   const [selectedReviewStatus, setSelectedReviewStatus] = useState(undefined);
 
+  const [projectRoleByProjectId, setProjectRoleByProjectId] = useState({});
+
+  const isAdminOrSupervisor = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
+
   const canCreateExperiments =
-    ["admin", "supervisor"].includes(user?.role) ||
-    Boolean(user?.canCreateExperiments);
+    ["admin", "supervisor"].includes(currentUser?.role) ||
+    Boolean(currentUser?.canCreateExperiments);
 
   const canEditExperiments =
-    ["admin", "supervisor"].includes(user?.role) ||
-    Boolean(user?.canEditExperiments);
+    ["admin", "supervisor"].includes(currentUser?.role) ||
+    Boolean(currentUser?.canEditExperiments);
 
   // Only admins and supervisors can delete experiment records
-  const canDeleteExperiments = ["admin", "supervisor"].includes(user?.role);
+  const canDeleteExperiments = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
 
   // Converts projects into options for Ant Design Select components
   const projectOptions = useMemo(() => {
@@ -89,6 +102,52 @@ const ExperimentsPage = () => {
 
     return filters;
   }, [selectedProjectId, selectedStatus, selectedReviewStatus]);
+
+  const loadProjectRolesForExperiments = useCallback(
+    async (protocolList) => {
+      if (isAdminOrSupervisor) {
+        setProjectRoleByProjectId({});
+        return;
+      }
+
+      const projectIds = [
+        ...new Set(
+          protocolList
+            .map((protocolItem) => protocolItem.projectId)
+            .filter(Boolean),
+        ),
+      ];
+
+      if (projectIds.length === 0) {
+        setProjectRoleByProjectId({});
+        return;
+      }
+
+      try {
+        const results = await Promise.all(
+          projectIds.map(async (projectId) => {
+            const result = await fetchProjectMembers({ projectId });
+
+            const projectRole = getCurrentUserProjectRole(
+              result.data.projectMembers,
+              currentUser,
+              projectId,
+            );
+
+            return [Number(projectId), projectRole];
+          }),
+        );
+
+        setProjectRoleByProjectId(Object.fromEntries(results));
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message || "Failed to load project roles.";
+
+        message.error(messageText);
+      }
+    },
+    [currentUser, isAdminOrSupervisor],
+  );
 
   // Loads projects for filters and the experiment form
   const loadProjects = useCallback(async () => {
@@ -169,8 +228,11 @@ const ExperimentsPage = () => {
       setErrorMessage("");
 
       const result = await fetchExperiments(experimentFilters);
+      const fetchedExperiments = result.data.experiments;
 
-      setExperiments(result.data.experiments);
+      setExperiments(fetchedExperiments);
+
+      await loadProjectRolesForExperiments(fetchedExperiments);
     } catch (error) {
       const messageText =
         error.response?.data?.message || "Failed to load experiments.";
@@ -179,7 +241,33 @@ const ExperimentsPage = () => {
     } finally {
       setIsLoadingExperiments(false);
     }
-  }, [experimentFilters]);
+  }, [experimentFilters, loadProjectRolesForExperiments]);
+
+  const canEditExperimentRecord = useCallback(
+    (record) => {
+      if (!record) {
+        return false;
+      }
+
+      if (isAdminOrSupervisor) {
+        return true;
+      }
+
+      if (!currentUser?.canEditProtocols) {
+        return false;
+      }
+
+      // General SOPs are not controlled by project membership.
+      if (!record.projectId) {
+        return true;
+      }
+
+      const projectRole = projectRoleByProjectId[Number(record.projectId)];
+
+      return canEditProjectLinkedWork(currentUser, projectRole);
+    },
+    [currentUser, isAdminOrSupervisor, projectRoleByProjectId],
+  );
 
   // Load supporting dropdown data after the first render
   // queueMicrotask avoids direct synchronous state updates inside the effect body
@@ -353,7 +441,11 @@ const ExperimentsPage = () => {
             </Link>
 
             {canEditExperiments && (
-              <Button size="small" onClick={() => openEditModal(record)}>
+              <Button
+                size="small"
+                onClick={() => openEditModal(record)}
+                disabled={!canEditExperimentRecord(record)}
+              >
                 Edit
               </Button>
             )}
@@ -378,7 +470,13 @@ const ExperimentsPage = () => {
     ];
 
     return baseColumns;
-  }, [canDeleteExperiments, handleDelete, openEditModal, canEditExperiments]);
+  }, [
+    canDeleteExperiments,
+    handleDelete,
+    openEditModal,
+    canEditExperiments,
+    canEditExperimentRecord,
+  ]);
 
   return (
     <>
@@ -476,7 +574,7 @@ const ExperimentsPage = () => {
         tasks={tasks}
         protocols={protocols}
         defaultProjectId={selectedProjectId}
-        currentUser={user}
+        currentUser={currentUser}
         isLoadingProjects={isLoadingProjects}
         isLoadingUsers={isLoadingUsers}
         isLoadingTasks={isLoadingTasks}

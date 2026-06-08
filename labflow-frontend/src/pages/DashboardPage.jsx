@@ -29,7 +29,7 @@ import { Link } from "react-router";
 import dayjs from "dayjs";
 
 import { fetchDashboardSummary } from "../api/dashboardApi";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   APPROVAL_STATUS_COLORS,
   NOTEBOOK_ENTRY_TYPE_COLORS,

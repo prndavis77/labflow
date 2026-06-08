@@ -1,4 +1,6 @@
 const { NotebookEntry, Experiment, Project, User } = require("../models");
+const { Op } = require("sequelize");
+const { getAccessibleProjectIds } = require("../utils/projectAccess");
 
 // Formats user data safely for API responses
 const formatUserSummary = (user) => {
@@ -108,16 +110,40 @@ const getNotebookEntries = async (req, res) => {
       where.experimentId = experimentId;
     }
 
-    if (projectId) {
-      where.projectId = projectId;
-    }
-
     if (authorId) {
       where.authorId = authorId;
     }
 
     if (entryType) {
       where.entryType = entryType;
+    }
+
+    if (req.user.role === "admin") {
+      if (projectId) {
+        where.projectId = Number(projectId);
+      }
+    } else {
+      const accessibleProjectIds = (
+        await getAccessibleProjectIds(req.user)
+      ).map(Number);
+
+      if (projectId) {
+        const requestedProjectId = Number(projectId);
+
+        if (!accessibleProjectIds.includes(requestedProjectId)) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "You do not have access to notebook entries for this project.",
+          });
+        }
+
+        where.projectId = requestedProjectId;
+      } else {
+        where.projectId = {
+          [Op.in]: accessibleProjectIds,
+        };
+      }
     }
 
     const entries = await NotebookEntry.findAll({

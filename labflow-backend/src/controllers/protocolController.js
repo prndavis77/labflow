@@ -13,7 +13,9 @@ const { canUseProjectForResearchWork } = require("../utils/projectAccess");
 const {
   canEditProjectLinkedWork,
   canViewProjectLinkedRecord,
+  getAccessibleProjectIds,
 } = require("../utils/projectAccess");
+const { Op } = require("sequelize");
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -166,6 +168,36 @@ const getProtocols = async (req, res) => {
       where.approvalStatus = approvalStatus;
     }
 
+    if (req.user.role !== "admin") {
+      const accessibleProjectIds = (
+        await getAccessibleProjectIds(req.user)
+      ).map(Number);
+
+      if (projectId) {
+        const requestedProjectId = Number(projectId);
+
+        if (!accessibleProjectIds.includes(requestedProjectId)) {
+          return res.status(403).json({
+            status: "error",
+            message: "You do not have access to protocols for this project.",
+          });
+        }
+
+        where.projectId = requestedProjectId;
+      } else {
+        where[Op.or] = [
+          {
+            projectId: {
+              [Op.in]: accessibleProjectIds,
+            },
+          },
+          {
+            projectId: null,
+          },
+        ];
+      }
+    }
+
     const protocols = await Protocol.findAll({
       where,
       include: protocolInclude,
@@ -209,12 +241,12 @@ const getProtocolById = async (req, res) => {
     }
 
     if (protocol.projectId) {
-      const canViewProject = await canViewProjectLinkedRecord(
+      const canViewProtocolProject = await canViewProjectLinkedRecord(
         req.user,
         protocol.projectId,
       );
 
-      if (!canViewProject) {
+      if (!canViewProtocolProject) {
         return res.status(403).json({
           status: "error",
           message: "You do not have access to this protocol.",

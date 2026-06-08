@@ -26,8 +26,9 @@ import { fetchProjectMembers } from "../api/projectMemberApi";
 import {
   getCurrentUserProjectRole,
   canEditProjectLinkedWork,
+  canEditProjectTaskRecord,
 } from "../utils/projectRoleAccess";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { TASK_STATUS_OPTIONS } from "../constants/statusOptions";
 import { TASK_PRIORITY_OPTIONS } from "../constants/statusOptions";
 import { TASK_STATUS_COLORS } from "../constants/statusColors";
@@ -71,7 +72,6 @@ const TasksPage = () => {
 
   // Only admins and supervisors can delete tasks
   const canDeleteTasks = isAdminOrSupervisor;
-  const canManageTaskAssignment = isAdminOrSupervisor;
 
   const currentUserFormProjectRole = useMemo(() => {
     return getCurrentUserProjectRole(formProjectMembers, user, formProjectId);
@@ -331,6 +331,7 @@ const TasksPage = () => {
     form.setFieldsValue({
       status: "todo",
       priority: "medium",
+      assignedToId: isAdminOrSupervisor ? undefined : user?.id,
     });
 
     setIsModalOpen(true);
@@ -441,14 +442,19 @@ const TasksPage = () => {
         return true;
       }
 
-      // Standalone tasks are not controlled by project membership
+      // Standalone tasks are not controlled by project membership.
+      // Researchers can edit standalone tasks assigned to them.
       if (!record.projectId) {
         return Number(record.assignedToId) === Number(user?.id);
       }
 
       const projectRole = projectRoleByProjectId[Number(record.projectId)];
 
-      return canEditProjectLinkedWork(user, projectRole);
+      return canEditProjectTaskRecord({
+        currentUser: user,
+        projectRole,
+        task: record,
+      });
     },
     [isAdminOrSupervisor, projectRoleByProjectId, user],
   );
@@ -577,7 +583,7 @@ const TasksPage = () => {
             </Title>
             <Paragraph style={{ marginBottom: 0 }}>
               Track lab tasks, optional project links, assignees, priorities,
-              and deadlines. status.
+              and deadlines, and status.
             </Paragraph>
           </div>
 

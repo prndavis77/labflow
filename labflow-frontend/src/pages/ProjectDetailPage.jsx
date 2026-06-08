@@ -25,7 +25,7 @@ import {
 import { Link, useNavigate, useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { fetchProjectById } from "../api/projectApi";
 import { fetchTasks } from "../api/taskApi";
 import { fetchExperiments } from "../api/experimentApi";

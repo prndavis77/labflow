@@ -13,6 +13,7 @@ const {
   getAccessibleProjectIds,
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
+  canViewProjectLinkedRecord,
 } = require("../utils/projectAccess");
 
 const {
@@ -203,31 +204,27 @@ const getExperiments = async (req, res) => {
       where.researcherId = researcherId;
     }
 
-    if (req.user.role === "researcher") {
-      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
+    if (req.user.role !== "admin") {
+      const accessibleProjectIds = (
+        await getAccessibleProjectIds(req.user)
+      ).map(Number);
 
-      if (accessibleProjectIds.length === 0) {
-        return res.json({
-          status: "success",
-          data: {
-            experiments: [],
-          },
-        });
+      if (projectId) {
+        const requestedProjectId = Number(projectId);
+
+        if (!accessibleProjectIds.includes(requestedProjectId)) {
+          return res.status(403).json({
+            status: "error",
+            message: "You do not have access to this project's experiments.",
+          });
+        }
+
+        where.projectId = requestedProjectId;
+      } else {
+        where.projectId = {
+          [Op.in]: accessibleProjectIds,
+        };
       }
-
-      if (
-        projectId &&
-        !accessibleProjectIds.map(Number).includes(Number(projectId))
-      ) {
-        return res.status(403).json({
-          status: "error",
-          message: "You do not have access to this project's experiments.",
-        });
-      }
-
-      where.projectId = {
-        [Op.in]: accessibleProjectIds,
-      };
     }
 
     const experiments = await Experiment.findAll({
@@ -270,6 +267,20 @@ const getExperimentById = async (req, res) => {
         status: "error",
         message: "Experiment not found.",
       });
+    }
+
+    if (experiment.projectId) {
+      const canViewExperimentProject = await canViewProjectLinkedRecord(
+        req.user,
+        experiment.projectId,
+      );
+
+      if (!canViewExperimentProject) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have access to this experiment.",
+        });
+      }
     }
 
     const canUseProject = await canUseProjectForResearchWork(

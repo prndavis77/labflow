@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 const { Title, Paragraph } = Typography;
 

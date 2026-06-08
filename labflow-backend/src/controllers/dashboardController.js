@@ -12,9 +12,9 @@ const {
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
 
 const buildDashboardProjectScope = async (user) => {
-  if (!user) {
+  if (!user || !user.id) {
     return {
-      isResearcherScoped: true,
+      isProjectScoped: true,
       accessibleProjectIds: [],
       projectWhere: {
         id: {
@@ -29,9 +29,9 @@ const buildDashboardProjectScope = async (user) => {
     };
   }
 
-  if (["admin", "supervisor"].includes(user.role)) {
+  if (user.role === "admin") {
     return {
-      isResearcherScoped: false,
+      isProjectScoped: false,
       accessibleProjectIds: null,
       projectWhere: {},
       projectLinkedWhere: {},
@@ -41,7 +41,7 @@ const buildDashboardProjectScope = async (user) => {
   const accessibleProjectIds = await getAccessibleProjectIds(user);
 
   return {
-    isResearcherScoped: true,
+    isProjectScoped: true,
     accessibleProjectIds,
     projectWhere: {
       id: {
@@ -57,7 +57,7 @@ const buildDashboardProjectScope = async (user) => {
 };
 
 const buildProtocolWhere = (scope) => {
-  if (!scope.isResearcherScoped) {
+  if (!scope.isProjectScoped) {
     return {};
   }
 
@@ -76,12 +76,26 @@ const buildProtocolWhere = (scope) => {
 };
 
 const buildDashboardTaskWhere = (scope, user) => {
-  if (!scope.isResearcherScoped) {
+  if (!scope.isProjectScoped) {
     return {};
   }
 
   return {
-    assignedToId: user.id,
+    [Op.or]: [
+      {
+        projectId: {
+          [Op.in]: scope.accessibleProjectIds,
+        },
+      },
+      {
+        projectId: null,
+        assignedToId: user.id,
+      },
+      {
+        projectId: null,
+        createdById: user.id,
+      },
+    ],
   };
 };
 
@@ -578,8 +592,8 @@ const getDashboardSummary = async (req, res) => {
       data: {
         accessScope: {
           role: req.user.role,
-          isProjectScoped: scope.isResearcherScoped,
-          accessibleProjectIds: scope.isResearcherScoped
+          isProjectScoped: scope.isProjectScoped,
+          accessibleProjectIds: scope.isProjectScoped
             ? scope.accessibleProjectIds
             : "all",
         },

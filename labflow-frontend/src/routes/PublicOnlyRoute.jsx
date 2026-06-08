@@ -1,6 +1,6 @@
 import { Navigate } from "react-router";
 import { Spin } from "antd";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 // PublicOnlyRoute prevents logged-in users from seeing login/register pages
 const PublicOnlyRoute = ({ children }) => {

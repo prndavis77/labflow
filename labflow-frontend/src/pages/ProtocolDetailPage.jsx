@@ -29,7 +29,7 @@ import {
 } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   APPROVAL_STATUS_COLORS,
   REVIEW_EVENT_ACTION_COLORS,

@@ -5,6 +5,7 @@ const {
   canEditProjectLinkedWork,
   canAssignProjectTask,
   canViewProjectLinkedRecord,
+  getProjectMemberRole,
 } = require("../utils/projectAccess");
 const {
   isValidDateOnly,
@@ -65,6 +66,32 @@ const canCreateTaskForPayload = async (user, projectId, assignedToId) => {
   }
 
   return Number(assignedToId) === Number(user.id);
+};
+
+const canEditProjectTaskRecord = async ({ user, task }) => {
+  if (!user || !user.id || !task) {
+    return false;
+  }
+
+  if (["admin", "supervisor"].includes(user.role)) {
+    return true;
+  }
+
+  if (!task.projectId) {
+    return Number(task.assignedToId) === Number(user.id);
+  }
+
+  const projectRole = await getProjectMemberRole(user, task.projectId);
+
+  if (projectRole === "lead") {
+    return true;
+  }
+
+  if (projectRole === "member") {
+    return Number(task.assignedToId) === Number(user.id);
+  }
+
+  return false;
 };
 
 const canUpdateTask = async (user, task) => {
@@ -164,19 +191,39 @@ const getTasks = async (req, res) => {
       where.status = status;
     }
 
-    if (req.user.role === "researcher") {
-      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
+    if (req.user.role !== "admin") {
+      const accessibleProjectIds = (
+        await getAccessibleProjectIds(req.user)
+      ).map(Number);
 
-      where[Op.or] = [
-        {
-          assignedToId: req.user.id,
-        },
-        {
-          projectId: {
-            [Op.in]: accessibleProjectIds,
+      if (projectId) {
+        const requestedProjectId = Number(projectId);
+
+        if (!accessibleProjectIds.includes(requestedProjectId)) {
+          return res.status(403).json({
+            status: "error",
+            message: "You do not have access to tasks for this project.",
+          });
+        }
+
+        where.projectId = requestedProjectId;
+      } else {
+        where[Op.or] = [
+          {
+            projectId: {
+              [Op.in]: accessibleProjectIds,
+            },
           },
-        },
-      ];
+          {
+            projectId: null,
+            assignedToId: req.user.id,
+          },
+          {
+            projectId: null,
+            createdById: req.user.id,
+          },
+        ];
+      }
     }
 
     const tasks = await Task.findAll({
@@ -253,6 +300,20 @@ const getTaskById = async (req, res) => {
         status: "error",
         message: "Task not found.",
       });
+    }
+
+    if (task.projectId) {
+      const canViewTaskProject = await canViewProjectLinkedRecord(
+        req.user,
+        task.projectId,
+      );
+
+      if (!canViewTaskProject) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have access to this task.",
+        });
+      }
     }
 
     const hasAccess = await canViewTask(req.user, task);
@@ -392,7 +453,7 @@ const createTask = async (req, res) => {
       status: status || "todo",
       priority: priority || "medium",
       dueDate: dueDate || null,
-      projectId: projectId || null,
+      projectId: resolvedProjectId,
       assignedToId: resolvedAssignedToId,
       createdById: req.user.id,
     });
@@ -470,6 +531,18 @@ const updateTask = async (req, res) => {
     }
 
     const isAdminOrSupervisor = ["admin", "supervisor"].includes(req.user.role);
+
+    const canEditTask = await canEditProjectTaskRecord({
+      user: req.user,
+      task,
+    });
+
+    if (!canEditTask) {
+      return res.status(403).json({
+        status: "error",
+        message: "You do not have permission to edit this task.",
+      });
+    }
 
     const canUpdate = await canUpdateTask(req.user, task);
 
@@ -625,6 +698,15 @@ const deleteTask = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Task not found.",
+      });
+    }
+
+    const isAdminOrSupervisor = ["admin", "supervisor"].includes(req.user.role);
+
+    if (!isAdminOrSupervisor) {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and supervisors can delete tasks.",
       });
     }
 

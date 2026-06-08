@@ -22,7 +22,7 @@ import {
   canEditProjectLinkedWork,
 } from "../utils/projectRoleAccess";
 import { fetchEquipment } from "../api/equipmentApi";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
 import { APPROVAL_STATUS_OPTIONS } from "../constants/statusOptions";
 import { APPROVAL_STATUS_COLORS } from "../constants/statusColors";

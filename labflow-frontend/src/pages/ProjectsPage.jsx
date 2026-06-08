@@ -15,7 +15,7 @@ import { Link } from "react-router";
 
 import { deleteProject, fetchProjects } from "../api/projectApi";
 import { fetchUsers } from "../api/userApi";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { PROJECT_STATUS_COLORS } from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
 import ProjectFormModal from "../components/projects/ProjectFormModal";

@@ -1,4 +1,5 @@
-const { ReviewEvent, Experiment, Protocol, User } = require("../models");
+const { ReviewEvent, Experiment, Protocol, Task, User } = require("../models");
+const { canViewProjectLinkedRecord } = require("../utils/projectAccess");
 
 // Formats user data safely for review event responses.
 // This prevents sensitive fields like passwordHash from being exposed.
@@ -55,11 +56,101 @@ const findReviewTarget = async (targetType, targetId) => {
   return null;
 };
 
+const canViewReviewTarget = async (user, targetType, targetId) => {
+  if (!user || !user.id || !targetType || !targetId) {
+    return false;
+  }
+
+  if (user.role === "admin") {
+    return true;
+  }
+
+  if (targetType === "experiment") {
+    const experiment = await Experiment.findByPk(targetId);
+
+    if (!experiment) {
+      return null;
+    }
+
+    return canViewProjectLinkedRecord(user, experiment.projectId);
+  }
+
+  if (targetType === "protocol") {
+    const protocol = await Protocol.findByPk(targetId);
+
+    if (!protocol) {
+      return null;
+    }
+
+    if (!protocol.projectId) {
+      // General SOP review history rule.
+      // Keep this restrictive for now.
+      return ["admin", "supervisor"].includes(user.role);
+    }
+
+    return canViewProjectLinkedRecord(user, protocol.projectId);
+  }
+
+  if (targetType === "task") {
+    const task = await Task.findByPk(targetId);
+
+    if (!task) {
+      return null;
+    }
+
+    if (task.projectId) {
+      return canViewProjectLinkedRecord(user, task.projectId);
+    }
+
+    return (
+      Number(task.assignedToId) === Number(user.id) ||
+      Number(task.createdById) === Number(user.id)
+    );
+  }
+
+  return false;
+};
+
 // GET /api/review-events
 // Returns review events with optional filters for targetType, targetId, action, and reviewerId
 const getReviewEvents = async (req, res) => {
   try {
     const { targetType, targetId, action, reviewerId } = req.query;
+
+    const validTargetTypes = ["experiment", "protocol", "task"];
+
+    if (targetType && !validTargetTypes.includes(targetType)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Target type must be experiment or protocol.",
+      });
+    }
+
+    if (req.user.role !== "admin" && (!targetType || !targetId)) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Target type and target ID are required when fetching review events.",
+      });
+    }
+
+    if (req.user.role !== "admin") {
+      const canView = await canViewReviewTarget(req.user, targetType, targetId);
+
+      if (canView === null) {
+        return res.status(404).json({
+          status: "error",
+          message: "Review target not found.",
+        });
+      }
+
+      if (!canView) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have access to these review events.",
+        });
+      }
+    }
 
     const where = {};
 
@@ -92,7 +183,7 @@ const getReviewEvents = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching review events", error);
+    console.error("Error fetching review events:", error);
 
     return res.status(500).json({
       status: "error",
@@ -118,6 +209,21 @@ const getReviewEventById = async (req, res) => {
       });
     }
 
+    if (req.user.role !== "admin") {
+      const canView = await canViewReviewTarget(
+        req.user,
+        reviewEvent.targetType,
+        reviewEvent.targetId,
+      );
+
+      if (!canView) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have access to this review event.",
+        });
+      }
+    }
+
     return res.json({
       status: "success",
       data: {
@@ -125,7 +231,7 @@ const getReviewEventById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching review event", error);
+    console.error("Error fetching review event:", error);
 
     return res.status(500).json({
       status: "error",
@@ -148,10 +254,17 @@ const createReviewEvent = async (req, res) => {
       });
     }
 
+    if (!["admin", "supervisor"].includes(req.user.role)) {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and supervisors can create review events.",
+      });
+    }
+
     if (!["experiment", "protocol"].includes(targetType)) {
       return res.status(400).json({
         status: "error",
-        message: "Target type must be either experiment or protocol.",
+        message: "Target type must be either experiment, protocol or task.",
       });
     }
 
@@ -176,6 +289,18 @@ const createReviewEvent = async (req, res) => {
         status: "error",
         message: "Review target not found.",
       });
+    }
+
+    if (req.user.role !== "admin") {
+      const canView = await canViewReviewTarget(req.user, targetType, targetId);
+
+      if (!canView) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You do not have access to create a review event for this target.",
+        });
+      }
     }
 
     const reviewEvent = await ReviewEvent.create({
@@ -212,6 +337,12 @@ const createReviewEvent = async (req, res) => {
 // This is restricted to admins because review history should not be casually modified
 const deleteReviewEvent = async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins can delete review events.",
+      });
+    }
     const { id } = req.params;
 
     const reviewEvent = await ReviewEvent.findByPk(id);

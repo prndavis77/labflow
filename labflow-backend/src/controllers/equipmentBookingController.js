@@ -6,6 +6,7 @@ const {
   Project,
   Experiment,
 } = require("../models");
+const { getAccessibleProjectIds } = require("../utils/projectAccess");
 
 // Formats user data safely for API responses
 const formatUserSummary = (user) => {
@@ -183,12 +184,43 @@ const getEquipmentBookings = async (req, res) => {
       where.userId = userId;
     }
 
-    if (projectId) {
-      where.projectId = projectId;
-    }
-
     if (status) {
       where.status = status;
+    }
+
+    if (req.user.role === "admin") {
+      if (projectId) {
+        where.projectId = Number(projectId);
+      }
+    } else {
+      const accessibleProjectIds = (
+        await getAccessibleProjectIds(req.user)
+      ).map(Number);
+
+      if (projectId) {
+        const requestedProjectId = Number(projectId);
+
+        if (!accessibleProjectIds.includes(requestedProjectId)) {
+          return res.status(403).json({
+            status: "error",
+            message: "You do not have access to bookings for this project.",
+          });
+        }
+
+        where.projectId = requestedProjectId;
+      } else {
+        where[Op.or] = [
+          {
+            projectId: {
+              [Op.in]: accessibleProjectIds,
+            },
+          },
+          {
+            projectId: null,
+            userId: req.user.id,
+          },
+        ];
+      }
     }
 
     const bookings = await EquipmentBooking.findAll({

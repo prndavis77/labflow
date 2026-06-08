@@ -250,7 +250,7 @@ const ReviewQueuePage = () => {
             {record.reviewStatus !== "approved" && (
               <Popconfirm
                 title="Approve experiment?"
-                description="This will mark the experiment review as approvedand set the experiment status to completed."
+                description="This will mark the experiment review as approved and set the experiment status to completed."
                 okText="Approve"
                 cancelText="Cancel"
                 onConfirm={() => handleApproveExperiment(record)}

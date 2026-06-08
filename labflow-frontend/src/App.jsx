@@ -13,7 +13,7 @@ import {
 import { useNavigate, useLocation } from "react-router";
 
 import AppRoutes from "./routes/AppRoutes";
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/useAuth";
 import ScrollToTop from "./components/ScrollToTop";
 
 const { Header, Sider, Content } = Layout;

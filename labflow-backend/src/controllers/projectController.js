@@ -82,7 +82,7 @@ const validateProjectSupervisor = async (supervisorId) => {
 // Later, we will filter by lab membership and project membership
 const getProjects = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, supervisorId } = req.query;
 
     const where = {};
 
@@ -90,17 +90,12 @@ const getProjects = async (req, res) => {
       where.status = status;
     }
 
-    if (req.user.role === "researcher") {
-      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
+    if (supervisorId) {
+      where.supervisorId = Number(supervisorId);
+    }
 
-      if (accessibleProjectIds.length === 0) {
-        return res.json({
-          status: "success",
-          data: {
-            projects: [],
-          },
-        });
-      }
+    if (req.user.role !== "admin") {
+      const accessibleProjectIds = await getAccessibleProjectIds(req.user);
 
       where.id = {
         [Op.in]: accessibleProjectIds,

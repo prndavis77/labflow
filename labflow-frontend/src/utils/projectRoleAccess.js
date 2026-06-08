@@ -19,8 +19,18 @@ export const getCurrentUserProjectRole = (
 
   const membership = projectMembers.find((member) => {
     const memberUserId = member.userId ?? member.user?.id;
+    const memberProjectId = member.projectId ?? member.project?.id;
 
-    return Number(memberUserId) === Number(currentUser.id);
+    const userMatches = Number(memberUserId) === Number(currentUser.id);
+
+    const projectMatches =
+      projectId === undefined ||
+      projectId === null ||
+      memberProjectId === undefined ||
+      memberProjectId === null ||
+      Number(memberProjectId) === Number(projectId);
+
+    return userMatches && projectMatches;
   });
 
   return membership?.projectRole || null;
@@ -54,4 +64,28 @@ export const canAssignProjectTask = (currentUser, projectRole) => {
 
 export const canManageProjectMembers = (currentUser) => {
   return isAdminOrSupervisor(currentUser);
+};
+
+export const canEditProjectTaskRecord = ({
+  currentUser,
+  projectRole,
+  task,
+}) => {
+  if (!currentUser || !task) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(currentUser)) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.LEAD) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.MEMBER) {
+    return Number(task.assignedToId) === Number(currentUser.id);
+  }
+
+  return false;
 };
