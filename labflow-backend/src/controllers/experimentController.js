@@ -14,6 +14,7 @@ const {
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
   canViewProjectLinkedRecord,
+  canReviewProjectLinkedRecord,
 } = require("../utils/projectAccess");
 
 const {
@@ -600,12 +601,27 @@ const updateExperiment = async (req, res) => {
       reviewStatus !== undefined &&
       ["approved", "changes_requested"].includes(reviewStatus);
 
-    if (isReviewDecision && !["admin", "supervisor"].includes(req.user.role)) {
-      return res.status(403).json({
-        status: "error",
-        message:
-          "Only admins and supervisors can make experiment review decisions.",
-      });
+    if (isReviewDecision) {
+      if (!["admin", "supervisor"].includes(req.user.role)) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Only admins and supervisors can make experiment review decisions.",
+        });
+      }
+
+      const canReviewExperimentProject = await canReviewProjectLinkedRecord(
+        req.user,
+        experiment.projectId,
+      );
+
+      if (!canReviewExperimentProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You can only review experiments for projects you are authorized to supervise.",
+        });
+      }
     }
 
     const isSubmitForReview =
@@ -654,19 +670,6 @@ const updateExperiment = async (req, res) => {
           message: "Linked task must belong to the selected project.",
         });
       }
-    }
-
-    const resolvedReviewStatus =
-      reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus;
-
-    const resolvedStatus = status !== undefined ? status : experiment.status;
-
-    if (isReviewDecision && !["admin", "supervisor"].includes(req.user.role)) {
-      return res.status(403).json({
-        status: "error",
-        message:
-          "Only admins and supervisors can make experiment review decisions.",
-      });
     }
 
     if (protocolId) {

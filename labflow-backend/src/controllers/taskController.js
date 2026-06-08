@@ -5,6 +5,7 @@ const {
   canEditProjectLinkedWork,
   canAssignProjectTask,
   canViewProjectLinkedRecord,
+  canReviewProjectLinkedRecord,
   getProjectMemberRole,
 } = require("../utils/projectAccess");
 const {
@@ -73,8 +74,16 @@ const canEditProjectTaskRecord = async ({ user, task }) => {
     return false;
   }
 
-  if (["admin", "supervisor"].includes(user.role)) {
+  if (user.role === "admin") {
     return true;
+  }
+
+  if (user.role === "supervisor") {
+    if (!task.projectId) {
+      return Number(task.assignedToId) === Number(user.id);
+    }
+
+    return canEditProjectLinkedWork(user, task.projectId);
   }
 
   if (!task.projectId) {
@@ -89,26 +98,6 @@ const canEditProjectTaskRecord = async ({ user, task }) => {
 
   if (projectRole === "member") {
     return Number(task.assignedToId) === Number(user.id);
-  }
-
-  return false;
-};
-
-const canUpdateTask = async (user, task) => {
-  if (!user || !task) {
-    return false;
-  }
-
-  if (isAdminOrSupervisor(user)) {
-    return true;
-  }
-
-  if (Number(task.assignedToId) === Number(user.id)) {
-    return true;
-  }
-
-  if (task.projectId) {
-    return canUseProjectForResearchWork(user, task.projectId);
   }
 
   return false;
@@ -532,28 +521,57 @@ const updateTask = async (req, res) => {
 
     const isAdminOrSupervisor = ["admin", "supervisor"].includes(req.user.role);
 
-    const canEditTask = await canEditProjectTaskRecord({
-      user: req.user,
-      task,
-    });
+    const isTaskCompletionReviewDecision =
+      status !== undefined &&
+      ["done", "in_progress"].includes(status) &&
+      task.status === "completion_requested";
 
-    if (!canEditTask) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have permission to edit this task.",
-      });
+    if (isTaskCompletionReviewDecision) {
+      if (!["admin", "supervisor"].includes(req.user.role)) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Only admins and supervisors can review task completion requests.",
+        });
+      }
+
+      if (task.projectId) {
+        const canReviewTaskProject = await canReviewProjectLinkedRecord(
+          req.user,
+          task.projectId,
+        );
+
+        if (!canReviewTaskProject) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "You can only review task completion requests for projects you are authorized to supervise.",
+          });
+        }
+      } else if (req.user.role !== "admin") {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Only admins can review standalone task completion requests.",
+        });
+      }
     }
 
-    const canUpdate = await canUpdateTask(req.user, task);
-
-    if (!canUpdate) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have permission to update this task.",
+    if (!isTaskCompletionReviewDecision) {
+      const canEditTask = await canEditProjectTaskRecord({
+        user: req.user,
+        task,
       });
+
+      if (!canEditTask) {
+        return res.status(403).json({
+          status: "error",
+          message: "You do not have permission to edit this task.",
+        });
+      }
     }
 
-    if (task.projectId) {
+    if (task.projectId && !isTaskCompletionReviewDecision) {
       const canEditProject = await canEditProjectLinkedWork(
         req.user,
         task.projectId,
@@ -628,11 +646,14 @@ const updateTask = async (req, res) => {
       }
     }
 
-    if (status === "done" && !isAdminOrSupervisor) {
-      return res.status(403).json({
-        status: "error",
-        message: "Only admins and supervisors can mark tasks as done.",
-      });
+    if (status === "done" && !isTaskCompletionReviewDecision) {
+      if (req.user.role !== "admin") {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Tasks must be submitted for completion review before they can be marked done.",
+        });
+      }
     }
 
     await task.update({

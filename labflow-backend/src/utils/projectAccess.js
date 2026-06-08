@@ -234,6 +234,22 @@ const canManageProjectMembers = async (user, projectId) => {
   return false;
 };
 
+const canReviewProjectLinkedRecord = async (user, projectId) => {
+  if (!user || !user.id || !projectId) {
+    return false;
+  }
+
+  if (user.role === "admin") {
+    return true;
+  }
+
+  if (user.role === "supervisor") {
+    return canAccessProjectAsSupervisor(user, projectId);
+  }
+
+  return false;
+};
+
 module.exports = {
   PROJECT_MEMBER_ROLES,
   isAdminOrSupervisor,
@@ -250,4 +266,5 @@ module.exports = {
   canCreateProjectTask,
   canAssignProjectTask,
   canManageProjectMembers,
+  canReviewProjectLinkedRecord,
 };

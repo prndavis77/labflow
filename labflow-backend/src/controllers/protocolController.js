@@ -9,10 +9,11 @@ const {
   canCreateProtocol,
   canEditProtocol,
 } = require("../utils/workflowPermissions");
-const { canUseProjectForResearchWork } = require("../utils/projectAccess");
 const {
+  canUseProjectForResearchWork,
   canEditProjectLinkedWork,
   canViewProjectLinkedRecord,
+  canReviewProjectLinkedRecord,
   getAccessibleProjectIds,
 } = require("../utils/projectAccess");
 const { Op } = require("sequelize");
@@ -489,15 +490,29 @@ const updateProtocol = async (req, res) => {
       approvalStatus !== undefined &&
       ["approved", "changes_requested"].includes(approvalStatus);
 
-    if (
-      isApprovalDecision &&
-      !["admin", "supervisor"].includes(req.user.role)
-    ) {
-      return res.status(403).json({
-        status: "error",
-        message:
-          "Only admins and supervisors can make protocol approval decisions.",
-      });
+    if (isApprovalDecision) {
+      if (!["admin", "supervisor"].includes(req.user.role)) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Only admins and supervisors can make protocol approval decisions.",
+        });
+      }
+
+      if (protocol.projectId) {
+        const canReviewProtocolProject = await canReviewProjectLinkedRecord(
+          req.user,
+          protocol.projectId,
+        );
+
+        if (!canReviewProtocolProject) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "You can only review protocols for projects you are authorized to supervise.",
+          });
+        }
+      }
     }
 
     const isSubmitForReview =

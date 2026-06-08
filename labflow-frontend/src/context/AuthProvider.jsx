@@ -1,7 +1,6 @@
-import { createContext, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AuthContext } from "./authContext";
 import { getCurrentUser, loginUser, registerUser } from "../api/authApi";
-
-const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   // Keep token in state so React reacts consistently when login/logout changes it
