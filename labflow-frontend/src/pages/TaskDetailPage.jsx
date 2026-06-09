@@ -40,13 +40,17 @@ const TaskDetailPage = () => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const canRequestTaskCompletion =
-    currentUser?.role === "researcher" &&
-    Number(task?.assignedToId) === Number(currentUser?.id) &&
-    !["completion_requested", "done"].includes(task?.status);
+    task &&
+    Number(task.assignedToId) === Number(currentUser?.id) &&
+    task.status !== "done" &&
+    task.status !== "completion_requested";
 
-  const canConfirmTaskCompletion =
-    ["admin", "supervisor"].includes(currentUser?.role) &&
-    task?.status === "completion_requested";
+  const isTaskCompletionRequest = task?.status === "completion_requested";
+
+  const canReviewTaskCompletion =
+    isTaskCompletionRequest &&
+    (currentUser?.role === "admin" ||
+      (currentUser?.role === "supervisor" && task?.projectId));
 
   // Loads the selected task and experiments linked to that task
   const loadTaskDetail = useCallback(async () => {
@@ -233,7 +237,7 @@ const TaskDetailPage = () => {
               {task.description || "No description provided."}
             </Paragraph>
 
-            {(canRequestTaskCompletion || canConfirmTaskCompletion) && (
+            {(canRequestTaskCompletion || canReviewTaskCompletion) && (
               <Card
                 size="small"
                 title="Task Completion Workflow"
@@ -253,14 +257,14 @@ const TaskDetailPage = () => {
                   </Popconfirm>
                 )}
 
-                {canConfirmTaskCompletion && (
+                {canReviewTaskCompletion && (
                   <Space>
                     <Button
                       type="primary"
                       loading={isUpdatingTask}
                       onClick={() => handleAdminTaskStatusUpdate("done")}
                     >
-                      Confirm Done
+                      Confirm Completion
                     </Button>
 
                     <Button

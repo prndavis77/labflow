@@ -26,6 +26,8 @@ import { fetchEquipment } from "../api/equipmentApi";
 import {
   getCurrentUserProjectRole,
   canEditProjectLinkedWork,
+  canReviewGeneralProtocol,
+  canReviewProjectLinkedRecord,
 } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
@@ -92,7 +94,10 @@ const ProtocolDetailPage = () => {
       (!isProjectLinkedProtocol || canEditThisProjectWork));
 
   // Only admins and supervisors can perform protocol approval decisions
-  const canReviewProtocol = isAdminOrSupervisor;
+  const canReviewProtocol =
+    protocol?.projectId === null || protocol?.projectId === undefined
+      ? canReviewGeneralProtocol(currentUser)
+      : canReviewProjectLinkedRecord(currentUser);
 
   const canSubmitProtocolForReview =
     !canReviewProtocol &&
@@ -530,22 +535,25 @@ const ProtocolDetailPage = () => {
                   </Paragraph>
 
                   <Space wrap>
-                    {protocol?.approvalStatus !== "approved" && (
-                      <Popconfirm
-                        title="Approve protocol?"
-                        description="This will approve the protocol and record approval metadata."
-                        okText="Approve"
-                        cancelText="Cancel"
-                        onConfirm={() => handleProtocolReviewAction("approved")}
-                      >
-                        <Button
-                          type="primary"
-                          loading={isUpdatingApprovalStatus}
+                    {canReviewProtocol &&
+                      protocol?.approvalStatus !== "approved" && (
+                        <Popconfirm
+                          title="Approve protocol?"
+                          description="This will approve the protocol and record approval metadata."
+                          okText="Approve"
+                          cancelText="Cancel"
+                          onConfirm={() =>
+                            handleProtocolReviewAction("approved")
+                          }
                         >
-                          Approve Protocol
-                        </Button>
-                      </Popconfirm>
-                    )}
+                          <Button
+                            type="primary"
+                            loading={isUpdatingApprovalStatus}
+                          >
+                            Approve Protocol
+                          </Button>
+                        </Popconfirm>
+                      )}
 
                     <Button
                       danger

@@ -44,6 +44,7 @@ import { NOTEBOOK_ENTRY_TYPE_OPTIONS } from "../constants/statusOptions";
 import {
   getCurrentUserProjectRole,
   canEditProjectLinkedWork,
+  canReviewProjectLinkedRecord,
 } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
@@ -120,7 +121,7 @@ const ExperimentDetailPage = () => {
     (canEditThisProjectWork && Boolean(currentUser?.canEditExperiments));
 
   // Only admins and supervisors can perform review decisions
-  const canReviewExperiment = isAdminOrSupervisor;
+  const canReviewExperiment = canReviewProjectLinkedRecord(currentUser);
 
   const isProjectViewer = currentUserProjectRole === "viewer";
 
@@ -837,19 +838,20 @@ const ExperimentDetailPage = () => {
               </Paragraph>
 
               <Space wrap>
-                {experiment?.reviewStatus !== "approved" && (
-                  <Popconfirm
-                    title="Approve experiment?"
-                    description="This will approve the experiment and record approval metadata."
-                    okText="Approve"
-                    cancelText="Cancel"
-                    onConfirm={() => handleExperimentReviewAction("approved")}
-                  >
-                    <Button type="primary" loading={isUpdatingReviewStatus}>
-                      Approve Experiment
-                    </Button>
-                  </Popconfirm>
-                )}
+                {canReviewExperiment &&
+                  experiment?.reviewStatus !== "approved" && (
+                    <Popconfirm
+                      title="Approve experiment?"
+                      description="This will approve the experiment and record approval metadata."
+                      okText="Approve"
+                      cancelText="Cancel"
+                      onConfirm={() => handleExperimentReviewAction("approved")}
+                    >
+                      <Button type="primary" loading={isUpdatingReviewStatus}>
+                        Approve Experiment
+                      </Button>
+                    </Popconfirm>
+                  )}
 
                 <Button
                   danger

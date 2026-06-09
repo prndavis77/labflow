@@ -18,11 +18,13 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { Link } from "react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useNavigate } from "react";
+import { useAuth } from "../context/useAuth";
 
 import { fetchExperiments, updateExperiment } from "../api/experimentApi";
 import { fetchProtocols, updateProtocol } from "../api/protocolApi";
 import { fetchTasks } from "../api/taskApi";
+import { canReviewProjectLinkedRecord } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
   APPROVAL_STATUS_COLORS,
@@ -35,6 +37,9 @@ import {
 const { Title, Paragraph } = Typography;
 
 const ReviewQueuePage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [pendingExperiments, setPendingExperiments] = useState([]);
   const [changesRequestedExperiments, setChangesRequestedExperiments] =
     useState([]);
@@ -49,6 +54,8 @@ const ReviewQueuePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdatingReviewStatus, setIsUpdatingReviewStatus] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const canReviewRecords = canReviewProjectLinkedRecord(user);
 
   // Loads review-related experiments and protocols
   // This page is intentionally focused on records that need supervisor attention
@@ -247,7 +254,7 @@ const ReviewQueuePage = () => {
               <Button size="small">Review</Button>
             </Link>
 
-            {record.reviewStatus !== "approved" && (
+            {canReviewRecords && record.reviewStatus !== "approved" && (
               <Popconfirm
                 title="Approve experiment?"
                 description="This will mark the experiment review as approved and set the experiment status to completed."
@@ -268,7 +275,7 @@ const ReviewQueuePage = () => {
         ),
       },
     ],
-    [handleApproveExperiment, isUpdatingReviewStatus],
+    [handleApproveExperiment, isUpdatingReviewStatus, canReviewRecords],
   );
 
   // Columns for protocols that need review attention
@@ -353,7 +360,7 @@ const ReviewQueuePage = () => {
               <Button size="small">Review</Button>
             </Link>
 
-            {record.approvalStatus !== "approved" && (
+            {canReviewRecords && record.approvalStatus !== "approved" && (
               <Popconfirm
                 title="Approve protocol?"
                 description="This will approve the protocol and record approval metadata."
@@ -374,7 +381,7 @@ const ReviewQueuePage = () => {
         ),
       },
     ],
-    [handleApproveProtocol, isUpdatingReviewStatus],
+    [handleApproveProtocol, isUpdatingReviewStatus, canReviewRecords],
   );
 
   const taskCompletionColumns = useMemo(
@@ -447,14 +454,15 @@ const ReviewQueuePage = () => {
         title: "Action",
         key: "action",
         width: 140,
-        render: (_, record) => (
-          <Link to={`/tasks/${record.id}`}>
-            <Button size="small">Review Task</Button>
-          </Link>
-        ),
+        render: (_, record) =>
+          canReviewRecords ? (
+            <Button type="link" onClick={() => navigate(`/tasks/${record.id}`)}>
+              Review Task
+            </Button>
+          ) : null,
       },
     ],
-    [],
+    [navigate, canReviewRecords],
   );
 
   return (

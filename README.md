@@ -66,12 +66,14 @@ LabFlow supports three user roles:
 
 #### Supervisor
 
-- Can manage projects
-- Can manage protocols
-- Can manage equipment inventory
-- Can manage equipment bookings
-- Can review lab workflows
-- Can manage project memberships in the current MVP
+- Can view and manage projects where they are assigned as the project supervisor
+- Can manage project-linked workflows for supervised projects
+- Can review experiments in supervised projects
+- Can review project-linked protocols in supervised projects
+- Can review general non-project-linked protocols
+- Can review project-linked task completion requests in supervised projects
+- Cannot review standalone task completion requests
+- Can manage project memberships for supervised projects in the current MVP
 
 #### Researcher
 
@@ -105,7 +107,7 @@ Admins can control whether each researcher can:
 - Create protocols
 - Edit protocols
 
-Admins and supervisors have full workflow access by role. Researcher permissions provide finer control for labs with different supervision styles.
+Admins have global workflow access. Supervisors have workflow access scoped to projects where they are assigned as the project supervisor. Researcher permissions provide finer control for labs with different supervision styles.
 
 For example, one researcher may be allowed to independently create and edit experiments but not protocols. Another researcher may be allowed to create and edit protocols but not experiments. A third researcher may be allowed to create and edit both.
 
@@ -123,12 +125,12 @@ Each project member has a project-specific role:
 - Member
 - Viewer
 
-Project membership adds a project-level access layer on top of system roles and researcher workflow permissions.
+Project membership adds a project-level access layer on top of system roles, supervisor project ownership, and researcher workflow permissions.
 
 The current access model is:
 
 - Admins can view and manage all projects.
-- Supervisors can view and manage all projects in the current MVP.
+- Supervisors can view and manage projects where they are assigned as the project supervisor.
 - Researchers can only view projects where they are listed as project members.
 - Researchers can create or edit project-linked experiments and protocols only for projects where they are members.
 - Tasks may be standalone or project-linked. Researcher task visibility is assignment-aware, while project-linked task creation still respects project membership.
@@ -168,6 +170,12 @@ LabFlow also locks project linkage after record creation for tasks, experiments,
 - Task completion requests in the Review Queue
 - Role-aware dashboard filtering for researcher users
 - Assignment-aware task dashboard summaries for researchers
+- Supervisor-scoped project access
+- Supervisor-scoped dashboard metrics
+- Supervisor-scoped Review Queue visibility
+- Supervisor-scoped review actions for experiments, project-linked protocols, and project-linked task completion requests
+- General non-project-linked protocol review by admins and supervisors
+- Admin-only standalone task completion review
 
 ### Dashboard
 
@@ -198,7 +206,7 @@ The dashboard also includes summary tables for:
 - Task completion requests
 - Recent notebook entries
 
-The dashboard is role-aware. Admins and supervisors see global MVP dashboard metrics. Researchers see project-linked dashboard data only for projects where they are members. Researcher task metrics are assignment-aware, so researcher dashboards show tasks assigned to that researcher, including standalone tasks without a project link.
+The dashboard is role-aware. Admins see global dashboard metrics. Supervisors see dashboard metrics scoped to projects where they are assigned as the project supervisor. Researchers see project-linked dashboard data only for projects where they are members. Researcher task metrics are assignment-aware, so researcher dashboards show tasks assigned to that researcher, including standalone tasks without a project link.
 
 Equipment inventory metrics are still global in the current MVP because equipment is not project-owned yet.
 
@@ -239,7 +247,7 @@ Project-related membership records include:
 - Created date
 - Updated date
 
-Researchers can only see projects where they are members. Admins and supervisors can view all projects in the current MVP.
+Researchers can only see projects where they are members. Admins can view all projects. Supervisors can view projects where they are assigned as the project supervisor.
 
 ### Tasks
 
@@ -266,7 +274,7 @@ Task statuses include:
 - Completion Requested
 - Done
 
-Researchers can mark assigned tasks as ready for completion review. This changes the task status to Completion Requested. Admins and supervisors can then confirm the task as Done or reopen it from the task detail page.
+Researchers can mark assigned tasks as ready for completion review. This changes the task status to Completion Requested. Admins can confirm any task completion request, including standalone tasks. Supervisors can confirm or reopen project-linked task completion requests only for projects they supervise. Standalone task completion review is reserved for admins.
 
 Task priorities include:
 
@@ -279,7 +287,7 @@ Task priorities include:
 
 Experiments represent lab activities connected to research projects.
 
-Experiments include review status and optional supervisor review comments. Supervisors and admins can approve experiments or request changes from the experiment detail page.
+Experiments include review status and optional supervisor review comments. Admins can approve any experiment or request changes. Supervisors can approve experiments or request changes only for projects where they are assigned as the project supervisor.
 
 Experiment create and edit actions are permission-aware. Admins and supervisors can create and edit experiments by role. Researcher access depends on configurable workflow permissions managed from the admin user management page.
 
@@ -356,6 +364,8 @@ Project-linked protocols require project membership for researcher create/edit a
 
 Protocol create and edit actions are permission-aware. Admins and supervisors can manage protocols by role. Researcher access depends on configurable workflow permissions, which allows labs to decide whether researchers may independently create or edit reusable methods and SOPs.
 
+Admins can approve any protocol or request changes. Supervisors can approve project-linked protocols only for supervised projects. General non-project-linked protocols can be reviewed by admins and supervisors.
+
 Protocol records include:
 
 - Title
@@ -427,7 +437,9 @@ For example, if an HPLC is booked from 09:00 to 11:00, another confirmed booking
 
 LabFlow includes review workflows for experiments, protocols, and task completion requests.
 
-Supervisors and admins can use the Review Queue to find experiments pending review, protocols pending review, records with requested changes, and tasks awaiting completion confirmation.
+Admins can use the Review Queue across all records. Supervisors can use the Review Queue for records in projects they supervise, plus general non-project-linked protocols.
+
+Review actions are also enforced on the backend, so users cannot bypass the UI by sending direct API requests.
 
 Task completion requests appear in the Review Queue, but the final Confirm Done or Reopen Task decision is handled on the task detail page so reviewers can inspect the task context before taking action.
 
@@ -1124,7 +1136,8 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Researcher cannot change the project link on an existing experiment
 - Researcher cannot change the project link on an existing protocol
 - Admin can still view all projects
-- Supervisor can still view all projects in the current MVP
+- Supervisor can view only projects where they are assigned as supervisor
+- Supervisor cannot open a non-supervised project detail page by direct URL
 
 ### Tasks
 
@@ -1139,8 +1152,10 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Show assigned standalone tasks to researchers
 - Hide tasks assigned to other researchers from researcher task lists
 - Mark task completion as researcher
-- Confirm task completion as admin/supervisor
-- Reopen completion-requested task as admin/supervisor
+- Confirm standalone task completion as admin
+- Reject standalone task completion review as supervisor
+- Confirm project-linked task completion as supervisor for supervised projects
+- Reject project-linked task completion review as supervisor for non-supervised projects
 - Show task completion requests in the Review Queue
 
 ### Experiments
@@ -1153,7 +1168,9 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Edit experiment
 - View experiment detail page
 - Create, edit, delete, and filter notebook entries
-- Approve experiment as supervisor/admin
+- Approve experiment as admin
+- Approve experiment as supervisor for supervised projects
+- Reject experiment approval as supervisor for non-supervised projects
 - Request changes with a required review note
 - Show latest review comment to researchers
 - Restrict experiment deletion by role
@@ -1166,7 +1183,10 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Save general SOPs without project linkage
 - Edit protocol
 - View protocol detail page
-- Approve protocol as supervisor/admin
+- Approve protocol as admin
+- Approve project-linked protocol as supervisor for supervised projects
+- Reject project-linked protocol approval as supervisor for non-supervised projects
+- Approve general non-project-linked protocol as supervisor
 - Request changes with a required review note
 - Track approved by and approved date
 - View protocols as researcher
@@ -1219,7 +1239,8 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Researcher dashboard shows assigned tasks
 - Researcher dashboard includes standalone assigned tasks
 - Researcher dashboard scopes project-linked data to member projects
-- Admin/supervisor dashboard shows global MVP metrics
+- Admin dashboard shows global metrics
+- Supervisor dashboard shows metrics scoped to supervised projects
 - Tasks awaiting completion review update
 
 ### Admin User Management
@@ -1277,7 +1298,7 @@ LabFlow stores the latest review comment on the reviewed record for quick visibi
 
 Researchers can mark assigned tasks as ready for completion review. This changes the task status to Completion Requested instead of directly marking the task as Done.
 
-Admins and supervisors can confirm completion or reopen the task from the task detail page. Completion Requested tasks also appear in the Review Queue so supervisors have a central place to find task completion submissions.
+Admins can confirm or reopen any task completion request, including standalone tasks. Supervisors can confirm or reopen project-linked task completion requests only for projects they supervise. Standalone task completion review is reserved for admins.
 
 ---
 
@@ -1302,7 +1323,7 @@ Current limitations include:
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
 - Researcher workflow permissions are still global per user, while project membership controls project access separately
 - User management does not yet support account deactivation or password reset
-- Project membership exists, but supervisor access is still broad in the current MVP
+- Supervisor access is now project-scoped, but LabFlow does not yet include a separate lab or organization model for multi-lab deployments
 - Project member roles exist, but lead/member/viewer permissions are not fully differentiated yet
 - Project membership is not yet connected to notifications or invitations
 
@@ -1328,7 +1349,7 @@ Recommended Version 2 improvements:
 - Deployment with hosted PostgreSQL database
 - Account deactivation workflow
 - Admin password reset or invitation workflow
-- Restrict supervisors to supervised projects or project memberships
+- More granular supervisor assignment rules beyond the current project supervisor ownership model
 - Project invitations and membership approval workflow
 - Project-specific workflow permissions
 - Equipment access model for lab-wide, project-specific, or restricted instruments
@@ -1364,6 +1385,9 @@ Key portfolio talking points:
 - Updated task model to support standalone and project-linked lab work
 - Added task completion request workflow with Review Queue visibility
 - Added assignment-aware task visibility for researchers
+- Scoped supervisor access to supervised projects
+- Enforced supervisor-scoped review actions on the backend
+- Updated Review Queue and dashboard visibility for supervisor-scoped workflows
 
 ## License
 

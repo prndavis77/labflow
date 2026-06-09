@@ -8,6 +8,14 @@ export const isAdminOrSupervisor = (user) => {
   return ["admin", "supervisor"].includes(user?.role);
 };
 
+export const isAdmin = (user) => {
+  return user?.role === "admin";
+};
+
+export const isSupervisor = (user) => {
+  return user?.role === "supervisor";
+};
+
 export const getCurrentUserProjectRole = (
   projectMembers,
   currentUser,
@@ -88,4 +96,16 @@ export const canEditProjectTaskRecord = ({
   }
 
   return false;
+};
+
+export const canReviewProjectLinkedRecord = (currentUser) => {
+  return ["admin", "supervisor"].includes(currentUser?.role);
+};
+
+export const canReviewGeneralProtocol = (currentUser) => {
+  return ["admin", "supervisor"].includes(currentUser?.role);
+};
+
+export const canReviewStandaloneTaskCompletion = (currentUser) => {
+  return currentUser?.role === "admin";
 };

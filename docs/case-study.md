@@ -119,7 +119,7 @@ LabFlow supports both project-linked tasks and standalone lab tasks. This reflec
 
 Researcher task visibility is assignment-aware. Researchers see tasks assigned to them, including standalone tasks without a project link. When a researcher finishes a task, they can mark it as ready for completion review instead of directly marking it as done.
 
-Admins and supervisors can confirm the task as done or reopen it from the task detail page. Completion-requested tasks also appear in the Review Queue so supervisors have one place to find experiments, protocols, and tasks needing attention.
+Admins can confirm any task completion request, including standalone tasks. Supervisors can confirm or reopen project-linked task completion requests only for projects they supervise. Standalone task completion review is reserved for admins.
 
 ### Reusable Experiment and Protocol Modals
 
@@ -147,6 +147,8 @@ The app stores the latest review feedback on the reviewed record for quick visib
 
 The Review Queue helps supervisors find review work quickly, while detail pages provide the full context needed to approve experiments, approve protocols, request changes, confirm task completion, or reopen tasks.
 
+Review visibility and review actions are enforced on the backend. Admins can review all records. Supervisors can review experiments, project-linked protocols, and project-linked task completion requests only within supervised projects. General, non-project-linked protocols can be reviewed by admins and supervisors.
+
 ### Experiment-Linked Notebook Entries
 
 Experiments include notebook entries for procedures, observations, results, issues, conclusions, supervisor comments, and general notes. Notebook entries are linked to experiments and projects, allowing experiment detail pages, project detail pages, and the dashboard to show recent research activity.
@@ -159,7 +161,11 @@ Protocols can exist without a project and may be linked directly to equipment. T
 
 The dashboard uses a backend summary endpoint to calculate key metrics such as active projects, open tasks, overdue tasks, task completion requests, experiments needing review, pending protocols, equipment in use, equipment offline, upcoming bookings, and recent notebook entries.
 
-The dashboard is role-aware. Admins and supervisors see global MVP dashboard data, while researchers see project-linked dashboard data only for projects where they are members. Researcher task summaries are assignment-aware, so their dashboard shows tasks assigned to them, including standalone tasks without a project link.
+The dashboard is role-aware. Admins see global dashboard data, supervisors see dashboard data scoped to projects where they are assigned as the project supervisor, and researchers see project-linked dashboard data only for projects where they are members. Researcher task summaries are assignment-aware, so their dashboard shows tasks assigned to them, including standalone tasks without a project link.
+
+Supervisor access is project-scoped. Supervisors can view and manage projects where they are assigned as the project supervisor. Review Queue visibility, dashboard metrics, project-linked records, and review actions are scoped so supervisors cannot approve or modify records outside their supervised projects.
+
+Admins retain global access. Researchers access project-linked work through project membership, while standalone task visibility is assignment-aware.
 
 Equipment inventory metrics remain global in the current MVP because equipment is not project-owned yet.
 
@@ -221,7 +227,7 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Researcher workflow permissions are global per user, not project-specific yet
 - User management does not yet include account deactivation or password reset
 - Project member roles exist, but lead/member/viewer behavior is not fully differentiated yet
-- Supervisor access is still broad in the current MVP
+- Supervisor access is now project-scoped, but there is not yet a separate lab or organization model for multi-lab deployments
 - Project invitations and membership approval workflows are not implemented yet
 - Task completion review currently does not include separate completion notes or reviewer feedback when a task is reopened
 - Equipment inventory metrics are still global because equipment is not project-owned yet
@@ -241,9 +247,9 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Account deactivation workflow
 - Admin invitation or password reset workflow
 - More granular project member role permissions
-- Supervisor access scoped to supervised or assigned projects
 - Project invitation workflow
 - Project-specific workflow permissions
 - Task completion notes and reviewer feedback when reopening tasks
 - Equipment access model for lab-wide, project-specific, or restricted instruments
+- More granular supervisor assignment rules beyond project supervisor ownership
 - Deployment
