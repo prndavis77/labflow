@@ -4,6 +4,7 @@ const {
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
   canAssignProjectTask,
+  canCreateProjectTask,
   canViewProjectLinkedRecord,
   canReviewProjectLinkedRecord,
   getProjectMemberRole,
@@ -53,20 +54,20 @@ const canViewTask = async (user, task) => {
   return false;
 };
 
-const canCreateTaskForPayload = async (user, projectId, assignedToId) => {
-  if (!user) {
+const canCreateTaskForPayload = async (user, projectId) => {
+  if (!user || !user.id) {
     return false;
   }
 
-  if (isAdminOrSupervisor(user)) {
+  // Standalone task rule.
+  // Researchers can create standalone tasks assigned to themselves.
+  if (!projectId) {
     return true;
   }
 
-  if (projectId) {
-    return canUseProjectForResearchWork(user, projectId);
-  }
-
-  return Number(assignedToId) === Number(user.id);
+  // Project-linked task creation is a coordination action.
+  // Allowed: admin, supervised-project supervisor, project lead.
+  return canCreateProjectTask(user, projectId);
 };
 
 const canEditProjectTaskRecord = async ({ user, task }) => {
@@ -354,7 +355,10 @@ const createTask = async (req, res) => {
     const isAdminOrSupervisor = ["admin", "supervisor"].includes(req.user.role);
 
     const resolvedProjectId = projectId || null;
-    const resolvedAssignedToId = assignedToId || req.user.id;
+    const resolvedAssignedToId =
+      resolvedProjectId || ["admin", "supervisor"].includes(req.user.role)
+        ? assignedToId
+        : req.user.id;
 
     if (resolvedProjectId) {
       const project = await Project.findByPk(projectId);
@@ -363,6 +367,23 @@ const createTask = async (req, res) => {
         return res.status(404).json({
           status: "error",
           message: "Project not found.",
+        });
+      }
+    }
+
+    const isProjectLinkedTask = Boolean(resolvedProjectId);
+
+    if (isProjectLinkedTask) {
+      const canCreateForProject = await canCreateTaskForPayload(
+        req.user,
+        resolvedProjectId,
+      );
+
+      if (!canCreateForProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Only admins, project supervisors, and project leads can create project-linked tasks.",
         });
       }
     }
@@ -408,7 +429,7 @@ const createTask = async (req, res) => {
         }
       }
 
-      if (!isAdminOrSupervisor) {
+      if (resolvedAssignedToId) {
         const assigneeIsProjectMember = await isUserProjectMember({
           userId: resolvedAssignedToId,
           projectId: resolvedProjectId,
@@ -509,6 +530,99 @@ const updateTask = async (req, res) => {
       });
     }
 
+    const isChangingAssignment =
+      assignedToId !== undefined &&
+      Number(assignedToId) !== Number(task.assignedToId);
+
+    if (isChangingAssignment) {
+      if (!task.projectId) {
+        if (req.user.role !== "admin") {
+          return res.status(403).json({
+            status: "error",
+            message: "Only admins can reassign standalone tasks.",
+          });
+        }
+      } else {
+        const canAssignOnProject = await canAssignProjectTask(
+          req.user,
+          task.projectId,
+        );
+
+        if (!canAssignOnProject) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "Only admins, project supervisors, and project leads can reassign project-linked tasks.",
+          });
+        }
+      }
+
+      if (!assignedToId) {
+        if (req.user.role !== "admin") {
+          return res.status(403).json({
+            status: "error",
+            message: "Only admins can unassign tasks.",
+          });
+        }
+      }
+
+      if (assignedToId) {
+        const assignedUser = await User.findByPk(assignedToId);
+
+        if (!assignedUser) {
+          return res.status(404).json({
+            status: "error",
+            message: "Assigned user not found.",
+          });
+        }
+
+        if (task.projectId) {
+          const assigneeIsProjectMember = await isUserProjectMember({
+            userId: assignedToId,
+            projectId: task.projectId,
+          });
+
+          if (!assigneeIsProjectMember) {
+            return res.status(400).json({
+              status: "error",
+              message:
+                "Project-linked tasks can only be assigned to members of the selected project.",
+            });
+          }
+        }
+      }
+    }
+
+    const isProjectTaskMemberSelfEdit =
+      task.projectId &&
+      req.user.role === "researcher" &&
+      Number(task.assignedToId) === Number(req.user.id) &&
+      (await getProjectMemberRole(req.user, task.projectId)) === "member";
+
+    if (isProjectTaskMemberSelfEdit) {
+      const blockedFields = [];
+
+      if (assignedToId !== undefined) {
+        blockedFields.push("assignedToId");
+      }
+
+      if (priority !== undefined) {
+        blockedFields.push("priority");
+      }
+
+      if (dueDate !== undefined) {
+        blockedFields.push("dueDate");
+      }
+
+      if (blockedFields.length > 0) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Project members can update assigned task progress but cannot change task coordination fields.",
+        });
+      }
+    }
+
     const currentProjectId = normalizeOptionalId(task.projectId);
     const requestedProjectId = normalizeOptionalId(projectId);
 
@@ -518,8 +632,6 @@ const updateTask = async (req, res) => {
         message: "Task project cannot be changed after creation.",
       });
     }
-
-    const isAdminOrSupervisor = ["admin", "supervisor"].includes(req.user.role);
 
     const isTaskCompletionReviewDecision =
       status !== undefined &&
@@ -583,66 +695,6 @@ const updateTask = async (req, res) => {
           message:
             "You have read-only access to this project and cannot edit project-linked tasks.",
         });
-      }
-    }
-
-    const isChangingAssignee =
-      assignedToId !== undefined &&
-      Number(assignedToId || 0) !== Number(task.assignedToId || 0);
-
-    if (isChangingAssignee) {
-      if (!isAdminOrSupervisor) {
-        if (!task.projectId) {
-          return res.status(403).json({
-            status: "error",
-            message:
-              "Only admins and supervisors can reassign standalone tasks.",
-          });
-        }
-
-        const canAssignProjectTasks = await canAssignProjectTask(
-          req.user,
-          task.projectId,
-        );
-
-        if (!canAssignProjectTasks) {
-          return res.status(403).json({
-            status: "error",
-            message:
-              "Only project leads, admins, and supervisors can reassign project tasks.",
-          });
-        }
-
-        if (!assignedToId) {
-          return res.status(403).json({
-            status: "error",
-            message: "Only admins and supervisors can unassign tasks.",
-          });
-        }
-
-        const assigneeIsProjectMember = await isUserProjectMember({
-          userId: assignedToId,
-          projectId: task.projectId,
-        });
-
-        if (!assigneeIsProjectMember) {
-          return res.status(400).json({
-            status: "error",
-            message:
-              "Project-linked tasks can only be assigned to members of the selected project.",
-          });
-        }
-      }
-
-      if (assignedToId) {
-        const assignedUser = await User.findByPk(assignedToId);
-
-        if (!assignedUser) {
-          return res.status(404).json({
-            status: "error",
-            message: "Assigned user not found.",
-          });
-        }
       }
     }
 

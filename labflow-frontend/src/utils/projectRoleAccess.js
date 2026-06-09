@@ -109,3 +109,7 @@ export const canReviewGeneralProtocol = (currentUser) => {
 export const canReviewStandaloneTaskCompletion = (currentUser) => {
   return currentUser?.role === "admin";
 };
+
+export const canCreateProjectTask = (currentUser, projectRole) => {
+  return canAssignProjectTask(currentUser, projectRole);
+};

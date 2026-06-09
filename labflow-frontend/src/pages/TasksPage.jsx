@@ -25,8 +25,8 @@ import { fetchUsers } from "../api/userApi";
 import { fetchProjectMembers } from "../api/projectMemberApi";
 import {
   getCurrentUserProjectRole,
-  canEditProjectLinkedWork,
   canEditProjectTaskRecord,
+  canCreateProjectTask,
 } from "../utils/projectRoleAccess";
 import { useAuth } from "../context/useAuth";
 import { TASK_STATUS_OPTIONS } from "../constants/statusOptions";
@@ -39,7 +39,7 @@ const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
 
 const TasksPage = () => {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
 
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -68,14 +68,25 @@ const TasksPage = () => {
 
   const isEditingTask = Boolean(editingTask);
 
-  const isAdminOrSupervisor = ["admin", "supervisor"].includes(user?.role);
+  const isAdminOrSupervisor = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
 
   // Only admins and supervisors can delete tasks
   const canDeleteTasks = isAdminOrSupervisor;
 
   const currentUserFormProjectRole = useMemo(() => {
-    return getCurrentUserProjectRole(formProjectMembers, user, formProjectId);
-  }, [formProjectMembers, user, formProjectId]);
+    return getCurrentUserProjectRole(
+      formProjectMembers,
+      currentUser,
+      formProjectId,
+    );
+  }, [formProjectMembers, currentUser, formProjectId]);
+
+  const canAssignTaskForSelectedProject = canCreateProjectTask(
+    currentUser,
+    currentUserFormProjectRole,
+  );
 
   // Converts projects into options for Ant Design Select.
   const projectOptions = useMemo(() => {
@@ -101,8 +112,8 @@ const TasksPage = () => {
     if (!formProjectId) {
       return [
         {
-          label: `${user?.name} (${user?.role})`,
-          value: user?.id,
+          label: `${currentUser?.name} (${currentUser?.role})`,
+          value: currentUser?.id,
         },
       ];
     }
@@ -126,8 +137,8 @@ const TasksPage = () => {
 
     return [
       {
-        label: `${user?.name} (${user?.role})`,
-        value: user?.id,
+        label: `${currentUser?.name} (${currentUser?.role})`,
+        value: currentUser?.id,
       },
     ];
   }, [
@@ -135,7 +146,7 @@ const TasksPage = () => {
     formProjectId,
     formProjectMembers,
     isAdminOrSupervisor,
-    user,
+    currentUser,
     userOptions,
   ]);
 
@@ -172,13 +183,10 @@ const TasksPage = () => {
     }
   }, []);
 
-  const canAssignTasksForFormProject =
-    isAdminOrSupervisor || currentUserFormProjectRole === "lead";
-
   const canCreateTaskForFormProject =
     isAdminOrSupervisor ||
     !formProjectId ||
-    canEditProjectLinkedWork(user, currentUserFormProjectRole);
+    canCreateProjectTask(currentUser, currentUserFormProjectRole);
 
   const loadFormProjectMembers = useCallback(async (projectId) => {
     if (!projectId) {
@@ -223,7 +231,7 @@ const TasksPage = () => {
 
   const loadProjectRolesForTasks = useCallback(
     async (taskList) => {
-      if (!user?.id) {
+      if (!currentUser?.id) {
         setProjectRoleByProjectId({});
         return;
       }
@@ -250,7 +258,7 @@ const TasksPage = () => {
 
           const projectRole = getCurrentUserProjectRole(
             result.data.projectMembers,
-            user,
+            currentUser,
             projectId,
           );
 
@@ -270,7 +278,7 @@ const TasksPage = () => {
 
       setProjectRoleByProjectId(Object.fromEntries(roleEntries));
     },
-    [user, isAdminOrSupervisor],
+    [currentUser, isAdminOrSupervisor],
   );
 
   // Loads tasks from the backend using the current filters
@@ -331,7 +339,7 @@ const TasksPage = () => {
     form.setFieldsValue({
       status: "todo",
       priority: "medium",
-      assignedToId: isAdminOrSupervisor ? undefined : user?.id,
+      assignedToId: isAdminOrSupervisor ? undefined : currentUser?.id,
     });
 
     setIsModalOpen(true);
@@ -359,12 +367,12 @@ const TasksPage = () => {
         priority: task.priority,
         dueDate: task.dueDate ? dayjs(task.dueDate) : null,
         projectId: task.projectId || undefined,
-        assignedToId: task.assignedToId || user?.id,
+        assignedToId: task.assignedToId || currentUser?.id,
       });
 
       setIsModalOpen(true);
     },
-    [form, loadFormProjectMembers, user?.id],
+    [form, loadFormProjectMembers, currentUser?.id],
   );
 
   const closeModal = () => {
@@ -373,22 +381,43 @@ const TasksPage = () => {
     form.resetFields();
   };
 
+  const isMemberSelfEditingAssignedProjectTask = useMemo(() => {
+    if (!editingTask || !editingTask.projectId || !currentUser?.id) {
+      return false;
+    }
+
+    if (currentUser?.role !== "researcher") {
+      return false;
+    }
+
+    const projectRole = projectRoleByProjectId[Number(editingTask.projectId)];
+
+    return (
+      projectRole === "member" &&
+      Number(editingTask.assignedToId) === Number(currentUser.id)
+    );
+  }, [editingTask, currentUser, projectRoleByProjectId]);
+
   const handleSubmit = async (values) => {
     try {
       setIsSubmitting(true);
 
       const resolvedAssignedToId =
-        values.assignedToId || (!isAdminOrSupervisor ? user?.id : null);
+        values.assignedToId || (!isAdminOrSupervisor ? currentUser?.id : null);
 
       // Convert form values into the format expected by the backend
-      const payload = {
-        title: values.title,
-        description: values.description,
-        status: values.status,
-        priority: values.priority,
-        dueDate: values.dueDate ? values.dueDate.format("YYYY-MM-DD") : null,
-        assignedToId: resolvedAssignedToId,
-      };
+      const payload = isMemberSelfEditingAssignedProjectTask
+        ? { status: values.status, description: values.description }
+        : {
+            title: values.title,
+            description: values.description,
+            status: values.status,
+            priority: values.priority,
+            dueDate: values.dueDate
+              ? values.dueDate.format("YYYY-MM-DD")
+              : null,
+            assignedToId: resolvedAssignedToId,
+          };
 
       if (!isEditingTask) {
         payload.projectId = values.projectId || null;
@@ -445,18 +474,18 @@ const TasksPage = () => {
       // Standalone tasks are not controlled by project membership.
       // Researchers can edit standalone tasks assigned to them.
       if (!record.projectId) {
-        return Number(record.assignedToId) === Number(user?.id);
+        return Number(record.assignedToId) === Number(currentUser?.id);
       }
 
       const projectRole = projectRoleByProjectId[Number(record.projectId)];
 
       return canEditProjectTaskRecord({
-        currentUser: user,
+        currentUser: currentUser,
         projectRole,
         task: record,
       });
     },
-    [isAdminOrSupervisor, projectRoleByProjectId, user],
+    [isAdminOrSupervisor, projectRoleByProjectId, currentUser],
   );
 
   // Table columns are memoized because they include action callbacks.
@@ -583,7 +612,7 @@ const TasksPage = () => {
             </Title>
             <Paragraph style={{ marginBottom: 0 }}>
               Track lab tasks, optional project links, assignees, priorities,
-              and deadlines, and status.
+              deadlines, and status.
             </Paragraph>
           </div>
 
@@ -662,7 +691,10 @@ const TasksPage = () => {
               },
             ]}
           >
-            <Input placeholder="Prepare caffeine calibration standards" />
+            <Input
+              placeholder="Prepare caffeine calibration standards"
+              disabled={isMemberSelfEditingAssignedProjectTask}
+            />
           </Form.Item>
 
           <Form.Item label="Project" name="projectId">
@@ -677,7 +709,9 @@ const TasksPage = () => {
 
                 setFormProjectId(normalizedProjectId);
 
-                form.getFieldValue("assignedToId", user?.id);
+                if (!isAdminOrSupervisor) {
+                  form.setFieldValue("assignedToId", currentUser?.id);
+                }
 
                 await loadFormProjectMembers(normalizedProjectId);
               }}
@@ -688,8 +722,8 @@ const TasksPage = () => {
             <Alert
               type="warning"
               showIcon
-              message="You have read-only access to this project."
-              description="You can view project tasks, but you cannot create new project-linked tasks for this project."
+              message="You cannot create project-linked tasks for this project."
+              description="Only admins, project supervisors, and project leads can create and assign project-linked tasks."
               style={{ marginBottom: 16 }}
             />
           )}
@@ -700,7 +734,10 @@ const TasksPage = () => {
               placeholder="Assign to a lab member"
               loading={isLoadingUsers || isLoadingFormProjectMembers}
               options={formAssigneeOptions}
-              disabled={!isAdminOrSupervisor && !canAssignTasksForFormProject}
+              disabled={
+                isMemberSelfEditingAssignedProjectTask ||
+                !canAssignTaskForSelectedProject
+              }
             />
           </Form.Item>
 
@@ -734,11 +771,17 @@ const TasksPage = () => {
               },
             ]}
           >
-            <Select options={TASK_PRIORITY_OPTIONS} />
+            <Select
+              options={TASK_PRIORITY_OPTIONS}
+              disabled={isMemberSelfEditingAssignedProjectTask}
+            />
           </Form.Item>
 
           <Form.Item label="Due Date" name="dueDate">
-            <DatePicker style={{ width: "100%" }} />
+            <DatePicker
+              style={{ width: "100%" }}
+              disabled={isMemberSelfEditingAssignedProjectTask}
+            />
           </Form.Item>
 
           <Space style={{ display: "flex", justifyContent: "flex-end" }}>

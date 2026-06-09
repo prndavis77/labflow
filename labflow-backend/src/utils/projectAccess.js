@@ -197,7 +197,7 @@ const canEditProjectLinkedWork = async (user, projectId) => {
 };
 
 const canCreateProjectTask = async (user, projectId) => {
-  return canEditProjectLinkedWork(user, projectId);
+  return canAssignProjectTask(user, projectId);
 };
 
 const canAssignProjectTask = async (user, projectId) => {
@@ -250,6 +250,14 @@ const canReviewProjectLinkedRecord = async (user, projectId) => {
   return false;
 };
 
+const canCoordinateProjectWork = async (user, projectId) => {
+  return canAssignProjectTask(user, projectId);
+};
+
+const canContributeToProjectWork = async (user, projectId) => {
+  return canEditProjectLinkedWork(user, projectId);
+};
+
 module.exports = {
   PROJECT_MEMBER_ROLES,
   isAdminOrSupervisor,
@@ -267,4 +275,6 @@ module.exports = {
   canAssignProjectTask,
   canManageProjectMembers,
   canReviewProjectLinkedRecord,
+  canCoordinateProjectWork,
+  canContributeToProjectWork,
 };
