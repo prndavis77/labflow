@@ -113,3 +113,71 @@ export const canReviewStandaloneTaskCompletion = (currentUser) => {
 export const canCreateProjectTask = (currentUser, projectRole) => {
   return canAssignProjectTask(currentUser, projectRole);
 };
+
+export const canCreateExperimentInProject = (currentUser, projectRole) => {
+  if (isAdminOrSupervisor(currentUser)) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.LEAD) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.MEMBER) {
+    return Boolean(currentUser.canCreateExperiments);
+  }
+
+  return false;
+};
+
+export const canEditExperimentInProject = (currentUser, projectRole) => {
+  if (isAdminOrSupervisor(currentUser)) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.LEAD) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.MEMBER) {
+    return Boolean(currentUser.canEditExperiments);
+  }
+
+  return false;
+};
+
+export const canCreateProtocolInProject = (currentUser, projectRole) => {
+  if (isAdminOrSupervisor(currentUser)) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.LEAD) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.MEMBER) {
+    return Boolean(currentUser.canCreateProtocols);
+  }
+
+  return false;
+};
+
+export const canEditProtocolInProject = (currentUser, projectRole) => {
+  if (isAdminOrSupervisor(currentUser)) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.LEAD) {
+    return true;
+  }
+
+  if (projectRole === PROJECT_MEMBER_ROLES.MEMBER) {
+    return Boolean(currentUser.canEditProtocols);
+  }
+
+  return false;
+};
+
+export const canManageGeneralProtocol = (currentUser) => {
+  return isAdminOrSupervisor(currentUser);
+};

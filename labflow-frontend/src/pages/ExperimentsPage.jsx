@@ -23,7 +23,7 @@ import { fetchProtocols } from "../api/protocolApi";
 import { useAuth } from "../context/useAuth";
 import {
   getCurrentUserProjectRole,
-  canEditProjectLinkedWork,
+  canEditExperimentInProject,
 } from "../utils/projectRoleAccess";
 import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
 import { EXPERIMENT_STATUS_OPTIONS } from "../constants/statusOptions";
@@ -64,12 +64,10 @@ const ExperimentsPage = () => {
   );
 
   const canCreateExperiments =
-    ["admin", "supervisor"].includes(currentUser?.role) ||
-    Boolean(currentUser?.canCreateExperiments);
+    isAdminOrSupervisor || currentUser?.role === "researcher";
 
   const canEditExperiments =
-    ["admin", "supervisor"].includes(currentUser?.role) ||
-    Boolean(currentUser?.canEditExperiments);
+    isAdminOrSupervisor || currentUser?.role === "researcher";
 
   // Only admins and supervisors can delete experiment records
   const canDeleteExperiments = ["admin", "supervisor"].includes(
@@ -253,18 +251,9 @@ const ExperimentsPage = () => {
         return true;
       }
 
-      if (!currentUser?.canEditProtocols) {
-        return false;
-      }
-
-      // General SOPs are not controlled by project membership.
-      if (!record.projectId) {
-        return true;
-      }
-
       const projectRole = projectRoleByProjectId[Number(record.projectId)];
 
-      return canEditProjectLinkedWork(currentUser, projectRole);
+      return canEditExperimentInProject(currentUser, projectRole);
     },
     [currentUser, isAdminOrSupervisor, projectRoleByProjectId],
   );

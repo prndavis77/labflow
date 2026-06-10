@@ -25,7 +25,7 @@ import { fetchProjectMembers } from "../api/projectMemberApi";
 import { fetchEquipment } from "../api/equipmentApi";
 import {
   getCurrentUserProjectRole,
-  canEditProjectLinkedWork,
+  canEditProtocolInProject,
   canReviewGeneralProtocol,
   canReviewProjectLinkedRecord,
 } from "../utils/projectRoleAccess";
@@ -83,15 +83,10 @@ const ProtocolDetailPage = () => {
     );
   }, [projectMembers, currentUser, protocol?.projectId]);
 
-  const canEditThisProjectWork = canEditProjectLinkedWork(
-    currentUser,
-    currentUserProjectRole,
-  );
-
   const canEditProtocol =
     isAdminOrSupervisor ||
-    (Boolean(currentUser?.canEditProtocols) &&
-      (!isProjectLinkedProtocol || canEditThisProjectWork));
+    (isProjectLinkedProtocol &&
+      canEditProtocolInProject(currentUser, currentUserProjectRole));
 
   // Only admins and supervisors can perform protocol approval decisions
   const canReviewProtocol =

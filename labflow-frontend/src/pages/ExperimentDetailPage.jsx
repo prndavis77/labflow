@@ -43,7 +43,7 @@ import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
 import { NOTEBOOK_ENTRY_TYPE_OPTIONS } from "../constants/statusOptions";
 import {
   getCurrentUserProjectRole,
-  canEditProjectLinkedWork,
+  canEditExperimentInProject,
   canReviewProjectLinkedRecord,
 } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
@@ -103,22 +103,14 @@ const ExperimentDetailPage = () => {
   const [notebookForm] = Form.useForm();
   const [reviewCommentForm] = Form.useForm();
 
-  const isAdminOrSupervisor = ["admin", "supervisor"].includes(
-    currentUser?.role,
-  );
-
   const currentUserProjectRole = useMemo(() => {
     return getCurrentUserProjectRole(projectMembers, currentUser);
   }, [projectMembers, currentUser]);
 
-  const canEditThisProjectWork = canEditProjectLinkedWork(
+  const canEditExperiment = canEditExperimentInProject(
     currentUser,
     currentUserProjectRole,
   );
-
-  const canEditExperiment =
-    isAdminOrSupervisor ||
-    (canEditThisProjectWork && Boolean(currentUser?.canEditExperiments));
 
   // Only admins and supervisors can perform review decisions
   const canReviewExperiment = canReviewProjectLinkedRecord(currentUser);

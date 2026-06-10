@@ -19,7 +19,7 @@ import { fetchProjects } from "../api/projectApi";
 import { fetchProjectMembers } from "../api/projectMemberApi";
 import {
   getCurrentUserProjectRole,
-  canEditProjectLinkedWork,
+  canEditProtocolInProject,
 } from "../utils/projectRoleAccess";
 import { fetchEquipment } from "../api/equipmentApi";
 import { useAuth } from "../context/useAuth";
@@ -57,14 +57,11 @@ const ProtocolsPage = () => {
     currentUser?.role,
   );
 
-  // Admins and supervisors can create and edit protocols by role
-  // Researchers depend on configurable workflow permissions
   const canCreateProtocols =
-    ["admin", "supervisor"].includes(currentUser?.role) ||
-    Boolean(currentUser?.canCreateProtocols);
+    isAdminOrSupervisor || currentUser?.role === "researcher";
 
   const canEditProtocols =
-    isAdminOrSupervisor || Boolean(currentUser?.canEditProtocols);
+    isAdminOrSupervisor || currentUser?.role === "researcher";
 
   // Only admins and supervisors can delete protocols by role
   const canDeleteProtocols = ["admin", "supervisor"].includes(
@@ -275,18 +272,23 @@ const ProtocolsPage = () => {
         return true;
       }
 
-      if (!currentUser?.canEditProtocols) {
-        return false;
-      }
-
-      // General SOPs are not controlled by project membership.
       if (!record.projectId) {
-        return true;
+        return false;
       }
 
       const projectRole = projectRoleByProjectId[Number(record.projectId)];
 
-      return canEditProjectLinkedWork(currentUser, projectRole);
+      console.log("PROTOCOL EDIT CHECK", {
+        userId: currentUser?.id,
+        role: currentUser?.role,
+        canEditProtocols: currentUser?.canEditProtocols,
+        recordId: record.id,
+        projectId: record.projectId,
+        projectRole,
+        result: canEditProtocolInProject(currentUser, projectRole),
+      });
+
+      return canEditProtocolInProject(currentUser, projectRole);
     },
     [currentUser, isAdminOrSupervisor, projectRoleByProjectId],
   );
