@@ -15,6 +15,7 @@ const {
   canEditProjectLinkedWork,
   canViewProjectLinkedRecord,
   canReviewProjectLinkedRecord,
+  getProjectMemberRole,
 } = require("../utils/projectAccess");
 
 const {
@@ -39,6 +40,58 @@ const VALID_EXPERIMENT_STATUSES = [
   "repeated",
   "archived",
 ];
+
+const isAdminOrSupervisor = (user) => {
+  return ["admin", "supervisor"].includes(user?.role);
+};
+
+const canCreateExperimentInProject = async (user, projectId) => {
+  const canEditProject = await canEditProjectLinkedWork(user, projectId);
+
+  if (!canEditProject) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  if (projectRole === "lead") {
+    return true;
+  }
+
+  if (projectRole === "member") {
+    return canCreateExperiment(user);
+  }
+
+  return false;
+};
+
+const canEditExperimentInProject = async (user, projectId) => {
+  const canEditProject = await canEditProjectLinkedWork(user, projectId);
+
+  if (!canEditProject) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  if (projectRole === "lead") {
+    return true;
+  }
+
+  if (projectRole === "member") {
+    return canEditExperiment(user);
+  }
+
+  return false;
+};
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -331,13 +384,6 @@ const createExperiment = async (req, res) => {
       protocolId,
     } = req.body;
 
-    if (!canCreateExperiment(req.user)) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have permission to create experiments.",
-      });
-    }
-
     if (!title || !projectId) {
       return res.status(400).json({
         status: "error",
@@ -403,13 +449,16 @@ const createExperiment = async (req, res) => {
       });
     }
 
-    const canEditProject = await canEditProjectLinkedWork(req.user, projectId);
+    const canCreateForProject = await canCreateExperimentInProject(
+      req.user,
+      projectId,
+    );
 
-    if (!canEditProject) {
+    if (!canCreateForProject) {
       return res.status(403).json({
         status: "error",
         message:
-          "You have read-only access to this project and cannot create experiments.",
+          "Only admins, project supervisors, project leads, and workflow-authorized project members can create experiments.",
       });
     }
 
@@ -561,13 +610,6 @@ const updateExperiment = async (req, res) => {
       });
     }
 
-    if (!canEditExperiment(req.user)) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have permission to edit experiments.",
-      });
-    }
-
     const resolvedProjectId = experiment.projectId;
 
     const canUseProject = await canUseProjectForResearchWork(
@@ -582,16 +624,16 @@ const updateExperiment = async (req, res) => {
       });
     }
 
-    const canEditProject = await canEditProjectLinkedWork(
+    const canEditForProject = await canEditExperimentInProject(
       req.user,
       experiment.projectId,
     );
 
-    if (!canEditProject) {
+    if (!canEditForProject) {
       return res.status(403).json({
         status: "error",
         message:
-          "You have read-only access to this project and cannot edit experiments.",
+          "Only admins, project supervisors, project leads, and workflow-authorized project members can edit experiments.",
       });
     }
 

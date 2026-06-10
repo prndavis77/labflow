@@ -15,8 +15,73 @@ const {
   canViewProjectLinkedRecord,
   canReviewProjectLinkedRecord,
   getAccessibleProjectIds,
+  getProjectMemberRole,
 } = require("../utils/projectAccess");
 const { Op } = require("sequelize");
+
+const VALID_APPROVAL_STATUSES = [
+  "draft",
+  "pending_review",
+  "approved",
+  "changes_requested",
+  "archived",
+];
+
+const isAdminOrSupervisor = (user) => {
+  return ["admin", "supervisor"].includes(user?.role);
+};
+
+const canManageGeneralProtocol = (user) => {
+  return isAdminOrSupervisor(user);
+};
+
+const canCreateProtocolInProject = async (user, projectId) => {
+  const canEditProject = await canEditProjectLinkedWork(user, projectId);
+
+  if (!canEditProject) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  if (projectRole === "lead") {
+    return true;
+  }
+
+  if (projectRole === "member") {
+    return canCreateProtocol(user);
+  }
+
+  return false;
+};
+
+const canEditProtocolInProject = async (user, projectId) => {
+  const canEditProject = await canEditProjectLinkedWork(user, projectId);
+
+  if (!canEditProject) {
+    return false;
+  }
+
+  if (isAdminOrSupervisor(user)) {
+    return true;
+  }
+
+  const projectRole = await getProjectMemberRole(user, projectId);
+
+  if (projectRole === "lead") {
+    return true;
+  }
+
+  if (projectRole === "member") {
+    return canEditProtocol(user);
+  }
+
+  return false;
+};
 
 // Formats user data safely for API responses
 // This prevents sensitive fields like passwordHash from leaking to the frontend
@@ -139,14 +204,6 @@ const normalizeOptionalId = (value) => {
 
   return Number.isNaN(numericValue) ? null : numericValue;
 };
-
-const VALID_APPROVAL_STATUSES = [
-  "draft",
-  "pending_review",
-  "approved",
-  "changes_requested",
-  "archived",
-];
 
 // GET /api/protocols
 // Returns protocols with optional filters for project and approval status
@@ -286,17 +343,37 @@ const createProtocol = async (req, res) => {
       equipmentId,
     } = req.body;
 
-    if (!canCreateProtocol(req.user)) {
-      return res.status(403).json({
+    if (!title || !content) {
+      return res.status(400).json({
         status: "error",
-        message: "You do not have permission to create protocols.",
+        message: "Protocol title and content are required.",
+      });
+    }
+    if (
+      approvalStatus !== undefined &&
+      !VALID_APPROVAL_STATUSES.includes(approvalStatus)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid approval status.",
       });
     }
 
-    if (projectId) {
+    const resolvedProjectId = normalizeOptionalId(projectId);
+    const resolvedEquipmentId = normalizeOptionalId(equipmentId);
+
+    if (!resolvedProjectId && !canManageGeneralProtocol(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Only admins and supervisors can create general or equipment-only SOPs.",
+      });
+    }
+
+    if (resolvedProjectId) {
       const canUseProject = await canUseProjectForResearchWork(
         req.user,
-        projectId,
+        resolvedProjectId,
       );
 
       if (!canUseProject) {
@@ -306,32 +383,23 @@ const createProtocol = async (req, res) => {
             "You do not have access to create protocols for this project.",
         });
       }
-    }
 
-    if (projectId) {
-      const canEditProject = await canEditProjectLinkedWork(
+      const canCreateForProject = await canCreateProtocolInProject(
         req.user,
-        projectId,
+        resolvedProjectId,
       );
 
-      if (!canEditProject) {
+      if (!canCreateForProject) {
         return res.status(403).json({
           status: "error",
           message:
-            "You have read-only access to this project and cannot create project-linked protocols.",
+            "Only admins, project supervisors, project leads, and workflow-authorized project members can create project-linked protocols.",
         });
       }
     }
 
-    if (!title || !content) {
-      return res.status(400).json({
-        status: "error",
-        message: "Protocol title and content are required.",
-      });
-    }
-
-    if (projectId) {
-      const project = await Project.findByPk(projectId);
+    if (resolvedProjectId) {
+      const project = await Project.findByPk(resolvedProjectId);
 
       if (!project) {
         return res.status(404).json({
@@ -341,8 +409,8 @@ const createProtocol = async (req, res) => {
       }
     }
 
-    if (equipmentId) {
-      const equipment = await Equipment.findByPk(equipmentId);
+    if (resolvedEquipmentId) {
+      const equipment = await Equipment.findByPk(resolvedEquipmentId);
 
       if (!equipment) {
         return res.status(404).json({
@@ -354,8 +422,8 @@ const createProtocol = async (req, res) => {
 
     const resolvedApprovalStatus = approvalStatus || "draft";
 
-    // If a protocol is created as approved, store who approved it
-    // For this MVP, only supervisors/admins can create protocols through routes
+    // If a protocol is created as approved, store who approved it.
+    // Approval decisions are restricted to admins and supervisors.
     const approvedById =
       resolvedApprovalStatus === "approved" ? req.user.id : null;
 
@@ -364,6 +432,27 @@ const createProtocol = async (req, res) => {
         ? new Date().toISOString().slice(0, 10)
         : null;
 
+    if (
+      ["approved", "changes_requested"].includes(resolvedApprovalStatus) &&
+      !isAdminOrSupervisor(req.user)
+    ) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Only admins and supervisors can create protocols with approval decisions.",
+      });
+    }
+
+    if (
+      resolvedApprovalStatus === "changes_requested" &&
+      !reviewComment?.trim()
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "A review comment is required when requesting changes.",
+      });
+    }
+
     const protocol = await Protocol.create({
       title: title.trim(),
       version: version?.trim() || "1.0",
@@ -371,8 +460,8 @@ const createProtocol = async (req, res) => {
       content: content.trim(),
       approvalStatus: resolvedApprovalStatus,
       reviewComment: reviewComment?.trim() || null,
-      projectId: projectId || null,
-      equipmentId: equipmentId || null,
+      projectId: resolvedProjectId,
+      equipmentId: resolvedEquipmentId,
       createdById: req.user.id,
       approvedById,
       approvedAt,
@@ -426,27 +515,13 @@ const updateProtocol = async (req, res) => {
 
     const currentProjectId = normalizeOptionalId(protocol.projectId);
     const requestedProjectId = normalizeOptionalId(projectId);
+    const requestedEquipmentId = normalizeOptionalId(equipmentId);
 
     if (projectId !== undefined && requestedProjectId !== currentProjectId) {
       return res.status(400).json({
         status: "error",
         message: "Protocol project cannot be changed after creation.",
       });
-    }
-
-    if (protocol.projectId) {
-      const canEditProject = await canEditProjectLinkedWork(
-        req.user,
-        protocol.projectId,
-      );
-
-      if (!canEditProject) {
-        return res.status(403).json({
-          status: "error",
-          message:
-            "You have read-only access to this project and cannot edit project-linked protocols.",
-        });
-      }
     }
 
     if (
@@ -456,13 +531,6 @@ const updateProtocol = async (req, res) => {
       return res.status(400).json({
         status: "error",
         message: "Invalid approval status.",
-      });
-    }
-
-    if (!canEditProtocol(req.user)) {
-      return res.status(403).json({
-        status: "error",
-        message: "You do not have permission to edit protocols.",
       });
     }
 
@@ -478,6 +546,25 @@ const updateProtocol = async (req, res) => {
           message: "You do not have access to edit protocols for this project.",
         });
       }
+
+      const canEditForProject = await canEditProtocolInProject(
+        req.user,
+        currentProjectId,
+      );
+
+      if (!canEditForProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Only admins, project supervisors, project leads, and workflow-authorized project members can edit project-linked protocols.",
+        });
+      }
+    } else if (!canManageGeneralProtocol(req.user)) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Only admins and supervisors can edit general or equipment-only SOPs.",
+      });
     }
 
     const nextApprovalStatus =
@@ -535,8 +622,8 @@ const updateProtocol = async (req, res) => {
       });
     }
 
-    if (equipmentId) {
-      const equipment = await Equipment.findByPk(equipmentId);
+    if (equipmentId !== undefined && requestedEquipmentId) {
+      const equipment = await Equipment.findByPk(requestedEquipmentId);
 
       if (!equipment) {
         return res.status(404).json({
@@ -573,7 +660,7 @@ const updateProtocol = async (req, res) => {
           ? reviewComment?.trim() || null
           : protocol.reviewComment,
       equipmentId:
-        equipmentId !== undefined ? equipmentId || null : protocol.equipmentId,
+        equipmentId !== undefined ? requestedEquipmentId : protocol.equipmentId,
       approvedById: nextApprovedById,
       approvedAt: nextApprovedAt,
     });
