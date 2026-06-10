@@ -2,10 +2,6 @@ import {
   Alert,
   Button,
   Card,
-  DatePicker,
-  Form,
-  Input,
-  Modal,
   Popconfirm,
   Select,
   Space,
@@ -17,26 +13,23 @@ import {
 import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import dayjs from "dayjs";
 
 import { fetchTasks, createTask, updateTask, deleteTask } from "../api/taskApi";
 import { fetchProjects } from "../api/projectApi";
 import { fetchUsers } from "../api/userApi";
 import { fetchProjectMembers } from "../api/projectMemberApi";
 import {
-  getCurrentUserProjectRole,
   canEditProjectTaskRecord,
-  canCreateProjectTask,
+  getCurrentUserProjectRole,
 } from "../utils/projectRoleAccess";
+import TaskFormModal from "../components/tasks/TaskFormModal";
 import { useAuth } from "../context/useAuth";
 import { TASK_STATUS_OPTIONS } from "../constants/statusOptions";
-import { TASK_PRIORITY_OPTIONS } from "../constants/statusOptions";
 import { TASK_STATUS_COLORS } from "../constants/statusColors";
 import { TASK_PRIORITY_COLORS } from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
 
 const { Title, Paragraph, Text } = Typography;
-const { TextArea } = Input;
 
 const TasksPage = () => {
   const { user: currentUser } = useAuth();
@@ -64,29 +57,12 @@ const TasksPage = () => {
 
   const [projectRoleByProjectId, setProjectRoleByProjectId] = useState({});
 
-  const [form] = Form.useForm();
-
-  const isEditingTask = Boolean(editingTask);
-
   const isAdminOrSupervisor = ["admin", "supervisor"].includes(
     currentUser?.role,
   );
 
   // Only admins and supervisors can delete tasks
   const canDeleteTasks = isAdminOrSupervisor;
-
-  const currentUserFormProjectRole = useMemo(() => {
-    return getCurrentUserProjectRole(
-      formProjectMembers,
-      currentUser,
-      formProjectId,
-    );
-  }, [formProjectMembers, currentUser, formProjectId]);
-
-  const canAssignTaskForSelectedProject = canCreateProjectTask(
-    currentUser,
-    currentUserFormProjectRole,
-  );
 
   // Converts projects into options for Ant Design Select.
   const projectOptions = useMemo(() => {
@@ -95,60 +71,6 @@ const TasksPage = () => {
       value: project.id,
     }));
   }, [projects]);
-
-  // Converts users into options for the assignee Select field
-  const userOptions = useMemo(() => {
-    return users.map((userItem) => ({
-      label: `${userItem.name} (${userItem.role})`,
-      value: userItem.id,
-    }));
-  }, [users]);
-
-  const formAssigneeOptions = useMemo(() => {
-    if (isAdminOrSupervisor) {
-      return userOptions;
-    }
-
-    if (!formProjectId) {
-      return [
-        {
-          label: `${currentUser?.name} (${currentUser?.role})`,
-          value: currentUser?.id,
-        },
-      ];
-    }
-
-    if (currentUserFormProjectRole === "lead") {
-      return formProjectMembers
-        .map((member) => {
-          const memberUser = member.user;
-
-          if (!memberUser) {
-            return null;
-          }
-
-          return {
-            label: `${memberUser.name} (${member.projectRole})`,
-            value: memberUser.id,
-          };
-        })
-        .filter(Boolean);
-    }
-
-    return [
-      {
-        label: `${currentUser?.name} (${currentUser?.role})`,
-        value: currentUser?.id,
-      },
-    ];
-  }, [
-    currentUserFormProjectRole,
-    formProjectId,
-    formProjectMembers,
-    isAdminOrSupervisor,
-    currentUser,
-    userOptions,
-  ]);
 
   // Builds the filter object used by the task API
   const taskFilters = useMemo(() => {
@@ -182,11 +104,6 @@ const TasksPage = () => {
       setIsLoadingProjects(false);
     }
   }, []);
-
-  const canCreateTaskForFormProject =
-    isAdminOrSupervisor ||
-    !formProjectId ||
-    canCreateProjectTask(currentUser, currentUserFormProjectRole);
 
   const loadFormProjectMembers = useCallback(async (projectId) => {
     if (!projectId) {
@@ -331,17 +248,6 @@ const TasksPage = () => {
     setEditingTask(null);
     setFormProjectId(null);
     setFormProjectMembers([]);
-
-    // Reset form state so previous edit values do not leak into the create form
-    form.resetFields();
-
-    // Give new tasks default values
-    form.setFieldsValue({
-      status: "todo",
-      priority: "medium",
-      assignedToId: isAdminOrSupervisor ? undefined : currentUser?.id,
-    });
-
     setIsModalOpen(true);
   };
 
@@ -359,69 +265,19 @@ const TasksPage = () => {
         setFormProjectMembers([]);
       }
 
-      // DatePicker requires dayjs objects, not raw date strings
-      form.setFieldsValue({
-        title: task.title,
-        description: task.description,
-        status: task.status,
-        priority: task.priority,
-        dueDate: task.dueDate ? dayjs(task.dueDate) : null,
-        projectId: task.projectId || undefined,
-        assignedToId: task.assignedToId || currentUser?.id,
-      });
-
       setIsModalOpen(true);
     },
-    [form, loadFormProjectMembers, currentUser?.id],
+    [loadFormProjectMembers],
   );
 
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingTask(null);
-    form.resetFields();
   };
 
-  const isMemberSelfEditingAssignedProjectTask = useMemo(() => {
-    if (!editingTask || !editingTask.projectId || !currentUser?.id) {
-      return false;
-    }
-
-    if (currentUser?.role !== "researcher") {
-      return false;
-    }
-
-    const projectRole = projectRoleByProjectId[Number(editingTask.projectId)];
-
-    return (
-      projectRole === "member" &&
-      Number(editingTask.assignedToId) === Number(currentUser.id)
-    );
-  }, [editingTask, currentUser, projectRoleByProjectId]);
-
-  const handleSubmit = async (values) => {
+  const handleSubmit = async (payload) => {
     try {
       setIsSubmitting(true);
-
-      const resolvedAssignedToId =
-        values.assignedToId || (!isAdminOrSupervisor ? currentUser?.id : null);
-
-      // Convert form values into the format expected by the backend
-      const payload = isMemberSelfEditingAssignedProjectTask
-        ? { status: values.status, description: values.description }
-        : {
-            title: values.title,
-            description: values.description,
-            status: values.status,
-            priority: values.priority,
-            dueDate: values.dueDate
-              ? values.dueDate.format("YYYY-MM-DD")
-              : null,
-            assignedToId: resolvedAssignedToId,
-          };
-
-      if (!isEditingTask) {
-        payload.projectId = values.projectId || null;
-      }
 
       if (editingTask) {
         await updateTask(editingTask.id, payload);
@@ -669,135 +525,26 @@ const TasksPage = () => {
         />
       </Card>
 
-      <Modal
-        title={editingTask ? "Edit Task" : "Create Task"}
+      <TaskFormModal
         open={isModalOpen}
+        mode={editingTask ? "edit" : "create"}
+        task={editingTask}
+        currentUser={currentUser}
+        projects={projects}
+        users={users}
+        formProjectMembers={formProjectMembers}
+        formProjectId={formProjectId}
+        isSubmitting={isSubmitting}
+        isLoadingProjects={isLoadingProjects}
+        isLoadingUsers={isLoadingUsers}
+        isLoadingFormProjectMembers={isLoadingFormProjectMembers}
         onCancel={closeModal}
-        footer={null}
-        destroyOnHidden
-      >
-        <Form layout="vertical" form={form} onFinish={handleSubmit}>
-          <Form.Item
-            label="Task Title"
-            name="title"
-            rules={[
-              {
-                required: true,
-                message: "Please enter a task title.",
-              },
-              {
-                min: 3,
-                message: "Task title must be at least 3 characters.",
-              },
-            ]}
-          >
-            <Input
-              placeholder="Prepare caffeine calibration standards"
-              disabled={isMemberSelfEditingAssignedProjectTask}
-            />
-          </Form.Item>
-
-          <Form.Item label="Project" name="projectId">
-            <Select
-              allowClear
-              placeholder="Optionally link this task to a project"
-              loading={isLoadingProjects}
-              options={projectOptions}
-              disabled={isEditingTask}
-              onChange={async (nextProjectId) => {
-                const normalizedProjectId = nextProjectId || null;
-
-                setFormProjectId(normalizedProjectId);
-
-                if (!isAdminOrSupervisor) {
-                  form.setFieldValue("assignedToId", currentUser?.id);
-                }
-
-                await loadFormProjectMembers(normalizedProjectId);
-              }}
-            />
-          </Form.Item>
-
-          {formProjectId && !canCreateTaskForFormProject && !isEditingTask && (
-            <Alert
-              type="warning"
-              showIcon
-              message="You cannot create project-linked tasks for this project."
-              description="Only admins, project supervisors, and project leads can create and assign project-linked tasks."
-              style={{ marginBottom: 16 }}
-            />
-          )}
-
-          <Form.Item label="Assign To" name="assignedToId">
-            <Select
-              allowClear={isAdminOrSupervisor}
-              placeholder="Assign to a lab member"
-              loading={isLoadingUsers || isLoadingFormProjectMembers}
-              options={formAssigneeOptions}
-              disabled={
-                isMemberSelfEditingAssignedProjectTask ||
-                !canAssignTaskForSelectedProject
-              }
-            />
-          </Form.Item>
-
-          <Form.Item label="Description" name="description">
-            <TextArea
-              rows={4}
-              placeholder="Describe the task, expected output, or lab work required."
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Status"
-            name="status"
-            rules={[
-              {
-                required: true,
-                message: "Please select a task status.",
-              },
-            ]}
-          >
-            <Select options={TASK_STATUS_OPTIONS} />
-          </Form.Item>
-
-          <Form.Item
-            label="Priority"
-            name="priority"
-            rules={[
-              {
-                required: true,
-                message: "Please select a priority.",
-              },
-            ]}
-          >
-            <Select
-              options={TASK_PRIORITY_OPTIONS}
-              disabled={isMemberSelfEditingAssignedProjectTask}
-            />
-          </Form.Item>
-
-          <Form.Item label="Due Date" name="dueDate">
-            <DatePicker
-              style={{ width: "100%" }}
-              disabled={isMemberSelfEditingAssignedProjectTask}
-            />
-          </Form.Item>
-
-          <Space style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button onClick={closeModal}>Cancel</Button>
-
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={isSubmitting}
-              disabled={!canCreateTaskForFormProject && !isEditingTask}
-            >
-              {editingTask ? "Save Changes" : "Create Task"}
-            </Button>
-          </Space>
-        </Form>
-      </Modal>
+        onProjectChange={async (nextProjectId) => {
+          setFormProjectId(nextProjectId);
+          await loadFormProjectMembers(nextProjectId);
+        }}
+        onSubmit={handleSubmit}
+      />
     </>
   );
 };

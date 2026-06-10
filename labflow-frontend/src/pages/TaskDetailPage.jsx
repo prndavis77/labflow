@@ -16,6 +16,14 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../context/useAuth";
+import TaskFormModal from "../components/tasks/TaskFormModal";
+import { fetchProjects } from "../api/projectApi";
+import { fetchUsers } from "../api/userApi";
+import { fetchProjectMembers } from "../api/projectMemberApi";
+import {
+  getCurrentUserProjectRole,
+  canEditProjectTaskRecord,
+} from "../utils/projectRoleAccess";
 import { fetchTaskById, updateTask } from "../api/taskApi";
 import { fetchExperiments } from "../api/experimentApi";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
@@ -33,11 +41,27 @@ const TaskDetailPage = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
+  const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [formProjectMembers, setFormProjectMembers] = useState([]);
+  const [formProjectId, setFormProjectId] = useState(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingFormProjectMembers, setIsLoadingFormProjectMembers] =
+    useState(false);
+  const [projectRoleByProjectId, setProjectRoleByProjectId] = useState({});
+
   const [task, setTask] = useState(null);
   const [relatedExperiments, setRelatedExperiments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const isAdminOrSupervisor = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
 
   const canRequestTaskCompletion =
     task &&
@@ -52,6 +76,85 @@ const TaskDetailPage = () => {
     (currentUser?.role === "admin" ||
       (currentUser?.role === "supervisor" && task?.projectId));
 
+  const canEditTaskRecord = useMemo(() => {
+    if (!task) {
+      return false;
+    }
+
+    if (isAdminOrSupervisor) {
+      return true;
+    }
+
+    if (!task.projectId) {
+      return Number(task.assignedToId) === Number(currentUser?.id);
+    }
+
+    const projectRole = projectRoleByProjectId[Number(task.projectId)];
+
+    return canEditProjectTaskRecord({
+      currentUser,
+      projectRole,
+      task,
+    });
+  }, [task, isAdminOrSupervisor, currentUser, projectRoleByProjectId]);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      setIsLoadingProjects(true);
+
+      const result = await fetchProjects();
+
+      setProjects(result.data.projects);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load projects.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, []);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setIsLoadingUsers(true);
+
+      const result = await fetchUsers();
+
+      setUsers(result.data.users);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load users.";
+
+      message.error(messageText);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, []);
+
+  const loadFormProjectMembers = useCallback(async (projectId) => {
+    if (!projectId) {
+      setFormProjectMembers([]);
+      return;
+    }
+
+    try {
+      setIsLoadingFormProjectMembers(true);
+
+      const result = await fetchProjectMembers({ projectId });
+
+      setFormProjectMembers(result.data.projectMembers);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load project members.";
+
+      message.error(messageText);
+      setFormProjectMembers([]);
+    } finally {
+      setIsLoadingFormProjectMembers(false);
+    }
+  }, []);
+
   // Loads the selected task and experiments linked to that task
   const loadTaskDetail = useCallback(async () => {
     try {
@@ -62,6 +165,32 @@ const TaskDetailPage = () => {
       const fetchedTask = taskResult.data.task;
 
       setTask(fetchedTask);
+
+      if (
+        fetchedTask.projectId &&
+        currentUser?.id &&
+        !["admin", "supervisor"].includes(currentUser?.role)
+      ) {
+        try {
+          const membersResult = await fetchProjectMembers({
+            projectId: fetchedTask.projectId,
+          });
+
+          const projectRole = getCurrentUserProjectRole(
+            membersResult.data.projectMembers,
+            currentUser,
+            fetchedTask.projectId,
+          );
+
+          setProjectRoleByProjectId({
+            [Number(fetchedTask.projectId)]: projectRole,
+          });
+        } catch {
+          setProjectRoleByProjectId({
+            [Number(fetchedTask.projectId)]: null,
+          });
+        }
+      }
 
       try {
         const experimentsResult = await fetchExperiments({ taskId: id });
@@ -77,14 +206,26 @@ const TaskDetailPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, currentUser]);
 
   // Load task detail data after the first render or when the route ID changes
   useEffect(() => {
     queueMicrotask(() => {
       loadTaskDetail();
     });
-  }, [loadTaskDetail, currentUser?.id]);
+  }, [loadTaskDetail]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadProjects();
+    });
+  }, [loadProjects]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadUsers();
+    });
+  }, [loadUsers]);
 
   const handleRequestTaskCompletion = async () => {
     try {
@@ -127,6 +268,48 @@ const TaskDetailPage = () => {
       message.error(messageText);
     } finally {
       setIsUpdatingTask(false);
+    }
+  };
+
+  const openEditTaskModal = async () => {
+    if (!task) {
+      return;
+    }
+
+    const nextProjectId = task.projectId || null;
+
+    setFormProjectId(nextProjectId);
+
+    if (nextProjectId) {
+      await loadFormProjectMembers(nextProjectId);
+    } else {
+      setFormProjectMembers([]);
+    }
+
+    setIsTaskModalOpen(true);
+  };
+
+  const closeEditTaskModal = () => {
+    setIsTaskModalOpen(false);
+  };
+
+  const handleTaskFormSubmit = async (payload) => {
+    try {
+      setIsSubmittingTask(true);
+
+      await updateTask(task.id, payload);
+
+      message.success("Task updated successfully.");
+
+      closeEditTaskModal();
+      await loadTaskDetail();
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to update task.";
+
+      message.error(messageText);
+    } finally {
+      setIsSubmittingTask(false);
     }
   };
 
@@ -225,6 +408,12 @@ const TaskDetailPage = () => {
           >
             Refresh
           </Button>
+
+          {task && (
+            <Button onClick={openEditTaskModal} disabled={!canEditTaskRecord}>
+              Edit Task
+            </Button>
+          )}
         </Space>
 
         {task ? (
@@ -344,6 +533,27 @@ const TaskDetailPage = () => {
           )}
         </Card>
       )}
+
+      <TaskFormModal
+        open={isTaskModalOpen}
+        mode="edit"
+        task={task}
+        currentUser={currentUser}
+        projects={projects}
+        users={users}
+        formProjectMembers={formProjectMembers}
+        formProjectId={formProjectId}
+        isSubmitting={isSubmittingTask}
+        isLoadingProjects={isLoadingProjects}
+        isLoadingUsers={isLoadingUsers}
+        isLoadingFormProjectMembers={isLoadingFormProjectMembers}
+        onCancel={closeEditTaskModal}
+        onProjectChange={async (nextProjectId) => {
+          setFormProjectId(nextProjectId);
+          await loadFormProjectMembers(nextProjectId);
+        }}
+        onSubmit={handleTaskFormSubmit}
+      />
     </Space>
   );
 };
