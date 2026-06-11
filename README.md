@@ -132,13 +132,25 @@ The current access model is:
 - Admins can view and manage all projects.
 - Supervisors can view and manage projects where they are assigned as the project supervisor.
 - Researchers can only view projects where they are listed as project members.
-- Researchers can create or edit project-linked experiments and protocols only for projects where they are members.
+- Researchers can create or edit project-linked experiments and protocols based on their project member role and workflow permissions. Project leads can create and edit project-linked experiments and protocols. Project members can create and edit them only when their researcher workflow permissions allow it. Project viewers have read-only access.
 - Tasks may be standalone or project-linked. Researcher task visibility is assignment-aware, while project-linked task creation still respects project membership.
 - Researcher workflow permissions still control whether a researcher can create or edit experiments and protocols at all.
 
 For example, a researcher may have permission to create protocols, but they can only create project-linked protocols for projects where they are a member.
 
 LabFlow also locks project linkage after record creation for tasks, experiments, and protocols. This prevents users from accidentally moving a record to a project they cannot access and losing the ability to correct it themselves.
+
+### Project-Level Contribution Rules
+
+LabFlow uses project member roles to control project-linked contribution rights:
+
+- Project leads can coordinate project-linked work and can create or edit project-linked tasks, experiments, and protocols.
+- Project members can contribute to project-linked experiments and protocols only when their researcher workflow permissions allow it.
+- Project viewers have read-only access to project-linked tasks, experiments, and protocols.
+- General SOPs without project linkage can be created, edited, reviewed, and deleted only by admins and supervisors.
+- Delete actions remain restricted to admins and supervisors. Supervisors are scoped to projects they supervise for project-linked records.
+
+This layered model allows LabFlow to combine global user roles, project-specific roles, and configurable researcher workflow permissions without giving researchers unrestricted access across the whole lab.
 
 ---
 
@@ -176,6 +188,11 @@ LabFlow also locks project linkage after record creation for tasks, experiments,
 - Supervisor-scoped review actions for experiments, project-linked protocols, and project-linked task completion requests
 - General non-project-linked protocol review by admins and supervisors
 - Admin-only standalone task completion review
+- Project-role-aware create and edit rules for tasks, experiments, and protocols
+- Lead/member/viewer project role behavior for project-linked work
+- Project-aware create forms that block unauthorized selected projects before submission
+- Supervisor-scoped delete permissions for project-linked tasks, experiments, and protocols
+- Admin/supervisor-only management for general SOPs
 
 ### Dashboard
 
@@ -360,7 +377,7 @@ Protocols represent reusable lab methods, SOPs, or experimental procedures.
 
 Protocols can be linked to a project, linked to equipment, linked to both, or saved as general lab SOPs without a project. This allows LabFlow to support project-specific methods, instrument SOPs, and general lab procedures.
 
-Project-linked protocols require project membership for researcher create/edit access. General SOPs without a project remain possible when protocol workflow permissions allow it. Protocol project linkage is locked after creation to avoid accidental access loss.
+Project-linked protocols require project membership for researcher create/edit access. General SOPs without a project are restricted to admins and supervisors. Researchers can view available protocols, but they cannot create or edit general SOPs, even when protocol workflow permissions are enabled. Protocol project linkage is locked after creation to avoid accidental access loss.
 
 Protocol create and edit actions are permission-aware. Admins and supervisors can manage protocols by role. Researcher access depends on configurable workflow permissions, which allows labs to decide whether researchers may independently create or edit reusable methods and SOPs.
 
@@ -1138,6 +1155,13 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Admin can still view all projects
 - Supervisor can view only projects where they are assigned as supervisor
 - Supervisor cannot open a non-supervised project detail page by direct URL
+- Project lead can create and edit project-linked experiments even when global workflow flags are disabled
+- Project lead can create and edit project-linked protocols even when global workflow flags are disabled
+- Project member can create and edit project-linked experiments only when workflow permissions allow it
+- Project member can create and edit project-linked protocols only when workflow permissions allow it
+- Project viewer has read-only access to project-linked tasks, experiments, and protocols
+- Researcher cannot create or edit general SOPs
+- Unauthorized selected projects are blocked in create forms before submission
 
 ### Tasks
 
@@ -1157,6 +1181,9 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Confirm project-linked task completion as supervisor for supervised projects
 - Reject project-linked task completion review as supervisor for non-supervised projects
 - Show task completion requests in the Review Queue
+- Disable standalone task delete action for supervisors
+- Reject standalone task deletion by supervisors at the backend
+- Allow supervisor task deletion only for supervised project-linked tasks
 
 ### Experiments
 
@@ -1191,6 +1218,9 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Track approved by and approved date
 - View protocols as researcher
 - Restrict protocol management by role
+- Reject researcher general SOP creation and editing
+- Allow supervisor general SOP management
+- Restrict supervisor project-linked protocol deletion to supervised projects
 
 ### Equipment
 
@@ -1324,7 +1354,7 @@ Current limitations include:
 - Researcher workflow permissions are still global per user, while project membership controls project access separately
 - User management does not yet support account deactivation or password reset
 - Supervisor access is now project-scoped, but LabFlow does not yet include a separate lab or organization model for multi-lab deployments
-- Project member roles exist, but lead/member/viewer permissions are not fully differentiated yet
+- Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
 
 ## Future Improvements

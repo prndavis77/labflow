@@ -103,6 +103,8 @@ The frontend uses these permission flags to hide create and edit actions when a 
 
 LabFlow includes a project membership system that links users to specific projects with project-level roles such as lead, member, and viewer.
 
+Project member roles now affect contribution behavior. Project leads can create and edit project-linked work, project members can contribute to experiments and protocols when workflow permissions allow it, and project viewers have read-only access. This keeps the role model simple while still supporting realistic lab workflows where some researchers coordinate work and others only participate or observe.
+
 This adds a project-level access layer on top of system roles and researcher workflow permissions. Researchers can only view projects where they are members. For experiments and project-linked protocols, researchers must also have project access and the required workflow permissions. Tasks use an assignment-aware access model, so researchers can see tasks assigned to them, including standalone tasks without a project link.
 
 The backend enforces membership-aware access for project detail views and project-linked experiment and protocol workflows. Task access is enforced separately through assignment-aware rules and locked project linkage.
@@ -112,6 +114,18 @@ The backend enforces membership-aware access for project detail views and projec
 Experiments must be linked to a project, while protocols may be project-linked or saved as general SOPs. Tasks may be standalone or project-linked depending on the lab work being assigned.
 
 When a task, experiment, or protocol is created with a project link, that project link is locked in normal edit workflows. This prevents users from accidentally moving a record to a project they cannot access, which could cause them to lose the ability to correct the mistake.
+
+### Layered Permission Model
+
+LabFlow combines three permission layers:
+
+- System role: admin, supervisor, or researcher
+- Project role: lead, member, or viewer
+- Researcher workflow permissions: create/edit experiments and protocols
+
+Admins retain global access. Supervisors are scoped to projects they supervise. Researchers access project-linked work through project membership. Project leads can coordinate project-linked work, project members can contribute when workflow permissions allow it, and viewers have read-only access.
+
+This layered model prevents a simple researcher permission flag from becoming global access. For example, a researcher may be allowed to edit protocols, but only as a project member on projects where that permission applies. General SOPs remain restricted to admins and supervisors.
 
 ### Standalone Tasks and Task Completion Review
 
@@ -205,6 +219,8 @@ Another workflow challenge appeared when tasks became broader than project work.
 
 A later access-control issue appeared when existing tasks, experiments, and protocols could be moved to another project. This could cause a researcher to lose access to a record after accidentally changing its project. I solved this by locking project linkage after creation and treating project reassignment as a future admin-level workflow.
 
+A later permission challenge was making project roles meaningful without making the system too complex. A single researcher-level permission flag was not enough because project leads, project members, and project viewers should not have the same contribution rights. I solved this by layering project roles on top of researcher workflow permissions. Leads can coordinate project-linked work, members can contribute when workflow permissions allow it, and viewers remain read-only.
+
 A later dashboard challenge was making summary data respect user context. Project-linked dashboard records needed to be scoped by project membership for researchers, while task summaries needed to show assigned tasks rather than all tasks in member projects. I solved this by separating project-linked dashboard filters from task-specific dashboard filters.
 
 Another workflow issue was that researchers needed a way to signal that assigned work was finished without directly marking it as done. I added a Completion Requested task status so researchers can submit completion requests, while admins and supervisors confirm done or reopen the task after review.
@@ -226,7 +242,7 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
 - Researcher workflow permissions are global per user, not project-specific yet
 - User management does not yet include account deactivation or password reset
-- Project member roles exist, but lead/member/viewer behavior is not fully differentiated yet
+- Project member roles now control core project-linked contribution behavior, but project-specific workflow permission overrides are not implemented yet.
 - Supervisor access is now project-scoped, but there is not yet a separate lab or organization model for multi-lab deployments
 - Project invitations and membership approval workflows are not implemented yet
 - Task completion review currently does not include separate completion notes or reviewer feedback when a task is reopened
