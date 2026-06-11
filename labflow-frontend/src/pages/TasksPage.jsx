@@ -438,8 +438,17 @@ const TasksPage = () => {
                 cancelText="Cancel"
                 okButtonProps={{ danger: true }}
                 onConfirm={() => handleDelete(record.id)}
+                disabled={
+                  currentUser.role === "supervisor" && !record.projectId
+                }
               >
-                <Button size="small" danger>
+                <Button
+                  size="small"
+                  danger
+                  disabled={
+                    currentUser.role === "supervisor" && !record.projectId
+                  }
+                >
                   Delete
                 </Button>
               </Popconfirm>
@@ -449,7 +458,13 @@ const TasksPage = () => {
       },
     ];
     return baseColumns;
-  }, [canDeleteTasks, canEditTaskRecord, handleDelete, openEditModal]);
+  }, [
+    canDeleteTasks,
+    canEditTaskRecord,
+    handleDelete,
+    openEditModal,
+    currentUser,
+  ]);
 
   return (
     <>
