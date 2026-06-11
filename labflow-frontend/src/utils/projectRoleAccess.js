@@ -115,6 +115,10 @@ export const canCreateProjectTask = (currentUser, projectRole) => {
 };
 
 export const canCreateExperimentInProject = (currentUser, projectRole) => {
+  if (!currentUser) {
+    return false;
+  }
+
   if (isAdminOrSupervisor(currentUser)) {
     return true;
   }
@@ -147,6 +151,10 @@ export const canEditExperimentInProject = (currentUser, projectRole) => {
 };
 
 export const canCreateProtocolInProject = (currentUser, projectRole) => {
+  if (!currentUser) {
+    return false;
+  }
+
   if (isAdminOrSupervisor(currentUser)) {
     return true;
   }

@@ -278,16 +278,6 @@ const ProtocolsPage = () => {
 
       const projectRole = projectRoleByProjectId[Number(record.projectId)];
 
-      console.log("PROTOCOL EDIT CHECK", {
-        userId: currentUser?.id,
-        role: currentUser?.role,
-        canEditProtocols: currentUser?.canEditProtocols,
-        recordId: record.id,
-        projectId: record.projectId,
-        projectRole,
-        result: canEditProtocolInProject(currentUser, projectRole),
-      });
-
       return canEditProtocolInProject(currentUser, projectRole);
     },
     [currentUser, isAdminOrSupervisor, projectRoleByProjectId],
@@ -522,6 +512,7 @@ const ProtocolsPage = () => {
         protocol={editingProtocol}
         projects={projects}
         equipment={equipment}
+        currentUser={currentUser}
         isLoadingProjects={isLoadingProjects}
         isLoadingEquipment={isLoadingEquipment}
         onCancel={closeModal}

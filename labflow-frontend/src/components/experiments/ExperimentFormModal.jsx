@@ -1,4 +1,4 @@
-import { DatePicker, Form, Input, Modal, Select, message } from "antd";
+import { Alert, DatePicker, Form, Input, Modal, Select, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 
@@ -7,6 +7,11 @@ import {
   EXPERIMENT_STATUS_OPTIONS,
   EDITABLE_REVIEW_STATUS_OPTIONS,
 } from "../../constants/statusOptions";
+import { fetchProjectMembers } from "../../api/projectMemberApi";
+import {
+  getCurrentUserProjectRole,
+  canCreateExperimentInProject,
+} from "../../utils/projectRoleAccess";
 
 const ExperimentFormModal = ({
   open,
@@ -27,6 +32,9 @@ const ExperimentFormModal = ({
   const [form] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [formProjectMembers, setFormProjectMembers] = useState([]);
+  const [isLoadingProjectMembers, setIsLoadingProjectMembers] = useState(false);
+
   const isEditing = Boolean(experiment);
 
   const projectOptions = useMemo(() => {
@@ -44,6 +52,47 @@ const ExperimentFormModal = ({
   }, [users]);
 
   const watchedProjectId = Form.useWatch("projectId", form);
+
+  const loadFormProjectMembers = async (projectId) => {
+    if (!projectId) {
+      setFormProjectMembers([]);
+      return;
+    }
+
+    try {
+      setIsLoadingProjectMembers(true);
+
+      const result = await fetchProjectMembers({
+        projectId,
+      });
+
+      setFormProjectMembers(result.data.projectMembers);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load project members.";
+
+      message.error(messageText);
+      setFormProjectMembers([]);
+    } finally {
+      setIsLoadingProjectMembers(false);
+    }
+  };
+
+  const currentUserFormProjectRole = useMemo(() => {
+    return getCurrentUserProjectRole(
+      formProjectMembers,
+      currentUser,
+      watchedProjectId,
+    );
+  }, [formProjectMembers, currentUser, watchedProjectId]);
+
+  const canCreateForSelectedProject =
+    isEditing ||
+    !watchedProjectId ||
+    canCreateExperimentInProject(currentUser, currentUserFormProjectRole);
+
+  const shouldBlockCreateForSelectedProject =
+    !isEditing && watchedProjectId && !canCreateForSelectedProject;
 
   // Converts tasks into options
   // If a project is selected in the form, the list is narrowed to that project
@@ -125,7 +174,24 @@ const ExperimentFormModal = ({
     });
   }, [experiment, form, open, defaultProjectId, currentUser?.id]);
 
+  useEffect(() => {
+    if (!open || isEditing) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      loadFormProjectMembers(watchedProjectId);
+    });
+  }, [open, isEditing, watchedProjectId]);
+
   const handleSubmit = async (values) => {
+    if (shouldBlockCreateForSelectedProject) {
+      message.error(
+        "You do not have permission to create experiments for this project.",
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -177,6 +243,9 @@ const ExperimentFormModal = ({
       onOk={() => form.submit()}
       confirmLoading={isSubmitting}
       okText={isEditing ? "Save Changes" : "Create Experiment"}
+      okButtonProps={{
+        disabled: shouldBlockCreateForSelectedProject,
+      }}
       destroyOnHidden
       width={760}
     >
@@ -217,11 +286,21 @@ const ExperimentFormModal = ({
         >
           <Select
             placeholder="Select project"
-            loading={isLoadingProjects}
+            loading={isLoadingProjects || isLoadingProjectMembers}
             options={projectOptions}
             disabled={isEditing} // Disable changing project when editing
           />
         </Form.Item>
+
+        {shouldBlockCreateForSelectedProject && (
+          <Alert
+            type="warning"
+            showIcon
+            message="You cannot create experiments for this project."
+            description="Only admins, project supervisors, project leads, and workflow-authorized project members can create project-linked experiments."
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         <Form.Item
           label="Researcher"

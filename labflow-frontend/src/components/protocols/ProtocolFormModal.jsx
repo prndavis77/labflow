@@ -1,14 +1,22 @@
-import { Form, Input, Modal, Select, message } from "antd";
+import { Alert, Form, Input, Modal, Select, message } from "antd";
 import { useEffect, useMemo, useState } from "react";
 
 import { createProtocol, updateProtocol } from "../../api/protocolApi";
 import { EDITABLE_APPROVAL_STATUS_OPTIONS } from "../../constants/statusOptions";
+
+import { fetchProjectMembers } from "../../api/projectMemberApi";
+import {
+  getCurrentUserProjectRole,
+  canCreateProtocolInProject,
+  canManageGeneralProtocol,
+} from "../../utils/projectRoleAccess";
 
 const ProtocolFormModal = ({
   open,
   protocol,
   projects = [],
   equipment = [],
+  currentUser,
   isLoadingProjects = false,
   isLoadingEquipment = false,
   onCancel,
@@ -17,7 +25,37 @@ const ProtocolFormModal = ({
   const [form] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [formProjectMembers, setFormProjectMembers] = useState([]);
+  const [isLoadingProjectMembers, setIsLoadingProjectMembers] = useState(false);
+
   const isEditing = Boolean(protocol);
+
+  const watchedProjectId = Form.useWatch("projectId", form);
+
+  const loadFormProjectMembers = async (projectId) => {
+    if (!projectId) {
+      setFormProjectMembers([]);
+      return;
+    }
+
+    try {
+      setIsLoadingProjectMembers(true);
+
+      const result = await fetchProjectMembers({
+        projectId,
+      });
+
+      setFormProjectMembers(result.data.projectMembers);
+    } catch (error) {
+      const messageText =
+        error.response?.data?.message || "Failed to load project members.";
+
+      message.error(messageText);
+      setFormProjectMembers([]);
+    } finally {
+      setIsLoadingProjectMembers(false);
+    }
+  };
 
   const projectOptions = useMemo(() => {
     return projects.map((project) => ({
@@ -32,6 +70,23 @@ const ProtocolFormModal = ({
       value: item.id,
     }));
   }, [equipment]);
+
+  const currentUserFormProjectRole = useMemo(() => {
+    return getCurrentUserProjectRole(
+      formProjectMembers,
+      currentUser,
+      watchedProjectId,
+    );
+  }, [formProjectMembers, currentUser, watchedProjectId]);
+
+  const canCreateForSelectedProject =
+    isEditing ||
+    (watchedProjectId
+      ? canCreateProtocolInProject(currentUser, currentUserFormProjectRole)
+      : canManageGeneralProtocol(currentUser));
+
+  const shouldBlockCreateForSelectedProject =
+    !isEditing && !canCreateForSelectedProject;
 
   useEffect(() => {
     if (!open) {
@@ -61,7 +116,26 @@ const ProtocolFormModal = ({
     });
   }, [form, open, protocol]);
 
+  useEffect(() => {
+    if (!open || isEditing) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      loadFormProjectMembers(watchedProjectId);
+    });
+  }, [open, isEditing, watchedProjectId]);
+
   const handleSubmit = async (values) => {
+    if (shouldBlockCreateForSelectedProject) {
+      message.error(
+        watchedProjectId
+          ? "You do not have permission to create protocols for this project."
+          : "Only admins and supervisors can create general SOPs.",
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -106,6 +180,9 @@ const ProtocolFormModal = ({
       onOk={() => form.submit()}
       confirmLoading={isSubmitting}
       okText={isEditing ? "Save Changes" : "Create Protocol"}
+      okButtonProps={{
+        disabled: shouldBlockCreateForSelectedProject,
+      }}
       destroyOnHidden
       width={760}
     >
@@ -178,11 +255,29 @@ const ProtocolFormModal = ({
           <Select
             allowClear
             placeholder="Optionally link this protocol to a project"
-            loading={isLoadingProjects}
+            loading={isLoadingProjects || isLoadingProjectMembers}
             options={projectOptions}
             disabled={isEditing}
           />
         </Form.Item>
+
+        {shouldBlockCreateForSelectedProject && (
+          <Alert
+            type="warning"
+            showIcon
+            message={
+              watchedProjectId
+                ? "You cannot create protocols for this project."
+                : "You cannot create general SOPs."
+            }
+            description={
+              watchedProjectId
+                ? "Only admins, project supervisors, project leads, and workflow-authorized project members can create project-linked protocols."
+                : "General SOPs can only be created by admins and supervisors."
+            }
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         <Form.Item label="Equipment" name="equipmentId">
           <Select

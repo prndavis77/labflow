@@ -623,6 +623,7 @@ const ProtocolDetailPage = () => {
             protocol={protocol}
             projects={projects}
             equipment={equipment}
+            currentUser={currentUser}
             isLoadingProjects={isLoadingProjects}
             isLoadingEquipment={isLoadingEquipment}
             onCancel={closeEditModal}
