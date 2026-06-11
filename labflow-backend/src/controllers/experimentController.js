@@ -825,18 +825,47 @@ const deleteExperiment = async (req, res) => {
       });
     }
 
-    await experiment.destroy();
+    if (req.user.role === "admin") {
+      await experiment.destroy();
 
-    return res.json({
-      status: "success",
-      message: "Experiment deleted successfully.",
+      return res.json({
+        status: "success",
+        message: "Experiment deleted successfully.",
+      });
+    }
+
+    if (req.user.role === "supervisor") {
+      const canDeleteExperimentProject = await canEditProjectLinkedWork(
+        req.user,
+        experiment.projectId,
+      );
+
+      if (!canDeleteExperimentProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Supervisors can only delete experiments for projects they supervise.",
+        });
+      }
+
+      await experiment.destroy();
+
+      return res.json({
+        status: "success",
+        message: "Experiment deleted successfully.",
+      });
+    }
+
+    return res.status(403).json({
+      status: "error",
+      message: "Only admins and project supervisors can delete experiments.",
     });
   } catch (error) {
-    console.error("Error deleting experiment", error);
+    console.error("Error deleting experiment:", error);
 
     return res.status(500).json({
       status: "error",
-      message: "Something went wrong while deleting the experiment.",
+      message: "An error occurred while deleting the experiment.",
     });
   }
 };

@@ -724,11 +724,49 @@ const deleteProtocol = async (req, res) => {
       });
     }
 
-    await protocol.destroy();
+    if (req.user.role === "admin") {
+      await protocol.destroy();
 
-    return res.json({
-      status: "success",
-      message: "Protocol deleted successfully.",
+      return res.json({
+        status: "success",
+        message: "Protocol deleted successfully.",
+      });
+    }
+
+    if (req.user.role === "supervisor") {
+      if (!protocol.projectId) {
+        await protocol.destroy();
+
+        return res.json({
+          status: "success",
+          message: "Protocol deleted successfully.",
+        });
+      }
+
+      const canDeleteProtocolProject = await canEditProjectLinkedWork(
+        req.user,
+        protocol.projectId,
+      );
+
+      if (!canDeleteProtocolProject) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Supervisors can only delete protocols for projects they supervise.",
+        });
+      }
+
+      await protocol.destroy();
+
+      return res.json({
+        status: "success",
+        message: "Protocol deleted successfully.",
+      });
+    }
+
+    return res.status(403).json({
+      status: "error",
+      message: "Only admins and project supervisors can delete protocols.",
     });
   } catch (error) {
     console.error("Error deleting protocol", error);

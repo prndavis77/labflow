@@ -760,7 +760,6 @@ const updateTask = async (req, res) => {
 
 // DELETE /api/tasks/:id
 // Deletes a task.
-// Later, we may replace this with archiving if we want better audit history.
 const deleteTask = async (req, res) => {
   try {
     const { id } = req.params;
@@ -774,20 +773,47 @@ const deleteTask = async (req, res) => {
       });
     }
 
-    const isAdminOrSupervisor = ["admin", "supervisor"].includes(req.user.role);
+    if (req.user.role === "admin") {
+      await task.destroy();
 
-    if (!isAdminOrSupervisor) {
-      return res.status(403).json({
-        status: "error",
-        message: "Only admins and supervisors can delete tasks.",
+      return res.json({
+        status: "success",
+        message: "Task deleted successfully.",
       });
     }
 
-    await task.destroy();
+    if (req.user.role === "supervisor") {
+      if (!task.projectId) {
+        return res.status(403).json({
+          status: "error",
+          message: "Only admins can delete standalone tasks.",
+        });
+      }
 
-    return res.json({
-      status: "success",
-      message: "Task deleted successfully.",
+      const canDeleteProjectTask = await canEditProjectLinkedWork(
+        req.user,
+        task.projectId,
+      );
+
+      if (!canDeleteProjectTask) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Supervisors can only delete tasks for projects they supervise.",
+        });
+      }
+
+      await task.destroy();
+
+      return res.json({
+        status: "success",
+        message: "Task deleted successfully.",
+      });
+    }
+
+    return res.status(403).json({
+      status: "error",
+      message: "Only admins and project supervisors can delete tasks.",
     });
   } catch (error) {
     console.error("Error deleting task", error);
