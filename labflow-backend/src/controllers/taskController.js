@@ -1,4 +1,10 @@
-const { Task, Project, User, ProjectMember } = require("../models");
+const {
+  Task,
+  Project,
+  User,
+  ProjectMember,
+  ReviewEvent,
+} = require("../models");
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
 const {
   canUseProjectForResearchWork,
@@ -720,6 +726,29 @@ const updateTask = async (req, res) => {
       assignedToId:
         assignedToId !== undefined ? assignedToId || null : task.assignedToId,
     });
+
+    if (status === "completion_requested") {
+      await ReviewEvent.create({
+        targetType: "task",
+        targetId: task.id,
+        action: "submitted",
+        comment: "Task submitted for completion review.",
+        reviewerId: req.user.id,
+      });
+    }
+
+    if (isTaskCompletionReviewDecision) {
+      await ReviewEvent.create({
+        targetType: "task",
+        targetId: task.id,
+        action: status === "done" ? "approved" : "changes_requested",
+        comment:
+          status === "done"
+            ? "Task completion confirmed."
+            : "Task reopened for further work.",
+        reviewerId: req.user.id,
+      });
+    }
 
     const updatedTask = await Task.findByPk(task.id, {
       include: [

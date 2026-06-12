@@ -53,6 +53,10 @@ const findReviewTarget = async (targetType, targetId) => {
     return Protocol.findByPk(targetId);
   }
 
+  if (targetType === "task") {
+    return Task.findByPk(targetId);
+  }
+
   return null;
 };
 
@@ -122,7 +126,7 @@ const getReviewEvents = async (req, res) => {
     if (targetType && !validTargetTypes.includes(targetType)) {
       return res.status(400).json({
         status: "error",
-        message: "Target type must be experiment or protocol.",
+        message: "Target type must be experiment, protocol or task.",
       });
     }
 
@@ -261,7 +265,7 @@ const createReviewEvent = async (req, res) => {
       });
     }
 
-    if (!["experiment", "protocol"].includes(targetType)) {
+    if (!["experiment", "protocol", "task"].includes(targetType)) {
       return res.status(400).json({
         status: "error",
         message: "Target type must be either experiment, protocol or task.",
