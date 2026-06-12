@@ -18,8 +18,9 @@ router.use(protect);
 router.get("/", getProtocols);
 router.get("/:id", getProtocolById);
 
-// Only admins and supervisors can create, update, or delete protocols for now
-// This keeps protocol approval and method control stricter than normal task edits
+// All authenticated users can attempt protocol create/update
+// The controller enforces detailed protocol permissions including researcher workflow permissions, project membership and general SOP restrictions
+// Delete remains restricted to admins and supervisors at the route level
 router.post(
   "/",
   authorizeRoles(...ROLE_GROUPS.ALL_AUTHENTICATED),
