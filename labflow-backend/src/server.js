@@ -21,7 +21,24 @@ const projectMemberRoutes = require("./routes/projectMemberRoutes");
 const app = express();
 
 // Enable cross-origin requests from the frontend
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173", // Vite dev
+  "http://localhost:4173", // Vite preview
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  }),
+);
 
 // Parse incoming JSON request bodies
 app.use(express.json());
@@ -87,7 +104,9 @@ async function startServer() {
 
     // Sync Sequelize models to the database during development
     // Later, replace this with migrations for safer production database changes
-    await sequelize.sync({ alter: true });
+    if (process.env.NODE_ENV !== "production") {
+      await sequelize.sync({ alter: true });
+    }
 
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
