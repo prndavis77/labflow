@@ -104,7 +104,15 @@ const App = () => {
     <>
       <ScrollToTop />
       <Layout style={{ minHeight: "100vh" }}>
-        <Sider width={240}>
+        <Sider
+          width={240}
+          tyle={{
+            position: "sticky",
+            top: 0,
+            height: "100vh",
+            overflowY: "auto",
+          }}
+        >
           <div style={{ padding: "16px", color: "white" }}>
             <Title level={4} style={{ color: "white", margin: 0 }}>
               LabFlow
