@@ -24,6 +24,8 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173", // Vite dev
   "http://localhost:4173", // Vite preview
+  "http://127.0.0.1:5173", // Vite dev alternative
+  "http://127.0.0.1:4173", // Vite preview alternative
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
