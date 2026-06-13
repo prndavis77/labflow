@@ -6,9 +6,57 @@ The goal of LabFlow is to solve a common problem in academic labs: research work
 
 ## Project Status
 
-LabFlow MVP Version 1.1 is complete.
+LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application.
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
+
+The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
+
+---
+
+## Live Demo
+
+A deployed portfolio/demo version of LabFlow is available here:
+
+```txt
+https://labflow-brown.vercel.app
+```
+
+Demo backend health check:
+
+```txt
+https://labflow-backend-p7im.onrender.com/api/health
+```
+
+This deployment uses:
+
+- Vercel for the React/Vite frontend
+- Render for the Node/Express backend API
+- Neon PostgreSQL for the hosted database
+
+This is a portfolio/demo deployment with seeded test data. It should not be used with real laboratory, research, customer, or institutional data.
+
+---
+
+## Demo Login Credentials
+
+Use one of the following demo accounts to explore the application:
+
+```txt
+Admin:
+admin@labflow.test
+password123
+
+Supervisor:
+anna.keller@labflow.test
+password123
+
+Researcher:
+maria.schmidt@labflow.test
+password123
+```
+
+The demo database may be reset periodically. Any changes made through the live demo should be treated as temporary test data.
 
 ---
 
@@ -1382,7 +1430,7 @@ Current limitations include:
 - No audit log
 - No soft delete or archive-only enforcement for all records
 - No drag-and-drop calendar
-- Portfolio/demo deployment preparation is in progress, but LabFlow does not yet include full production-grade deployment automation.
+- Portfolio/demo deployment is live, but LabFlow does not yet include full production-grade deployment automation.
 - No automated test suite yet
 - Notebook entries currently use plain text, not rich text
 - No file attachments or image uploads for notebook entries
@@ -1396,6 +1444,27 @@ Current limitations include:
 - No Sequelize migrations yet. The current MVP uses a manual first-deployment schema setup script.
 - No rate limiting or security header middleware yet.
 - Demo accounts use shared demo credentials and are not suitable for real production use.
+
+---
+
+## Portfolio Summary
+
+LabFlow is a full-stack laboratory project management application built with React, Node.js, Express, PostgreSQL, Sequelize, and Ant Design.
+
+The project demonstrates:
+
+- Full-stack CRUD application architecture
+- JWT authentication and protected routes
+- Role-based access control
+- Project membership and permission-aware data access
+- Research workflow modeling for tasks, experiments, protocols, equipment, bookings, and review history
+- Backend validation for equipment booking conflict prevention
+- Deployment using Vercel, Render, and Neon PostgreSQL
+- Practical domain modeling based on university research laboratory workflows
+
+LabFlow was built as a portfolio project to demonstrate applied software development in a real-world scientific workflow domain.
+
+---
 
 ## Future Improvements
 
@@ -1416,7 +1485,7 @@ Recommended Version 2 improvements:
 - Notifications for overdue tasks and upcoming bookings
 - PDF or CSV export
 - Automated backend tests
-- Deployment with hosted PostgreSQL database
+- Production deployment automation and migration-based database setup
 - Account deactivation workflow
 - Admin password reset or invitation workflow
 - More granular supervisor assignment rules beyond the current project supervisor ownership model
@@ -1458,6 +1527,8 @@ Key portfolio talking points:
 - Scoped supervisor access to supervised projects
 - Enforced supervisor-scoped review actions on the backend
 - Updated Review Queue and dashboard visibility for supervisor-scoped workflows
+
+---
 
 ## License
 
