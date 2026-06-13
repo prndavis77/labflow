@@ -4,6 +4,28 @@
 
 LabFlow is a full-stack project management application for university research laboratories. It helps lab teams manage projects, standalone and project-linked tasks, experiments, protocols, shared equipment, equipment bookings, review workflows, and experiment-linked notebook entries in one centralized system.
 
+## Live Demo
+
+Live demo:
+
+```txt
+https://labflow-brown.vercel.app
+```
+
+Backend health check:
+
+```txt
+https://labflow-backend-p7im.onrender.com/api/health
+```
+
+GitHub repository:
+
+```txt
+Add your GitHub repository link here
+```
+
+The deployed demo uses Vercel for the React/Vite frontend, Render for the Node/Express backend API, and Neon PostgreSQL for the hosted database.
+
 ## Problem
 
 Research labs often rely on disconnected tools such as spreadsheets, email, shared drives, paper notes, and calendar apps. This makes it difficult to track project progress, assign tasks, document experiments, review protocols, manage shared instruments, and prevent equipment booking conflicts.
@@ -227,16 +249,18 @@ Another workflow issue was that researchers needed a way to signal that assigned
 
 ## Result
 
-LabFlow MVP Version 1.1 includes a working full-stack workflow from authentication to role-aware dashboard reporting, project tracking, project membership, standalone and project-linked task management, task completion review, experiment documentation, protocol review, equipment booking, review history, and experiment-linked notebook entries.
+LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application.
 
-The app includes seeded demo data, screenshots, a detailed README, and a case study for portfolio presentation.
+The app includes a working full-stack workflow from authentication to role-aware dashboard reporting, project tracking, project membership, standalone and project-linked task management, task completion review, experiment documentation, protocol review, equipment booking, review history, and experiment-linked notebook entries.
+
+The deployed version uses Vercel for the frontend, Render for the backend API, and Neon PostgreSQL for the hosted database. It includes seeded demo data, demo login accounts, screenshots, a detailed README, and this case study for portfolio presentation.
 
 ## Current Limitations
 
 - Notebook entries currently use plain text, not rich text
 - No file attachments or image uploads yet
 - No PDF export for experiment notebooks yet
-- No production deployment setup yet
+- Portfolio/demo deployment is live, but the app does not yet include full production-grade deployment automation.
 - No automated test suite yet
 - No lab or organization model yet
 - Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
@@ -268,4 +292,4 @@ The app includes seeded demo data, screenshots, a detailed README, and a case st
 - Task completion notes and reviewer feedback when reopening tasks
 - Equipment access model for lab-wide, project-specific, or restricted instruments
 - More granular supervisor assignment rules beyond project supervisor ownership
-- Deployment
+- Production deployment automation and migration-based database setup
