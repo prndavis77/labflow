@@ -106,7 +106,7 @@ const App = () => {
       <Layout style={{ minHeight: "100vh" }}>
         <Sider
           width={240}
-          tyle={{
+          style={{
             position: "sticky",
             top: 0,
             height: "100vh",
