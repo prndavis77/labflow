@@ -947,6 +947,22 @@ PATCH  /api/notebook-entries/:id
 DELETE /api/notebook-entries/:id
 ```
 
+## Security and Deployment Notes
+
+LabFlow is currently prepared for portfolio/demo deployment. It should not be used with real laboratory or research data without additional production hardening.
+
+Production environment variables should be stored only in the hosting provider's environment variable settings. Do not commit real `.env` files, database URLs, JWT secrets, or production credentials to Git.
+
+Public registration creates researcher accounts only. Admin and supervisor users should be created through controlled seed data or a future admin-only workflow.
+
+The included demo seed data uses shared demo credentials for portfolio testing. These credentials are not suitable for real production use.
+
+The `npm run seed` command is intended for local and demo setup only. It clears existing demo data and replaces it with seeded test data. It should not be run against a real production database with customer or research records.
+
+The `npm run setup:db` command is intended as a manual first-deployment schema setup tool for the demo version. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
+
+Before LabFlow is used as real production software, Sequelize migrations, account deactivation, password reset, audit logging, rate limiting, and stricter demo restrictions should be added.
+
 ## Local Setup
 
 ### Prerequisites
@@ -1068,7 +1084,28 @@ cd labflow-backend
 npm run seed
 ```
 
-Warning: the seed script clears existing local data and replaces it with demo data.
+Warning: the seed script clears existing data and replaces it with demo data. It is intended for local and portfolio/demo setup only. Do not run `npm run seed` against a real production database containing customer, laboratory, or research records.
+
+### Manual Database Setup Notes
+
+For the current MVP deployment path, LabFlow uses a manual database setup script for first-time demo deployment:
+
+```bash
+npm run setup:db
+```
+
+This script is intended for initial demo schema setup only. It should not be run casually against a live production database with real user data.
+
+The production PostgreSQL database must include enum values required for task review history:
+
+```sql
+ALTER TYPE enum_review_events_target_type ADD VALUE IF NOT EXISTS 'task';
+ALTER TYPE enum_review_events_action ADD VALUE IF NOT EXISTS 'submitted';
+ALTER TYPE enum_review_events_action ADD VALUE IF NOT EXISTS 'approved';
+ALTER TYPE enum_review_events_action ADD VALUE IF NOT EXISTS 'changes_requested';
+```
+
+These manual SQL steps are acceptable for the current MVP demo deployment path. For serious production use, Sequelize migrations should replace manual schema changes.
 
 ### Demo Accounts
 
@@ -1345,7 +1382,7 @@ Current limitations include:
 - No audit log
 - No soft delete or archive-only enforcement for all records
 - No drag-and-drop calendar
-- No production deployment setup yet
+- Portfolio/demo deployment preparation is in progress, but LabFlow does not yet include full production-grade deployment automation.
 - No automated test suite yet
 - Notebook entries currently use plain text, not rich text
 - No file attachments or image uploads for notebook entries
@@ -1356,6 +1393,9 @@ Current limitations include:
 - Supervisor access is now project-scoped, but LabFlow does not yet include a separate lab or organization model for multi-lab deployments
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
+- No Sequelize migrations yet. The current MVP uses a manual first-deployment schema setup script.
+- No rate limiting or security header middleware yet.
+- Demo accounts use shared demo credentials and are not suitable for real production use.
 
 ## Future Improvements
 
