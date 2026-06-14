@@ -22,6 +22,8 @@ A deployed portfolio/demo version of LabFlow is available here:
 https://labflow-brown.vercel.app
 ```
 
+Portfolio case study: [docs/case-study.md](docs/case-study.md)
+
 Demo backend health check:
 
 ```txt
