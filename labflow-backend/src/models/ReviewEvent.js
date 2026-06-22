@@ -15,7 +15,7 @@ const ReviewEvent = sequelize.define(
     },
 
     targetType: {
-      type: DataTypes.ENUM("experiment", "protocol"),
+      type: DataTypes.ENUM("experiment", "protocol", "task"),
       allowNull: false,
       field: "target_type",
       validate: {
@@ -37,7 +37,7 @@ const ReviewEvent = sequelize.define(
     },
 
     action: {
-      type: DataTypes.ENUM("approved", "changes_requested"),
+      type: DataTypes.ENUM("submitted", "approved", "changes_requested"),
       allowNull: false,
       validate: {
         notEmpty: {
