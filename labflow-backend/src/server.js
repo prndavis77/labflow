@@ -45,7 +45,7 @@ app.use(
 // Parse incoming JSON request bodies
 app.use(express.json());
 
-// Health check route for quickly confirming that the API is running
+// Health check route
 app.get("/api/health", (req, res) => {
   res.json({
     status: "success",
@@ -104,12 +104,6 @@ async function startServer() {
   try {
     await connectDatabase();
 
-    // Sync Sequelize models to the database during development
-    // Later, replace this with migrations for safer production database changes
-    if (process.env.NODE_ENV !== "production") {
-      await sequelize.sync({ alter: true });
-    }
-
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -119,4 +113,10 @@ async function startServer() {
   }
 }
 
-startServer();
+// Only start the server when this file is run directly.
+// Do not start the server when imported by tests.
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
