@@ -618,6 +618,24 @@ const createEquipmentBookings = async (
   };
 };
 
+const ensureSchemaExists = async () => {
+  const tableNames = await sequelize.getQueryInterface().showAllTables();
+
+  const normalizedTableNames = tableNames.map((tableName) => {
+    if (typeof tableName === "string") {
+      return tableName;
+    }
+
+    return tableName.tableName;
+  });
+
+  if (!normalizedTableNames.includes("users")) {
+    throw new Error(
+      "Database schema not found. Run `npm run migrate` before running `npm run seed`.",
+    );
+  }
+};
+
 // Main seed runner
 const seedDemoData = async () => {
   try {
@@ -625,9 +643,9 @@ const seedDemoData = async () => {
 
     await sequelize.authenticate();
 
-    console.log("Syncing database models...");
+    console.log("Checking database schema...");
 
-    await sequelize.sync({ alter: true });
+    await ensureSchemaExists();
 
     console.log("Clearing existing data...");
 
