@@ -595,6 +595,9 @@ LabFlow demonstrates several full-stack development concepts:
 - Node.js and Express backend
 - PostgreSQL relational database
 - Sequelize ORM models and associations
+- Sequelize migrations for database schema management
+- Jest and Supertest backend test suite
+- Automated tests for authentication, authorization, project membership access, equipment booking conflicts, task completion review, and experiment/protocol review workflows
 - JWT authentication
 - Password hashing with bcrypt
 - Role-based route authorization
@@ -1414,6 +1417,43 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 
 ---
 
+## Automated Backend Test Coverage
+
+LabFlow includes an automated backend test suite using Jest and Supertest.
+
+The current backend test suite includes 36 passing tests across 7 test files.
+
+Covered backend areas include:
+
+- API health check
+- Authentication login success and failure
+- Authenticated `/api/auth/me` behavior
+- Protected route access without a token
+- Role-based authorization for user role updates
+- Equipment booking conflict prevention
+- Back-to-back equipment booking behavior
+- Cancelled booking conflict behavior
+- Task completion request workflow
+- Admin confirmation of standalone task completion
+- Supervisor-scoped project task completion review
+- Experiment approval and change request workflows
+- Protocol approval and change request workflows
+- Required review comments when requesting changes
+- Review history event creation
+- Project membership-aware project visibility
+- Supervisor-scoped project visibility
+- Project lead, viewer, and non-member task creation rules
+
+Run backend tests from the backend folder:
+
+```bash
+npm test
+```
+
+The tests should be run against a dedicated test database, not the live demo database.
+
+---
+
 ## Important Business Logic
 
 ### Equipment Booking Conflict Prevention
@@ -1464,7 +1504,7 @@ Current limitations include:
 - No soft delete or archive-only enforcement for all records
 - No drag-and-drop calendar
 - Portfolio/demo deployment is live, but LabFlow does not yet include full production-grade deployment automation.
-- No automated test suite yet
+- Backend automated tests now cover core API workflows, but frontend automated tests are not yet included.
 - Notebook entries currently use plain text, not rich text
 - No file attachments or image uploads for notebook entries
 - No PDF export for experiment notebooks
@@ -1494,6 +1534,7 @@ The project demonstrates:
 - Backend validation for equipment booking conflict prevention
 - Deployment using Vercel, Render, and Neon PostgreSQL
 - Practical domain modeling based on university research laboratory workflows
+- Backend automated testing with Jest and Supertest
 
 LabFlow was built as a portfolio project to demonstrate applied software development in a real-world scientific workflow domain.
 
@@ -1517,7 +1558,8 @@ Recommended Version 2 improvements:
 - Calendar view for equipment bookings
 - Notifications for overdue tasks and upcoming bookings
 - PDF or CSV export
-- Automated backend tests
+- Additional backend test coverage for remaining edge cases
+- Frontend component and workflow tests
 - Production deployment automation and migration-based database setup
 - Account deactivation workflow
 - Admin password reset or invitation workflow
