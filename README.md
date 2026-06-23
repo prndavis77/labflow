@@ -669,6 +669,7 @@ labflow/
     src/
       config/
         database.js
+        sequelize-cli.js
       constants/
         roles.js
       controllers/
@@ -685,6 +686,8 @@ labflow/
         userController.js
       middleware/
         authMiddleware.js
+      migrations/
+        20260622122950-initial-labflow-schema.js
       models/
         Equipment.js
         EquipmentBooking.js
@@ -710,6 +713,7 @@ labflow/
         userRoutes.js
       scripts/
         seedDemoData.js
+      seeders/
       utils/
         dateUtils.js
         formatUserResponse.js
@@ -1009,9 +1013,11 @@ The included demo seed data uses shared demo credentials for portfolio testing. 
 
 The `npm run seed` command is intended for local and demo setup only. It clears existing demo data and replaces it with seeded test data. It should not be run against a real production database with customer or research records.
 
-The `npm run setup:db` command is intended as a manual first-deployment schema setup tool for the demo version. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
+LabFlow now includes a Sequelize migration baseline for the current MVP schema. New databases should be initialized with migrations instead of relying on Sequelize schema sync.
 
-Before LabFlow is used as real production software, Sequelize migrations, account deactivation, password reset, audit logging, rate limiting, and stricter demo restrictions should be added.
+The `npm run setup:db` command is kept only as a legacy/demo fallback from the original MVP deployment path. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
+
+Before LabFlow is used as real production software, additional hardening should still be added, including account deactivation, password reset, audit logging, rate limiting, stricter demo restrictions, and automated test coverage.
 
 ## Local Setup
 
@@ -1052,6 +1058,20 @@ Create the PostgreSQL database:
 ```sql
 CREATE DATABASE labflow_db;
 ```
+
+Run database migrations from the backend folder:
+
+```bash
+npm run migrate
+```
+
+Optional: seed the database with demo data:
+
+```bash
+npm run seed
+```
+
+The seed script is intended for local and portfolio/demo setup only. It clears existing demo data and replaces it with seeded test records.
 
 Start the backend:
 
@@ -1136,26 +1156,37 @@ npm run seed
 
 Warning: the seed script clears existing data and replaces it with demo data. It is intended for local and portfolio/demo setup only. Do not run `npm run seed` against a real production database containing customer, laboratory, or research records.
 
-### Manual Database Setup Notes
+### Database Migrations
 
-For the current MVP deployment path, LabFlow uses a manual database setup script for first-time demo deployment:
+LabFlow uses Sequelize migrations to manage the database schema.
+
+For a fresh database, run:
 
 ```bash
-npm run setup:db
+cd labflow-backend
+npm run migrate
 ```
 
-This script is intended for initial demo schema setup only. It should not be run casually against a live production database with real user data.
+Then optionally seed the demo data:
 
-The production PostgreSQL database must include enum values required for task review history:
-
-```sql
-ALTER TYPE enum_review_events_target_type ADD VALUE IF NOT EXISTS 'task';
-ALTER TYPE enum_review_events_action ADD VALUE IF NOT EXISTS 'submitted';
-ALTER TYPE enum_review_events_action ADD VALUE IF NOT EXISTS 'approved';
-ALTER TYPE enum_review_events_action ADD VALUE IF NOT EXISTS 'changes_requested';
+```bash
+npm run seed
 ```
 
-These manual SQL steps are acceptable for the current MVP demo deployment path. For serious production use, Sequelize migrations should replace manual schema changes.
+The initial migration creates the current MVP schema, including users, projects, project memberships, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, review events, enums, indexes, and foreign key relationships.
+
+For an existing deployed demo database that was originally created with `npm run setup:db`, the initial baseline migration should be marked as already applied in `SequelizeMeta`. The initial migration should not be run directly against an existing database that already has the LabFlow tables.
+
+Useful migration commands:
+
+```bash
+npm run migrate
+npm run migrate:undo
+npm run migrate:undo:all
+npx sequelize-cli db:migrate:status
+```
+
+The `npm run setup:db` command remains in the project only as a legacy/demo fallback. New schema changes should be handled with migrations, not with `sequelize.sync({ alter: true })`.
 
 ### Demo Accounts
 
@@ -1443,7 +1474,7 @@ Current limitations include:
 - Supervisor access is now project-scoped, but LabFlow does not yet include a separate lab or organization model for multi-lab deployments
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
-- No Sequelize migrations yet. The current MVP uses a manual first-deployment schema setup script.
+- Sequelize migrations are now available for the current MVP schema, but automated production deployment and migration workflows still need further hardening.
 - No rate limiting or security header middleware yet.
 - Demo accounts use shared demo credentials and are not suitable for real production use.
 
