@@ -1,34 +1,11 @@
 const request = require("supertest");
-const bcrypt = require("bcrypt");
 
 const app = require("../server");
 const { sequelize } = require("../config/database");
 const { User } = require("../models");
 
-const createUser = async ({ name, email, role }) => {
-  const passwordHash = await bcrypt.hash("password123", 12);
-
-  return User.create({
-    name,
-    email,
-    passwordHash,
-    role,
-    department: "Testing",
-    canCreateExperiments: true,
-    canEditExperiments: true,
-    canCreateProtocols: true,
-    canEditProtocols: true,
-  });
-};
-
-const loginAndGetToken = async (email) => {
-  const response = await request(app).post("/api/auth/login").send({
-    email,
-    password: "password123",
-  });
-
-  return response.body.data.token;
-};
+const { createTestUser, loginAndGetToken } = require("./helpers/testHelpers");
+const { resetTestDatabase } = require("./helpers/dbHelpers");
 
 describe("Authorization", () => {
   beforeAll(async () => {
@@ -36,28 +13,15 @@ describe("Authorization", () => {
   });
 
   beforeEach(async () => {
-    await sequelize.query(`
-      TRUNCATE TABLE
-        equipment_bookings,
-        notebook_entries,
-        review_events,
-        project_members,
-        protocols,
-        experiments,
-        tasks,
-        equipment,
-        projects,
-        users
-      RESTART IDENTITY CASCADE;
-    `);
+    await resetTestDatabase();
 
-    await createUser({
+    await createTestUser({
       name: "Test Admin",
       email: "admin@test.com",
       role: "admin",
     });
 
-    await createUser({
+    await createTestUser({
       name: "Test Researcher",
       email: "researcher@test.com",
       role: "researcher",
