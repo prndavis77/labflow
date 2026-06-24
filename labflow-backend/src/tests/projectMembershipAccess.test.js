@@ -5,41 +5,13 @@ const app = require("../server");
 const { sequelize } = require("../config/database");
 const { User, Project, ProjectMember } = require("../models");
 
-const createUser = async ({ name, email, role }) => {
-  const passwordHash = await bcrypt.hash("password123", 12);
+const {
+  createTestUser,
+  loginAndGetToken,
+  createTestProject,
+} = require("./helpers/testHelpers");
 
-  return User.create({
-    name,
-    email,
-    passwordHash,
-    role,
-    department: "Testing",
-    canCreateExperiments: true,
-    canEditExperiments: true,
-    canCreateProtocols: true,
-    canEditProtocols: true,
-  });
-};
-
-const loginAndGetToken = async (email) => {
-  const response = await request(app).post("/api/auth/login").send({
-    email,
-    password: "password123",
-  });
-
-  return response.body.data.token;
-};
-
-const createProject = async ({ title, supervisorId }) => {
-  return Project.create({
-    title,
-    description: "Project used for membership access tests.",
-    status: "active",
-    startDate: "2030-01-01",
-    targetEndDate: "2030-12-31",
-    supervisorId,
-  });
-};
+const { resetTestDatabase } = require("./helpers/dbHelpers");
 
 const getProjectsFromResponse = (response) => {
   return response.body.data.projects;
@@ -67,68 +39,55 @@ describe("Project membership access", () => {
   });
 
   beforeEach(async () => {
-    await sequelize.query(`
-      TRUNCATE TABLE
-        equipment_bookings,
-        notebook_entries,
-        review_events,
-        project_members,
-        protocols,
-        experiments,
-        tasks,
-        equipment,
-        projects,
-        users
-      RESTART IDENTITY CASCADE;
-    `);
+    await resetTestDatabase();
 
-    admin = await createUser({
+    admin = await createTestUser({
       name: "Test Admin",
       email: "admin@test.com",
       role: "admin",
     });
 
-    supervisor = await createUser({
+    supervisor = await createTestUser({
       name: "Test Supervisor",
       email: "supervisor@test.com",
       role: "supervisor",
     });
 
-    otherSupervisor = await createUser({
+    otherSupervisor = await createTestUser({
       name: "Other Supervisor",
       email: "other.supervisor@test.com",
       role: "supervisor",
     });
 
-    memberResearcher = await createUser({
+    memberResearcher = await createTestUser({
       name: "Member Researcher",
       email: "member@test.com",
       role: "researcher",
     });
 
-    viewerResearcher = await createUser({
+    viewerResearcher = await createTestUser({
       name: "Viewer Researcher",
       email: "viewer@test.com",
       role: "researcher",
     });
 
-    nonMemberResearcher = await createUser({
+    nonMemberResearcher = await createTestUser({
       name: "Non Member Researcher",
       email: "nonmember@test.com",
       role: "researcher",
     });
 
-    memberProject = await createProject({
+    memberProject = await createTestProject({
       title: "Member Project",
       supervisorId: supervisor.id,
     });
 
-    viewerProject = await createProject({
+    viewerProject = await createTestProject({
       title: "Viewer Project",
       supervisorId: supervisor.id,
     });
 
-    nonMemberProject = await createProject({
+    nonMemberProject = await createTestProject({
       title: "Non Member Project",
       supervisorId: otherSupervisor.id,
     });

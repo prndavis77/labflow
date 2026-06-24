@@ -5,40 +5,13 @@ const app = require("../server");
 const { sequelize } = require("../config/database");
 const { User, Equipment, EquipmentBooking } = require("../models");
 
-const createUser = async ({ name, email, role = "admin" }) => {
-  const passwordHash = await bcrypt.hash("password123", 12);
+const {
+  createTestUser,
+  loginAndGetToken,
+  createTestEquipment,
+} = require("./helpers/testHelpers");
 
-  return User.create({
-    name,
-    email,
-    passwordHash,
-    role,
-    department: "Testing",
-    canCreateExperiments: true,
-    canEditExperiments: true,
-    canCreateProtocols: true,
-    canEditProtocols: true,
-  });
-};
-
-const loginAndGetToken = async (email) => {
-  const response = await request(app).post("/api/auth/login").send({
-    email,
-    password: "password123",
-  });
-
-  return response.body.data.token;
-};
-
-const createEquipment = async () => {
-  return Equipment.create({
-    name: "Test HPLC",
-    type: "HPLC",
-    location: "Test Lab",
-    status: "available",
-    notes: "Test equipment for booking conflict tests.",
-  });
-};
+const { resetTestDatabase } = require("./helpers/dbHelpers");
 
 describe("Equipment booking conflicts", () => {
   let adminUser;
@@ -50,28 +23,15 @@ describe("Equipment booking conflicts", () => {
   });
 
   beforeEach(async () => {
-    await sequelize.query(`
-      TRUNCATE TABLE
-        equipment_bookings,
-        notebook_entries,
-        review_events,
-        project_members,
-        protocols,
-        experiments,
-        tasks,
-        equipment,
-        projects,
-        users
-      RESTART IDENTITY CASCADE;
-    `);
+    await resetTestDatabase();
 
-    adminUser = await createUser({
+    adminUser = await createTestUser({
       name: "Test Admin",
       email: "admin@test.com",
       role: "admin",
     });
 
-    equipment = await createEquipment();
+    equipment = await createTestEquipment();
     adminToken = await loginAndGetToken("admin@test.com");
   });
 

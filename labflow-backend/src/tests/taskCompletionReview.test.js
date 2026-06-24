@@ -5,41 +5,13 @@ const app = require("../server");
 const { sequelize } = require("../config/database");
 const { User, Project, Task, ReviewEvent } = require("../models");
 
-const createUser = async ({ name, email, role }) => {
-  const passwordHash = await bcrypt.hash("password123", 12);
+const {
+  createTestUser,
+  loginAndGetToken,
+  createTestProject,
+} = require("./helpers/testHelpers");
 
-  return User.create({
-    name,
-    email,
-    passwordHash,
-    role,
-    department: "Testing",
-    canCreateExperiments: true,
-    canEditExperiments: true,
-    canCreateProtocols: true,
-    canEditProtocols: true,
-  });
-};
-
-const loginAndGetToken = async (email) => {
-  const response = await request(app).post("/api/auth/login").send({
-    email,
-    password: "password123",
-  });
-
-  return response.body.data.token;
-};
-
-const createProject = async ({ supervisorId }) => {
-  return Project.create({
-    title: "Test Project",
-    description: "Project used for task completion review tests.",
-    status: "active",
-    startDate: "2030-01-01",
-    targetEndDate: "2030-12-31",
-    supervisorId,
-  });
-};
+const { resetTestDatabase } = require("./helpers/dbHelpers");
 
 const createTask = async ({
   title,
@@ -77,46 +49,33 @@ describe("Task completion review", () => {
   });
 
   beforeEach(async () => {
-    await sequelize.query(`
-      TRUNCATE TABLE
-        equipment_bookings,
-        notebook_entries,
-        review_events,
-        project_members,
-        protocols,
-        experiments,
-        tasks,
-        equipment,
-        projects,
-        users
-      RESTART IDENTITY CASCADE;
-    `);
+    await resetTestDatabase();
 
-    admin = await createUser({
+    admin = await createTestUser({
       name: "Test Admin",
       email: "admin@test.com",
       role: "admin",
     });
 
-    supervisor = await createUser({
+    supervisor = await createTestUser({
       name: "Test Supervisor",
       email: "supervisor@test.com",
       role: "supervisor",
     });
 
-    researcher = await createUser({
+    researcher = await createTestUser({
       name: "Test Researcher",
       email: "researcher@test.com",
       role: "researcher",
     });
 
-    otherResearcher = await createUser({
+    otherResearcher = await createTestUser({
       name: "Other Researcher",
       email: "other@test.com",
       role: "researcher",
     });
 
-    project = await createProject({
+    project = await createTestProject({
       supervisorId: supervisor.id,
     });
 
