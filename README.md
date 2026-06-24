@@ -629,6 +629,9 @@ LabFlow demonstrates several full-stack development concepts:
 - Standalone and project-linked task model
 - Task completion request workflow with admin/supervisor confirmation
 - Review Queue support for task completion requests
+- Security headers with Helmet
+- Authentication route rate limiting
+- Restricted CORS configuration for local and deployed frontend origins
 
 ---
 
@@ -717,6 +720,9 @@ labflow/
       scripts/
         seedDemoData.js
       seeders/
+      tests/
+        helpers/
+          testHelpers.js
       utils/
         dateUtils.js
         formatUserResponse.js
@@ -1010,6 +1016,8 @@ LabFlow is currently prepared for portfolio/demo deployment. It should not be us
 
 Production environment variables should be stored only in the hosting provider's environment variable settings. Do not commit real `.env` files, database URLs, JWT secrets, or production credentials to Git.
 
+LabFlow includes basic backend hardening for the demo API, including security headers with Helmet, authentication rate limiting, restricted CORS origins, JWT authentication, password hashing, protected routes, role-based authorization, and project-scoped backend access checks.
+
 Public registration creates researcher accounts only. Admin and supervisor users should be created through controlled seed data or a future admin-only workflow.
 
 The included demo seed data uses shared demo credentials for portfolio testing. These credentials are not suitable for real production use.
@@ -1020,7 +1028,7 @@ LabFlow now includes a Sequelize migration baseline for the current MVP schema. 
 
 The `npm run setup:db` command is kept only as a legacy/demo fallback from the original MVP deployment path. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
 
-Before LabFlow is used as real production software, additional hardening should still be added, including account deactivation, password reset, audit logging, rate limiting, stricter demo restrictions, and automated test coverage.
+Before LabFlow is used as real production software, additional hardening would still be required, including account deactivation, password reset, email verification, audit logging, centralized logging, monitoring, stricter secrets management, account lockout rules, organization-level tenant isolation, and a more complete production deployment process.
 
 ## Local Setup
 
@@ -1515,7 +1523,7 @@ Current limitations include:
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
 - Sequelize migrations are now available for the current MVP schema, but automated production deployment and migration workflows still need further hardening.
-- No rate limiting or security header middleware yet.
+- Basic security headers and authentication rate limiting are included, but production-grade monitoring, account lockout, email verification, full audit logging, and tenant isolation are not yet implemented.
 - Demo accounts use shared demo credentials and are not suitable for real production use.
 
 ---
