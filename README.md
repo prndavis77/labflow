@@ -1,8 +1,21 @@
 # LabFlow
 
-LabFlow is a full-stack project management application designed for university research laboratories. It helps lab teams manage research projects, tasks, experiments, protocols, shared equipment, and equipment bookings in one centralized system.
+LabFlow is a full-stack project management application for university research laboratories. It helps lab teams manage research projects, tasks, experiments, protocols, shared equipment, equipment bookings, review workflows, and project-specific access control in one centralized system.
 
-The goal of LabFlow is to solve a common problem in academic labs: research work is often spread across email, spreadsheets, shared drives, paper notes, calendar tools, and informal messaging. LabFlow brings the most important workflows into one structured application.
+The project is designed around a common academic lab problem: research work is often spread across email, spreadsheets, shared drives, informal messages, calendar tools, and paper or digital notebooks. LabFlow brings those workflows into a structured web application with role-based access, project membership, review history, equipment booking conflict prevention, and a deployed portfolio demo.
+
+---
+
+## Quick Links
+
+- Live demo: `https://labflow-brown.vercel.app`
+- Backend health check: `https://labflow-backend-p7im.onrender.com/api/health`
+- Portfolio case study: `docs/case-study.md`
+- Backend tests: `cd labflow-backend && npm test`
+
+Demo accounts are listed below. The live demo uses seeded test data and should not be used with real laboratory, research, customer, or institutional data.
+
+---
 
 ## Project Status
 
@@ -10,7 +23,31 @@ LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
+The backend includes Sequelize migrations, security hardening, and 36 passing automated backend tests across 7 test suites.
+
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
+
+---
+
+## What This Project Demonstrates
+
+LabFlow demonstrates practical full-stack application development in a real-world scientific workflow domain.
+
+Key technical areas include:
+
+- React/Vite frontend with Ant Design UI
+- Node.js and Express REST API
+- PostgreSQL database modeled with Sequelize
+- JWT authentication and protected routes
+- Role-based access control for admin, supervisor, and researcher users
+- Project membership and project-specific access rules
+- Equipment booking conflict prevention
+- Experiment, protocol, and task completion review workflows
+- Review history event tracking
+- Sequelize migrations for database schema management
+- Jest and Supertest backend test coverage
+- Demo deployment using Vercel, Render, and Neon PostgreSQL
+- Basic backend hardening with Helmet, authentication rate limiting, and restricted CORS
 
 ---
 
@@ -652,10 +689,18 @@ LabFlow demonstrates several full-stack development concepts:
 - Express
 - PostgreSQL
 - Sequelize
+- Sequelize CLI
 - JWT
 - bcrypt
 - dotenv
 - cors
+- Helmet
+- express-rate-limit
+
+### Testing
+
+- Jest
+- Supertest
 
 ### Development Tools
 
