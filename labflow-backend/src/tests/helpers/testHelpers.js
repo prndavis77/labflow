@@ -5,6 +5,7 @@ const app = require("../../server");
 const { User, Project, Equipment } = require("../../models");
 
 const TEST_PASSWORD = "password123";
+const TEST_BCRYPT_ROUNDS = process.env.NODE_ENV === "test" ? 4 : 12;
 
 const createTestUser = async ({
   name,
@@ -16,7 +17,7 @@ const createTestUser = async ({
   canCreateProtocols = true,
   canEditProtocols = true,
 }) => {
-  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, TEST_BCRYPT_ROUNDS);
 
   return User.create({
     name,

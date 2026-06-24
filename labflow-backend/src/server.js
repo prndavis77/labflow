@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
 const { connectDatabase, sequelize } = require("./config/database");
@@ -53,8 +55,21 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.use(helmet());
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === "test" ? 1000 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: "error",
+    message: "Too many authentication attempts. Please try again later.",
+  },
+});
+
 // Authentication routes
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 
 // User summary routes
 app.use("/api/users", userRoutes);
