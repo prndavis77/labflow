@@ -1,31 +1,27 @@
 require("dotenv").config();
 
-const isProduction = process.env.NODE_ENV === "production";
+const sslOptions = {
+  require: true,
+  rejectUnauthorized: false,
+};
 
 const baseConfig = {
   dialect: "postgres",
   url: process.env.DATABASE_URL,
+  logging: false,
+  dialectOptions: {
+    ssl: sslOptions,
+  },
 };
 
 module.exports = {
   development: {
     ...baseConfig,
-    logging: false,
   },
   test: {
     ...baseConfig,
-    logging: false,
   },
   production: {
     ...baseConfig,
-    logging: false,
-    dialectOptions: isProduction
-      ? {
-          ssl: {
-            require: true,
-            rejectUnauthorized: false,
-          },
-        }
-      : {},
   },
 };
