@@ -89,6 +89,22 @@ const User = sequelize.define(
       defaultValue: false,
       field: "can_edit_protocols",
     },
+
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+
+    deactivatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    deactivatedById: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     tableName: "users",

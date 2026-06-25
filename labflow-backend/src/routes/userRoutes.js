@@ -4,6 +4,7 @@ const {
   getUserById,
   updateUserRole,
   updateUserWorkflowPermissions,
+  updateUserAccountStatus,
 } = require("../controllers/userController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
@@ -24,6 +25,12 @@ router.get(
 
 // Only admins can change user roles.
 router.patch("/:id/role", authorizeRoles(ROLES.ADMIN), updateUserRole);
+
+router.patch(
+  "/:id/status",
+  authorizeRoles(ROLES.ADMIN),
+  updateUserAccountStatus,
+);
 
 // Only admins can customize researcher workflow permissions
 router.patch(

@@ -26,6 +26,9 @@ const getUsers = async (req, res) => {
         "canEditProtocols",
         "createdAt",
         "updatedAt",
+        "isActive",
+        "deactivatedAt",
+        "deactivatedById",
       ],
       order: [
         ["role", "ASC"],
@@ -68,6 +71,9 @@ const getUserById = async (req, res) => {
         "canEditProtocols",
         "createdAt",
         "updatedAt",
+        "isActive",
+        "deactivatedAt",
+        "deactivatedById",
       ],
     });
 
@@ -224,9 +230,62 @@ const updateUserWorkflowPermissions = async (req, res) => {
   }
 };
 
+const updateUserAccountStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    if (Number(id) === Number(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot deactivate your own account.",
+      });
+    }
+
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "isActive must be a boolean value.",
+      });
+    }
+
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    await user.update({
+      isActive,
+      deactivatedAt: isActive ? null : new Date(),
+      deactivatedById: isActive ? null : req.user.id,
+    });
+
+    return res.json({
+      success: true,
+      message: isActive
+        ? "User account reactivated."
+        : "User account deactivated.",
+      data: {
+        user: formatUserResponse(user),
+      },
+    });
+  } catch (error) {
+    console.error("Update user account status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update user account status.",
+    });
+  }
+};
+
 module.exports = {
   getUsers,
   getUserById,
   updateUserRole,
   updateUserWorkflowPermissions,
+  updateUserAccountStatus,
 };

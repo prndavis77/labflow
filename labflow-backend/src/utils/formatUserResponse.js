@@ -11,6 +11,9 @@ function formatUserResponse(user) {
     canEditProtocols: user.canEditProtocols,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    isActive: user.isActive,
+    deactivatedAt: user.deactivatedAt,
+    deactivatedById: user.deactivatedById,
   };
 }
 
