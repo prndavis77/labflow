@@ -93,4 +93,58 @@ describe("Authentication", () => {
     expect(response.body.data.user.role).toBe("admin");
     expect(response.body.data.user).not.toHaveProperty("passwordHash");
   });
+
+  it("rejects login for a deactivated user", async () => {
+    await User.update(
+      {
+        isActive: false,
+        deactivatedAt: new Date(),
+        deactivatedById: null,
+      },
+      {
+        where: {
+          email: "admin@test.com",
+        },
+      },
+    );
+
+    const response = await request(app).post("/api/auth/login").send({
+      email: "admin@test.com",
+      password: "password123",
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe("This account has been deactivated.");
+  });
+
+  it("rejects /me for a deactivated user with an old token", async () => {
+    const loginResponse = await request(app).post("/api/auth/login").send({
+      email: "admin@test.com",
+      password: "password123",
+    });
+
+    const token = loginResponse.body.data.token;
+
+    await User.update(
+      {
+        isActive: false,
+        deactivatedAt: new Date(),
+        deactivatedById: null,
+      },
+      {
+        where: {
+          email: "admin@test.com",
+        },
+      },
+    );
+
+    const response = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe("This account has been deactivated.");
+  });
 });

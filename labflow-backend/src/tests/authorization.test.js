@@ -100,4 +100,116 @@ describe("Authorization", () => {
     expect(response.body.status).toBe("success");
     expect(response.body.data.user.role).toBe("supervisor");
   });
+
+  it("allows an admin to deactivate another user", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        isActive: false,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.user.isActive).toBe(false);
+
+    const updatedResearcher = await User.findByPk(researcher.id);
+
+    expect(updatedResearcher.isActive).toBe(false);
+    expect(updatedResearcher.deactivatedAt).not.toBeNull();
+    expect(updatedResearcher.deactivatedById).toBeDefined();
+  });
+
+  it("allows an admin to reactivate another user", async () => {
+    const admin = await User.findOne({
+      where: {
+        email: "admin@test.com",
+      },
+    });
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    await researcher.update({
+      isActive: false,
+      deactivatedAt: new Date(),
+      deactivatedById: admin.id,
+    });
+
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        isActive: true,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.user.isActive).toBe(true);
+
+    const updatedResearcher = await User.findByPk(researcher.id);
+
+    expect(updatedResearcher.isActive).toBe(true);
+    expect(updatedResearcher.deactivatedAt).toBeNull();
+    expect(updatedResearcher.deactivatedById).toBeNull();
+  });
+
+  it("rejects admin attempt to deactivate their own account", async () => {
+    const admin = await User.findOne({
+      where: {
+        email: "admin@test.com",
+      },
+    });
+
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const response = await request(app)
+      .patch(`/api/users/${admin.id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        isActive: false,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe(
+      "You cannot deactivate your own account.",
+    );
+
+    const updatedAdmin = await User.findByPk(admin.id);
+
+    expect(updatedAdmin.isActive).toBe(true);
+  });
+
+  it("rejects account status updates from non-admin users", async () => {
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const admin = await User.findOne({
+      where: {
+        email: "admin@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${admin.id}/status`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        isActive: false,
+      });
+
+    expect(response.status).toBe(403);
+  });
 });
