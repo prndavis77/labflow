@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   Card,
+  Modal,
   Popconfirm,
   Select,
   Space,
@@ -18,6 +19,7 @@ import {
   fetchUsers,
   updateUserRole,
   updateUserWorkflowPermissions,
+  updateUserAccountStatus,
 } from "../api/userApi";
 import { USER_ROLE_OPTIONS } from "../constants/statusOptions";
 import { USER_ROLE_COLORS } from "../constants/statusColors";
@@ -142,6 +144,42 @@ const AdminUsersPage = () => {
       );
     },
     [handleWorkflowPermissionChange, isUpdatingPermissions],
+  );
+
+  const handleAccountStatusChange = useCallback(
+    async (targetUser) => {
+      const nextStatus = !targetUser.isActive;
+
+      const actionLabel = nextStatus ? "reactivate" : "deactivate";
+
+      Modal.confirm({
+        title: `${nextStatus ? "Reactivate" : "Deactivate"} account?`,
+        content: `Are you sure you want to ${actionLabel} ${targetUser.name}?`,
+        okText: nextStatus ? "Reactivate" : "Deactivate",
+        okButtonProps: {
+          danger: !nextStatus,
+        },
+        async onOk() {
+          try {
+            await updateUserAccountStatus(targetUser.id, nextStatus);
+
+            message.success(
+              nextStatus
+                ? "User account reactivated."
+                : "User account deactivated.",
+            );
+
+            await loadUsers();
+          } catch (error) {
+            message.error(
+              error.response?.data?.message ||
+                "Failed to update user account status.",
+            );
+          }
+        },
+      });
+    },
+    [loadUsers],
   );
 
   const userColumns = useMemo(
@@ -284,8 +322,44 @@ const AdminUsersPage = () => {
           );
         },
       },
+      {
+        title: "Status",
+        dataIndex: "isActive",
+        key: "isActive",
+        render: (isActive) =>
+          isActive ? (
+            <Tag color="green">Active</Tag>
+          ) : (
+            <Tag color="red">Inactive</Tag>
+          ),
+      },
+      {
+        title: "Account",
+        key: "accountStatus",
+        width: 160,
+        render: (_, record) => {
+          const isCurrentUser = Number(record.id) === Number(currentUser?.id);
+
+          return (
+            <Button
+              size="small"
+              danger={record.isActive}
+              disabled={isCurrentUser}
+              onClick={() => handleAccountStatusChange(record)}
+            >
+              {record.isActive ? "Deactivate" : "Reactivate"}
+            </Button>
+          );
+        },
+      },
     ],
-    [currentUser?.id, handleRoleChange, isUpdatingRole, renderPermissionSwitch],
+    [
+      currentUser?.id,
+      handleRoleChange,
+      isUpdatingRole,
+      renderPermissionSwitch,
+      handleAccountStatusChange,
+    ],
   );
 
   return (

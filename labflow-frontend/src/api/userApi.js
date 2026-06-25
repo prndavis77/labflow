@@ -33,3 +33,11 @@ export const updateUserWorkflowPermissions = async (userId, permissions) => {
 
   return response.data;
 };
+
+export const updateUserAccountStatus = async (userId, isActive) => {
+  const response = await axiosClient.patch(`/users/${userId}/status`, {
+    isActive,
+  });
+
+  return response.data;
+};
