@@ -579,6 +579,14 @@ Workflow permission controls are shown for researcher accounts. Admin and superv
 
 ![LabFlow dashboard showing project, task, experiment, protocol, and equipment metrics](docs/screenshots/dashboard.png)
 
+### Project Members
+
+![LabFlow project detail page showing project members and project-specific roles](docs/screenshots/project-members.png)
+
+### Admin User Management
+
+![LabFlow admin user management page showing researcher workflow permission controls](docs/screenshots/admin-user-management.png)
+
 ### Review Queue
 
 ![LabFlow review queue showing supervisor and admin review workflows](docs/screenshots/review-queue.png)
@@ -599,10 +607,6 @@ Workflow permission controls are shown for researcher accounts. Admin and superv
 
 ![LabFlow protocol detail page showing latest review comment and protocol approval workflow](docs/screenshots/protocol-review-comment.png)
 
-### Equipment SOPs
-
-![LabFlow equipment detail page showing linked instrument SOPs and bookings](docs/screenshots/equipment-detail-sops.png)
-
 ### Equipment Bookings
 
 ![LabFlow equipment bookings page showing instrument reservations, users, time ranges, projects, and experiments](docs/screenshots/equipment-bookings.png)
@@ -611,13 +615,9 @@ Workflow permission controls are shown for researcher accounts. Admin and superv
 
 ![LabFlow booking conflict error showing that overlapping confirmed equipment bookings are rejected](docs/screenshots/booking-conflict.png)
 
-### Admin User Management
+### Equipment SOPs
 
-![LabFlow admin user management page showing researcher workflow permission controls](docs/screenshots/admin-user-management.png)
-
-### Project Members
-
-![LabFlow project detail page showing project members and project-specific roles](docs/screenshots/project-members.png)
+![LabFlow equipment detail page showing linked instrument SOPs and bookings](docs/screenshots/equipment-detail-sops.png)
 
 Additional screenshots for CRUD list pages are available in `docs/screenshots/`.
 
