@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   Card,
+  Input,
   Modal,
   Popconfirm,
   Select,
@@ -20,6 +21,7 @@ import {
   updateUserRole,
   updateUserWorkflowPermissions,
   updateUserAccountStatus,
+  resetUserPassword,
 } from "../api/userApi";
 import { USER_ROLE_OPTIONS } from "../constants/statusOptions";
 import { USER_ROLE_COLORS } from "../constants/statusColors";
@@ -38,6 +40,11 @@ const AdminUsersPage = () => {
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [passwordResetUser, setPasswordResetUser] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // Loads all users for admin management
   const loadUsers = useCallback(async () => {
@@ -181,6 +188,60 @@ const AdminUsersPage = () => {
     },
     [loadUsers],
   );
+
+  const openPasswordResetModal = useCallback((targetUser) => {
+    setPasswordResetUser(targetUser);
+    setNewPassword("");
+    setConfirmPassword("");
+  }, []);
+
+  const closePasswordResetModal = useCallback(() => {
+    setPasswordResetUser(null);
+    setNewPassword("");
+    setConfirmPassword("");
+  }, []);
+
+  const handlePasswordReset = useCallback(async () => {
+    if (!passwordResetUser) {
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
+      message.error("Enter and confirm the new password.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      message.error("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      message.error("Passwords do not match.");
+      return;
+    }
+
+    try {
+      setIsResettingPassword(true);
+
+      await resetUserPassword(passwordResetUser.id, newPassword);
+
+      message.success("User password reset successfully.");
+
+      closePasswordResetModal();
+    } catch (error) {
+      message.error(
+        error.response?.data?.message || "Failed to reset user password.",
+      );
+    } finally {
+      setIsResettingPassword(false);
+    }
+  }, [
+    closePasswordResetModal,
+    confirmPassword,
+    newPassword,
+    passwordResetUser,
+  ]);
 
   const userColumns = useMemo(
     () => [
@@ -352,6 +413,24 @@ const AdminUsersPage = () => {
           );
         },
       },
+      {
+        title: "Password",
+        key: "password",
+        width: 160,
+        render: (_, record) => {
+          const isCurrentUser = Number(record.id) === Number(currentUser?.id);
+
+          return (
+            <Button
+              size="small"
+              disabled={isCurrentUser}
+              onClick={() => openPasswordResetModal(record)}
+            >
+              Reset Password
+            </Button>
+          );
+        },
+      },
     ],
     [
       currentUser?.id,
@@ -359,6 +438,7 @@ const AdminUsersPage = () => {
       isUpdatingRole,
       renderPermissionSwitch,
       handleAccountStatusChange,
+      openPasswordResetModal,
     ],
   );
 
@@ -423,6 +503,41 @@ const AdminUsersPage = () => {
           scroll={{ x: 1100 }}
         />
       </Card>
+
+      <Modal
+        title={
+          passwordResetUser
+            ? `Reset password for ${passwordResetUser.name}`
+            : "Reset password"
+        }
+        open={Boolean(passwordResetUser)}
+        onCancel={closePasswordResetModal}
+        onOk={handlePasswordReset}
+        okText="Reset Password"
+        confirmLoading={isResettingPassword}
+        okButtonProps={{
+          danger: true,
+        }}
+      >
+        <Space direction="vertical" style={{ width: "100%" }}>
+          <Text type="secondary">
+            Enter a temporary password for this user. The password will be
+            active immediately after reset.
+          </Text>
+
+          <Input.Password
+            placeholder="New temporary password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+          />
+
+          <Input.Password
+            placeholder="Confirm new temporary password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+          />
+        </Space>
+      </Modal>
     </Space>
   );
 };

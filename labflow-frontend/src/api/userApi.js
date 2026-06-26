@@ -41,3 +41,11 @@ export const updateUserAccountStatus = async (userId, isActive) => {
 
   return response.data;
 };
+
+export const resetUserPassword = async (userId, newPassword) => {
+  const response = await axiosClient.patch(`/users/${userId}/password`, {
+    newPassword,
+  });
+
+  return response.data;
+};
