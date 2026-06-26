@@ -212,4 +212,139 @@ describe("Authorization", () => {
 
     expect(response.status).toBe(403);
   });
+
+  it("allows an admin to reset another user's password", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/password`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        newPassword: "newPassword123",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("User password reset successfully.");
+  });
+
+  it("rejects login with the old password after admin password reset", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    await request(app)
+      .patch(`/api/users/${researcher.id}/password`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        newPassword: "newPassword123",
+      });
+
+    const response = await request(app).post("/api/auth/login").send({
+      email: "researcher@test.com",
+      password: "password123",
+    });
+
+    expect(response.status).toBe(401);
+  });
+
+  it("allows login with the new password after admin password reset", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    await request(app)
+      .patch(`/api/users/${researcher.id}/password`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        newPassword: "newPassword123",
+      });
+
+    const response = await request(app).post("/api/auth/login").send({
+      email: "researcher@test.com",
+      password: "newPassword123",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.token).toBeDefined();
+  });
+
+  it("rejects password reset from non-admin users", async () => {
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const admin = await User.findOne({
+      where: {
+        email: "admin@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${admin.id}/password`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        newPassword: "newPassword123",
+      });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("rejects admin attempt to reset their own password from the admin endpoint", async () => {
+    const admin = await User.findOne({
+      where: {
+        email: "admin@test.com",
+      },
+    });
+
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const response = await request(app)
+      .patch(`/api/users/${admin.id}/password`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        newPassword: "newPassword123",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe(
+      "You cannot reset your own password from this page.",
+    );
+  });
+
+  it("rejects admin password reset when the new password is too short", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/password`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        newPassword: "short",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe(
+      "New password must be at least 8 characters.",
+    );
+  });
 });
