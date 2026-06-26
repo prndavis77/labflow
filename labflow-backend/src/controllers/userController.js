@@ -1,4 +1,5 @@
 const { User } = require("../models");
+const bcrypt = require("bcrypt");
 const formatUserResponse = require("../utils/formatUserResponse");
 const { VALID_ROLES, ROLES } = require("../constants/roles");
 
@@ -282,10 +283,67 @@ const updateUserAccountStatus = async (req, res) => {
   }
 };
 
+const resetUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (Number(id) === Number(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot reset your own password from this page.",
+      });
+    }
+
+    if (!newPassword || typeof newPassword !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "New password is required.",
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters.",
+      });
+    }
+
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await user.update({ passwordHash });
+
+    return res.json({
+      success: true,
+      message: "User password reset successfully.",
+      data: {
+        user: formatUserResponse(user),
+      },
+    });
+  } catch (error) {
+    console.error("Reset user password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reset user password.",
+    });
+  }
+};
+
 module.exports = {
   getUsers,
   getUserById,
   updateUserRole,
   updateUserWorkflowPermissions,
   updateUserAccountStatus,
+  resetUserPassword,
 };

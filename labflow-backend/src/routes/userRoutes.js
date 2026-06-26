@@ -5,6 +5,7 @@ const {
   updateUserRole,
   updateUserWorkflowPermissions,
   updateUserAccountStatus,
+  resetUserPassword,
 } = require("../controllers/userController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
@@ -38,5 +39,7 @@ router.patch(
   authorizeRoles(ROLES.ADMIN),
   updateUserWorkflowPermissions,
 );
+
+router.patch("/:id/password", authorizeRoles(ROLES.ADMIN), resetUserPassword);
 
 module.exports = router;
