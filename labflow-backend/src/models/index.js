@@ -10,6 +10,27 @@ const EquipmentBooking = require("./EquipmentBooking");
 const NotebookEntry = require("./NotebookEntry");
 const ReviewEvent = require("./ReviewEvent");
 const ProjectMember = require("./ProjectMember");
+const AuditLog = require("./AuditLog");
+
+AuditLog.belongsTo(User, {
+  foreignKey: "actorUserId",
+  as: "actor",
+});
+
+AuditLog.belongsTo(User, {
+  foreignKey: "targetUserId",
+  as: "targetUser",
+});
+
+User.hasMany(AuditLog, {
+  foreignKey: "actorUserId",
+  as: "auditActions",
+});
+
+User.hasMany(AuditLog, {
+  foreignKey: "targetUserId",
+  as: "targetedAuditLogs",
+});
 
 module.exports = {
   User,
@@ -22,4 +43,5 @@ module.exports = {
   NotebookEntry,
   ReviewEvent,
   ProjectMember,
+  AuditLog,
 };

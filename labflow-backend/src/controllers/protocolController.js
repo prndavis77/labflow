@@ -5,10 +5,14 @@ const {
   Equipment,
   ReviewEvent,
 } = require("../models");
+
 const {
   canCreateProtocol,
   canEditProtocol,
 } = require("../utils/workflowPermissions");
+
+const { writeAuditLog } = require("../utils/auditLogger");
+
 const {
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
@@ -17,6 +21,7 @@ const {
   getAccessibleProjectIds,
   getProjectMemberRole,
 } = require("../utils/projectAccess");
+
 const { Op } = require("sequelize");
 
 const VALID_APPROVAL_STATUSES = [
@@ -683,6 +688,30 @@ const updateProtocol = async (req, res) => {
               ? reviewComment
               : reviewComment || "Protocol approved.",
           reviewerId: req.user.id,
+        });
+
+        await writeAuditLog({
+          req,
+          action:
+            nextApprovalStatus === "approved"
+              ? "protocol.approved"
+              : "protocol.changes_requested",
+          entityType: "protocol",
+          entityId: protocol.id,
+          summary:
+            nextApprovalStatus === "approved"
+              ? `${req.user.name} approved protocol "${protocol.title}".`
+              : `${req.user.name} requested changes for protocol "${protocol.title}".`,
+          metadata: {
+            previousApprovalStatus,
+            newApprovalStatus: nextApprovalStatus,
+            reviewComment:
+              nextApprovalStatus === "changes_requested"
+                ? reviewComment?.trim()
+                : reviewComment?.trim() || "Protocol approved.",
+            projectId: protocol.projectId,
+            equipmentId: protocol.equipmentId,
+          },
         });
       }
     }

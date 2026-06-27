@@ -19,6 +19,7 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const notebookEntryRoutes = require("./routes/notebookEntryRoutes");
 const reviewEventRoutes = require("./routes/reviewEventRoutes");
 const projectMemberRoutes = require("./routes/projectMemberRoutes");
+const auditLogRoutes = require("./routes/auditLogRoutes");
 
 const app = express();
 
@@ -103,6 +104,9 @@ app.use("/api/notebook-entries", notebookEntryRoutes);
 
 // Review history routes
 app.use("/api/review-events", reviewEventRoutes);
+
+//Audit log routes
+app.use("/api/audit-logs", auditLogRoutes);
 
 // Handles unknown API routes with a clear JSON response
 app.use((req, res) => {

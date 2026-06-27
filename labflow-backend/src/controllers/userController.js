@@ -2,6 +2,7 @@ const { User } = require("../models");
 const bcrypt = require("bcrypt");
 const formatUserResponse = require("../utils/formatUserResponse");
 const { VALID_ROLES, ROLES } = require("../constants/roles");
+const { writeAuditLog } = require("../utils/auditLogger");
 
 const WORKFLOW_PERMISSION_FIELDS = [
   "canCreateExperiments",
@@ -144,7 +145,29 @@ const updateUserRole = async (req, res) => {
       });
     }
 
+    const previousRole = userToUpdate.role;
+
+    if (previousRole === role) {
+      return res.status(400).json({
+        status: "error",
+        message: "User already has this role.",
+      });
+    }
+
     await userToUpdate.update({ role });
+
+    await writeAuditLog({
+      req,
+      action: "user.role_changed",
+      entityType: "user",
+      entityId: userToUpdate.id,
+      targetUserId: userToUpdate.id,
+      summary: `${req.user.name} changed ${userToUpdate.name}'s role from ${previousRole} to ${role}.`,
+      metadata: {
+        previousRole,
+        newRole: role,
+      },
+    });
 
     return res.json({
       status: "success",
@@ -212,7 +235,33 @@ const updateUserWorkflowPermissions = async (req, res) => {
       });
     }
 
+    const previousPermissions = {
+      canCreateExperiments: userToUpdate.canCreateExperiments,
+      canEditExperiments: userToUpdate.canEditExperiments,
+      canCreateProtocols: userToUpdate.canCreateProtocols,
+      canEditProtocols: userToUpdate.canEditProtocols,
+    };
+
     await userToUpdate.update(updates);
+
+    await writeAuditLog({
+      req,
+      action: "user.workflow_permissions_updated",
+      entityType: "user",
+      entityId: userToUpdate.id,
+      targetUserId: userToUpdate.id,
+      summary: `${req.user.name} updated workflow permissions for ${userToUpdate.name}.`,
+      metadata: {
+        previousPermissions,
+        newPermissions: {
+          canCreateExperiments: userToUpdate.canCreateExperiments,
+          canEditExperiments: userToUpdate.canEditExperiments,
+          canCreateProtocols: userToUpdate.canCreateProtocols,
+          canEditProtocols: userToUpdate.canEditProtocols,
+        },
+        changedFields: updates,
+      },
+    });
 
     return res.json({
       status: "success",
@@ -263,6 +312,20 @@ const updateUserAccountStatus = async (req, res) => {
       isActive,
       deactivatedAt: isActive ? null : new Date(),
       deactivatedById: isActive ? null : req.user.id,
+    });
+
+    await writeAuditLog({
+      req,
+      action: isActive ? "user.reactivated" : "user.deactivated",
+      entityType: "user",
+      entityId: user.id,
+      targetUserId: user.id,
+      summary: isActive
+        ? `${req.user.name} reactivated ${user.name}'s account.`
+        : `${req.user.name} deactivated ${user.name}'s account.`,
+      metadata: {
+        isActive,
+      },
     });
 
     return res.json({
@@ -321,6 +384,18 @@ const resetUserPassword = async (req, res) => {
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
     await user.update({ passwordHash });
+
+    await writeAuditLog({
+      req,
+      action: "user.password_reset",
+      entityType: "user",
+      entityId: user.id,
+      targetUserId: user.id,
+      summary: `${req.user.name} reset ${user.name}'s password.`,
+      metadata: {
+        resetByAdmin: true,
+      },
+    });
 
     return res.json({
       success: true,

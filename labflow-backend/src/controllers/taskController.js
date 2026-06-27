@@ -5,7 +5,11 @@ const {
   ProjectMember,
   ReviewEvent,
 } = require("../models");
+
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
+
+const { writeAuditLog } = require("../utils/auditLogger");
+
 const {
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
@@ -19,6 +23,7 @@ const {
   isValidDateOnly,
   isEndDateAfterStartDate,
 } = require("../utils/dateUtils");
+
 const { Op } = require("sequelize");
 
 const isAdminOrSupervisor = (user) => {
@@ -747,6 +752,27 @@ const updateTask = async (req, res) => {
             ? "Task completion confirmed."
             : "Task reopened for further work.",
         reviewerId: req.user.id,
+      });
+
+      await writeAuditLog({
+        req,
+        action:
+          status === "done"
+            ? "task.completion_confirmed"
+            : "task.completion_reopened",
+        entityType: "task",
+        entityId: task.id,
+        targetUserId: task.assignedToId || null,
+        summary:
+          status === "done"
+            ? `${req.user.name} confirmed completion of task "${task.title}".`
+            : `${req.user.name} reopened task "${task.title}" for further work.`,
+        metadata: {
+          previousStatus: "completion_requested",
+          newStatus: status,
+          projectId: task.projectId,
+          assignedToId: task.assignedToId,
+        },
       });
     }
 

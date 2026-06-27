@@ -7,6 +7,8 @@ const {
   ReviewEvent,
 } = require("../models");
 
+const { writeAuditLog } = require("../utils/auditLogger");
+
 const { Op } = require("sequelize");
 
 const {
@@ -784,6 +786,29 @@ const updateExperiment = async (req, res) => {
               ? reviewComment
               : reviewComment || "Experiment approved.",
           reviewerId: req.user.id,
+        });
+
+        await writeAuditLog({
+          req,
+          action:
+            nextReviewStatus === "approved"
+              ? "experiment.approved"
+              : "experiment.changes_requested",
+          entityType: "experiment",
+          entityId: experiment.id,
+          summary:
+            nextReviewStatus === "approved"
+              ? `${req.user.name} approved experiment "${experiment.title}".`
+              : `${req.user.name} requested changes for experiment "${experiment.title}".`,
+          metadata: {
+            previousReviewStatus,
+            newReviewStatus: nextReviewStatus,
+            reviewComment:
+              nextReviewStatus === "changes_requested"
+                ? reviewComment?.trim()
+                : reviewComment?.trim() || "Experiment approved.",
+            projectId: experiment.projectId,
+          },
         });
       }
     }
