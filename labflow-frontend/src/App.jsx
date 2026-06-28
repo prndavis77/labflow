@@ -9,6 +9,7 @@ import {
   LogoutOutlined,
   AuditOutlined,
   TeamOutlined,
+  HistoryOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router";
 
@@ -40,6 +41,11 @@ const App = () => {
             key: "/admin/users",
             icon: <TeamOutlined />,
             label: "Users",
+          },
+          {
+            key: "/admin/audit-logs",
+            icon: <HistoryOutlined />,
+            label: "Audit Logs",
           },
         ]
       : []),

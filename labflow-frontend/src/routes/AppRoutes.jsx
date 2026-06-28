@@ -16,6 +16,7 @@ import ReviewQueuePage from "../pages/ReviewQueuePage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
+import AdminAuditLogsPage from "../pages/AdminAuditLogsPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 const AppRoutes = () => {
@@ -140,6 +141,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <AdminUsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/audit-logs"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminAuditLogsPage />
           </ProtectedRoute>
         }
       />

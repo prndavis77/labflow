@@ -1,4 +1,5 @@
 const { AuditLog, User } = require("../models");
+const { Op } = require("sequelize");
 
 const getAuditLogs = async (req, res) => {
   try {
@@ -9,6 +10,8 @@ const getAuditLogs = async (req, res) => {
       entityType,
       actorUserId,
       targetUserId,
+      actorName,
+      targetName,
     } = req.query;
 
     const parsedPage = Math.max(Number(page) || 1, 1);
@@ -33,25 +36,42 @@ const getAuditLogs = async (req, res) => {
       where.targetUserId = Number(targetUserId);
     }
 
+    const include = [
+      {
+        model: User,
+        as: "actor",
+        attributes: ["id", "name", "email", "role"],
+        required: Boolean(actorName),
+        where: actorName
+          ? {
+              name: {
+                [Op.iLike]: `%${actorName}%`,
+              },
+            }
+          : undefined,
+      },
+      {
+        model: User,
+        as: "targetUser",
+        attributes: ["id", "name", "email", "role"],
+        required: Boolean(targetName),
+        where: targetName
+          ? {
+              name: {
+                [Op.iLike]: `%${targetName}%`,
+              },
+            }
+          : undefined,
+      },
+    ];
+
     const { rows, count } = await AuditLog.findAndCountAll({
       where,
-      include: [
-        {
-          model: User,
-          as: "actor",
-          attributes: ["id", "name", "email", "role"],
-          required: false,
-        },
-        {
-          model: User,
-          as: "targetUser",
-          attributes: ["id", "name", "email", "role"],
-          required: false,
-        },
-      ],
+      include,
       order: [["createdAt", "DESC"]],
       limit: parsedLimit,
       offset,
+      distinct: true,
     });
 
     return res.json({

@@ -143,4 +143,28 @@ describe("Audit Log API", () => {
     expect(response.body.data.pagination.total).toBe(2);
     expect(response.body.data.pagination.totalPages).toBe(2);
   });
+
+  it("filters audit logs by actor name", async () => {
+    const response = await request(app)
+      .get("/api/audit-logs?actorName=Admin")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.auditLogs).toHaveLength(2);
+    expect(response.body.data.auditLogs[0].actor.name).toBe("Admin User");
+  });
+
+  it("filters audit logs by target user name", async () => {
+    const response = await request(app)
+      .get("/api/audit-logs?targetName=Researcher")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.auditLogs).toHaveLength(1);
+    expect(response.body.data.auditLogs[0].targetUser.name).toBe(
+      "Researcher User",
+    );
+  });
 });
