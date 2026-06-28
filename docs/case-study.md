@@ -280,7 +280,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The current test suite includes 36 passing tests across 7 test files. Covered areas include:
+The current test suite includes 55 passing tests across 8 test suites. Covered areas include:
 
 - Health check
 - Authentication
@@ -310,6 +310,14 @@ The deployed demo backend includes basic security hardening:
 - Project-scoped backend access checks
 
 The project is still a portfolio/demo application and would need additional production hardening before handling real users or real research data.
+
+### Audit Logging
+
+LabFlow includes an admin-only audit logging system for sensitive actions and review workflow events. The audit log records who performed the action, what entity was affected, the target user when relevant, a readable summary, request metadata, and timestamps.
+
+Audit logging currently covers user role changes, workflow permission updates, account deactivation and reactivation, admin password resets, experiment review submissions and decisions, protocol review submissions and decisions, and task completion review requests and decisions.
+
+Admins can review these events in a dedicated Audit Logs page with filters for action, entity type, actor name, and target user name.
 
 ## Challenges and Decisions
 
@@ -392,9 +400,9 @@ Current limitations include:
 - No image attachments for experiment notebooks
 - No PDF export for experiment notebooks
 - No email notifications
-- No full audit log
-- No account deactivation workflow
-- No password reset or invitation workflow
+- Audit logging exists for important admin and review workflow actions, but it is not yet immutable and does not yet include export, retention policies, or signed review controls.
+- Account deactivation/reactivation exists, but there is no invitation-based onboarding yet.
+- Admin password reset exists, but self-service password reset and email verification are not yet included.
 - No frontend automated tests yet
 - No production-grade monitoring or centralized logging
 - No organization-level tenant isolation
@@ -414,9 +422,9 @@ Recommended future improvements include:
 - Calendar view for equipment bookings
 - Email notifications
 - Frontend component and workflow tests
-- Full audit logging
-- Account deactivation
-- Admin invitation and password reset workflow
+- Immutable audit controls and audit export
+- Email verification and self-service password reset
+- Admin invitation workflow
 - Project invitation workflow
 - Project-specific workflow permissions
 - Equipment access model for lab-wide, project-specific, or restricted instruments

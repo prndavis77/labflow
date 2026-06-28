@@ -23,7 +23,7 @@ LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
-The backend includes Sequelize migrations, security hardening, and 36 passing automated backend tests across 7 test suites.
+The backend includes Sequelize migrations, security hardening, audit logging, and 55 passing automated backend tests across 8 test suites.
 
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
 
@@ -280,6 +280,8 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Project-aware create forms that block unauthorized selected projects before submission
 - Supervisor-scoped delete permissions for project-linked tasks, experiments, and protocols
 - Admin/supervisor-only management for general SOPs
+- Audit logging for sensitive admin and review workflow actions, including role changes, workflow permission changes, account activation/deactivation, admin password resets, experiment reviews, protocol reviews, and task completion review decisions.
+- Admin-only Audit Logs page with filtering by action, entity type, actor name, and target user name.
 
 ### Dashboard
 
@@ -536,6 +538,25 @@ Booking statuses include:
 The backend prevents overlapping confirmed bookings for the same equipment.
 
 For example, if an HPLC is booked from 09:00 to 11:00, another confirmed booking for the same HPLC from 10:00 to 12:00 will be rejected with a conflict error.
+
+### Audit Logs
+
+Admins can view audit logs through:
+
+`GET /api/audit-logs`
+
+Supported filters include:
+
+- `action`
+- `entityType`
+- `actorName`
+- `targetName`
+- `actorUserId`
+- `targetUserId`
+- `page`
+- `limit`
+
+---
 
 ## Review Workflow
 
@@ -1073,7 +1094,7 @@ LabFlow now includes a Sequelize migration baseline for the current MVP schema. 
 
 The `npm run setup:db` command is kept only as a legacy/demo fallback from the original MVP deployment path. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
 
-Before LabFlow is used as real production software, additional hardening would still be required, including account deactivation, password reset, email verification, audit logging, centralized logging, monitoring, stricter secrets management, account lockout rules, organization-level tenant isolation, and a more complete production deployment process.
+Before LabFlow is used as real production software, additional hardening would still be required, including email verification, centralized logging, monitoring, stricter secrets management, account lockout rules, organization-level tenant isolation, immutable audit controls, and a more complete production deployment process.
 
 ## Local Setup
 
@@ -1474,7 +1495,9 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The current backend test suite includes 36 passing tests across 7 test files.
+The backend test suite includes authentication, authorization, project membership access, equipment booking conflict prevention, review workflows, task completion review, audit log access, and health checks.
+
+Current backend test status: 8 test suites, 55 tests passing.
 
 Covered backend areas include:
 
@@ -1553,7 +1576,7 @@ Current limitations include:
 - Dashboard project-linked metrics are role-aware for researchers, but equipment inventory metrics are still global because equipment is not project-owned yet.
 - No file uploads
 - No email notifications
-- No audit log
+- Audit logging exists for important admin and review workflow actions, but it is not yet immutable and does not yet include export, retention policies, or signed review controls.
 - No soft delete or archive-only enforcement for all records
 - No drag-and-drop calendar
 - Portfolio/demo deployment is live, but LabFlow does not yet include full production-grade deployment automation.
@@ -1563,12 +1586,12 @@ Current limitations include:
 - No PDF export for experiment notebooks
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
 - Researcher workflow permissions are still global per user, while project membership controls project access separately
-- User management does not yet support account deactivation or password reset
+- User management supports account deactivation/reactivation and admin password reset, but does not yet include email verification, self-service password reset, or invitation-based onboarding.
 - Supervisor access is now project-scoped, but LabFlow does not yet include a separate lab or organization model for multi-lab deployments
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
 - Sequelize migrations are now available for the current MVP schema, but automated production deployment and migration workflows still need further hardening.
-- Basic security headers and authentication rate limiting are included, but production-grade monitoring, account lockout, email verification, full audit logging, and tenant isolation are not yet implemented.
+- Basic security headers and authentication rate limiting are included, but production-grade monitoring, account lockout, email verification, immutable audit controls, and tenant isolation are not yet implemented.
 - Demo accounts use shared demo credentials and are not suitable for real production use.
 
 ---
@@ -1601,7 +1624,7 @@ Recommended Version 2 improvements:
 - Role-specific dashboards
 - More granular project membership permissions with project-specific workflow controls
 - Soft delete and archive workflows
-- Audit log for research history
+- Immutable audit controls for research history
 - Stronger review/audit controls for signed or locked review history
 - Rich text notebook entries
 - File attachments and image uploads for notebook entries
@@ -1614,8 +1637,8 @@ Recommended Version 2 improvements:
 - Additional backend test coverage for remaining edge cases
 - Frontend component and workflow tests
 - Production deployment automation and migration-based database setup
-- Account deactivation workflow
-- Admin password reset or invitation workflow
+- Self-service password reset and email verification
+- Admin invitation workflow
 - More granular supervisor assignment rules beyond the current project supervisor ownership model
 - Project invitations and membership approval workflow
 - Project-specific workflow permissions
