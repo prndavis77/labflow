@@ -87,6 +87,35 @@ const Task = sequelize.define(
         key: "id",
       },
     },
+
+    isArchived: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: "is_archived",
+    },
+
+    archivedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "archived_at",
+    },
+
+    archivedById: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: "archived_by_id",
+      references: {
+        model: User,
+        key: "id",
+      },
+    },
+
+    archiveReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "archive_reason",
+    },
   },
   {
     tableName: "tasks",
@@ -129,6 +158,16 @@ Task.belongsTo(User, {
 User.hasMany(Task, {
   foreignKey: "createdById",
   as: "createdTasks",
+});
+
+Task.belongsTo(User, {
+  foreignKey: "archivedById",
+  as: "archivedBy",
+});
+
+User.hasMany(Task, {
+  foreignKey: "archivedById",
+  as: "archivedTasks",
 });
 
 module.exports = Task;

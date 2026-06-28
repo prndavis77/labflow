@@ -182,7 +182,9 @@ const getTasks = async (req, res) => {
     const { projectId, status } = req.query;
 
     // Build a flexible where clause from optional query parameters.
-    const where = {};
+    const where = {
+      isArchived: false,
+    };
 
     if (projectId) {
       where.projectId = projectId;
@@ -840,54 +842,76 @@ const deleteTask = async (req, res) => {
       });
     }
 
-    if (req.user.role === "admin") {
-      await task.destroy();
-
-      return res.json({
-        status: "success",
-        message: "Task deleted successfully.",
+    if (task.isArchived) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task is already archived.",
       });
     }
 
-    if (req.user.role === "supervisor") {
+    if (req.user.role === "admin") {
+      // Admins can archive any task.
+    } else if (req.user.role === "supervisor") {
       if (!task.projectId) {
         return res.status(403).json({
           status: "error",
-          message: "Only admins can delete standalone tasks.",
+          message: "Only admins can archive standalone tasks.",
         });
       }
 
-      const canDeleteProjectTask = await canEditProjectLinkedWork(
+      const canArchiveProjectTask = await canEditProjectLinkedWork(
         req.user,
         task.projectId,
       );
 
-      if (!canDeleteProjectTask) {
+      if (!canArchiveProjectTask) {
         return res.status(403).json({
           status: "error",
           message:
-            "Supervisors can only delete tasks for projects they supervise.",
+            "Supervisors can only archive tasks for projects they supervise.",
         });
       }
-
-      await task.destroy();
-
-      return res.json({
-        status: "success",
-        message: "Task deleted successfully.",
+    } else {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and project supervisors can archive tasks.",
       });
     }
 
-    return res.status(403).json({
-      status: "error",
-      message: "Only admins and project supervisors can delete tasks.",
+    const archiveReason =
+      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+
+    await task.update({
+      isArchived: true,
+      archivedAt: new Date(),
+      archivedById: req.user.id,
+      archiveReason,
+    });
+
+    await writeAuditLog({
+      req,
+      action: "task.archived",
+      entityType: "task",
+      entityId: task.id,
+      targetUserId: task.assignedToId || null,
+      summary: `${req.user.name} archived task "${task.title}".`,
+      metadata: {
+        projectId: task.projectId,
+        assignedToId: task.assignedToId,
+        archiveReason,
+      },
+    });
+
+    return res.json({
+      status: "success",
+      message: "Task archived successfully.",
     });
   } catch (error) {
-    console.error("Error deleting task", error);
+    console.error("Error archiving task", error);
 
     return res.status(500).json({
       status: "error",
-      message: "An error occurred while deleting the task.",
+      message: "An error occurred while archiving the task.",
     });
   }
 };

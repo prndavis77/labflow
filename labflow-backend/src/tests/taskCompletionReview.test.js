@@ -237,4 +237,53 @@ describe("Task completion review", () => {
     expect(response.body.status).toBe("success");
     expect(response.body.data.task.status).toBe("in_progress");
   });
+
+  it("archives a task instead of permanently deleting it", async () => {
+    const task = await createTask({
+      title: "Task to archive",
+      status: "todo",
+      projectId: null,
+      assignedToId: researcher.id,
+      createdById: admin.id,
+    });
+
+    const response = await request(app)
+      .delete(`/api/tasks/${task.id}`)
+      .send({
+        archiveReason: "No longer needed.",
+      })
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.message).toBe("Task archived successfully.");
+
+    const archivedTask = await Task.findByPk(task.id);
+
+    expect(archivedTask).not.toBeNull();
+    expect(archivedTask.isArchived).toBe(true);
+    expect(archivedTask.archivedAt).not.toBeNull();
+    expect(archivedTask.archivedById).toBe(admin.id);
+    expect(archivedTask.archiveReason).toBe("No longer needed.");
+
+    const auditLog = await AuditLog.findOne({
+      where: {
+        action: "task.archived",
+        entityType: "task",
+        entityId: task.id,
+      },
+    });
+
+    const listResponse = await request(app)
+      .get("/api/tasks")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const returnedTaskIds = listResponse.body.data.tasks.map((task) => task.id);
+
+    expect(returnedTaskIds).not.toContain(task.id);
+
+    expect(auditLog).not.toBeNull();
+    expect(auditLog.targetUserId).toBe(researcher.id);
+  });
 });

@@ -121,6 +121,31 @@ const Protocol = sequelize.define(
       allowNull: true,
       field: "approved_at",
     },
+
+    isArchived: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: "is_archived",
+    },
+
+    archivedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "archived_at",
+    },
+
+    archivedById: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: "archived_by_id",
+    },
+
+    archiveReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "archive_reason",
+    },
   },
   {
     tableName: "protocols",
