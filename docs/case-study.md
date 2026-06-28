@@ -384,7 +384,7 @@ The project includes:
 - Review queue and review history
 - Sequelize migrations
 - Backend security hardening
-- 36 passing automated backend tests across 7 test files
+- 55 passing automated backend tests across 8 test suites
 - Seeded demo data and demo accounts
 - GitHub README and portfolio case study
 
