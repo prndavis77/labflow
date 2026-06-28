@@ -3,7 +3,14 @@ const bcrypt = require("bcrypt");
 
 const app = require("../server");
 const { sequelize } = require("../config/database");
-const { User, Project, Task, ReviewEvent } = require("../models");
+const {
+  User,
+  Project,
+  ProjectMember,
+  Task,
+  ReviewEvent,
+  AuditLog,
+} = require("../models");
 
 const {
   createTestUser,
@@ -115,7 +122,19 @@ describe("Task completion review", () => {
       },
     });
 
-    expect(reviewEvent).not.toBeNull();
+    expect(reviewEvent).toBeNull();
+
+    const auditLog = await AuditLog.findOne({
+      where: {
+        action: "task.completion_requested",
+        entityType: "task",
+        entityId: task.id,
+        targetUserId: researcher.id,
+      },
+    });
+
+    expect(auditLog).not.toBeNull();
+    expect(auditLog.summary).toContain("requested completion review");
   });
 
   it("rejects task completion request from a researcher who is not assigned to the task", async () => {

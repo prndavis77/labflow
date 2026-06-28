@@ -670,6 +670,28 @@ const updateProtocol = async (req, res) => {
       approvedAt: nextApprovedAt,
     });
 
+    if (
+      approvalStatus !== undefined &&
+      nextApprovalStatus === "pending_review" &&
+      previousApprovalStatus !== nextApprovalStatus
+    ) {
+      await writeAuditLog({
+        req,
+        action: "protocol.submitted_for_review",
+        entityType: "protocol",
+        entityId: protocol.id,
+        targetUserId: protocol.researcherId || req.user.id,
+        summary: `${req.user.name} submitted protocol "${protocol.title}" for review.`,
+        metadata: {
+          previousApprovalStatus,
+          newApprovalStatus: nextApprovalStatus,
+          projectId: protocol.projectId,
+          equipmentId: protocol.equipmentId,
+          createdById: protocol.createdById,
+        },
+      });
+    }
+
     // Automatically create review history when a protocol review decision is made
     if (
       approvalStatus !== undefined &&
@@ -698,6 +720,7 @@ const updateProtocol = async (req, res) => {
               : "protocol.changes_requested",
           entityType: "protocol",
           entityId: protocol.id,
+          targetUserId: protocol.createdById || null,
           summary:
             nextApprovalStatus === "approved"
               ? `${req.user.name} approved protocol "${protocol.title}".`
@@ -711,6 +734,7 @@ const updateProtocol = async (req, res) => {
                 : reviewComment?.trim() || "Protocol approved.",
             projectId: protocol.projectId,
             equipmentId: protocol.equipmentId,
+            createdById: protocol.createdById,
           },
         });
       }

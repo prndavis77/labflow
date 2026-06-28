@@ -719,6 +719,8 @@ const updateTask = async (req, res) => {
       }
     }
 
+    const previousStatus = task.status;
+
     await task.update({
       title: title !== undefined ? title.trim() : task.title,
       description:
@@ -732,13 +734,23 @@ const updateTask = async (req, res) => {
         assignedToId !== undefined ? assignedToId || null : task.assignedToId,
     });
 
-    if (status === "completion_requested") {
-      await ReviewEvent.create({
-        targetType: "task",
-        targetId: task.id,
-        action: "submitted",
-        comment: "Task submitted for completion review.",
-        reviewerId: req.user.id,
+    if (
+      status === "completion_requested" &&
+      previousStatus !== "completion_requested"
+    ) {
+      await writeAuditLog({
+        req,
+        action: "task.completion_requested",
+        entityType: "task",
+        entityId: task.id,
+        targetUserId: task.assignedToId || req.user.id,
+        summary: `${req.user.name} requested completion review for task "${task.title}".`,
+        metadata: {
+          previousStatus,
+          newStatus: status,
+          projectId: task.projectId,
+          assignedToId: task.assignedToId,
+        },
       });
     }
 
@@ -768,7 +780,7 @@ const updateTask = async (req, res) => {
             ? `${req.user.name} confirmed completion of task "${task.title}".`
             : `${req.user.name} reopened task "${task.title}" for further work.`,
         metadata: {
-          previousStatus: "completion_requested",
+          previousStatus,
           newStatus: status,
           projectId: task.projectId,
           assignedToId: task.assignedToId,

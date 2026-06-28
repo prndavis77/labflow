@@ -771,6 +771,27 @@ const updateExperiment = async (req, res) => {
 
     if (
       reviewStatus !== undefined &&
+      nextReviewStatus === "pending" &&
+      previousReviewStatus !== nextReviewStatus
+    ) {
+      await writeAuditLog({
+        req,
+        action: "experiment.submitted_for_review",
+        entityType: "experiment",
+        entityId: experiment.id,
+        targetUserId: experiment.researcherId || req.user.id,
+        summary: `${req.user.name} submitted experiment "${experiment.title}" for review.`,
+        metadata: {
+          previousReviewStatus,
+          newReviewStatus: nextReviewStatus,
+          projectId: experiment.projectId,
+          researcherId: experiment.researcherId,
+        },
+      });
+    }
+
+    if (
+      reviewStatus !== undefined &&
       ["approved", "changes_requested"].includes(nextReviewStatus)
     ) {
       const shouldCreateReviewEvent =
@@ -796,6 +817,7 @@ const updateExperiment = async (req, res) => {
               : "experiment.changes_requested",
           entityType: "experiment",
           entityId: experiment.id,
+          targetUserId: experiment.researcherId || null,
           summary:
             nextReviewStatus === "approved"
               ? `${req.user.name} approved experiment "${experiment.title}".`
@@ -808,6 +830,7 @@ const updateExperiment = async (req, res) => {
                 ? reviewComment?.trim()
                 : reviewComment?.trim() || "Experiment approved.",
             projectId: experiment.projectId,
+            researcherId: experiment.researcherId,
           },
         });
       }
