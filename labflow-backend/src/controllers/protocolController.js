@@ -217,7 +217,9 @@ const getProtocols = async (req, res) => {
     const { projectId, equipmentId, approvalStatus } = req.query;
 
     // Build a flexible filter object from query parameters.
-    const where = {};
+    const where = {
+      isArchived: false,
+    };
 
     if (projectId) {
       where.projectId = projectId;
@@ -762,8 +764,7 @@ const updateProtocol = async (req, res) => {
 };
 
 // DELETE /api/protocols/:id
-// Deletes a protocol.
-// Later, archiving is safer than hard deletion because protocols are part of research history.
+// Archives a protocol.
 const deleteProtocol = async (req, res) => {
   try {
     const { id } = req.params;
@@ -777,56 +778,77 @@ const deleteProtocol = async (req, res) => {
       });
     }
 
-    if (req.user.role === "admin") {
-      await protocol.destroy();
-
-      return res.json({
-        status: "success",
-        message: "Protocol deleted successfully.",
+    if (protocol.isArchived) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol is already archived.",
       });
     }
 
-    if (req.user.role === "supervisor") {
+    if (req.user.role === "admin") {
+      // Admins can archive any protocol
+    } else if (req.user.role === "supervisor") {
       if (!protocol.projectId) {
-        await protocol.destroy();
-
-        return res.json({
-          status: "success",
-          message: "Protocol deleted successfully.",
+        return res.status(403).json({
+          status: "error",
+          message: "Only admins can archive protocols without a project.",
         });
       }
 
-      const canDeleteProtocolProject = await canEditProjectLinkedWork(
+      const canArchiveProtocolProject = await canEditProjectLinkedWork(
         req.user,
         protocol.projectId,
       );
 
-      if (!canDeleteProtocolProject) {
+      if (!canArchiveProtocolProject) {
         return res.status(403).json({
           status: "error",
           message:
-            "Supervisors can only delete protocols for projects they supervise.",
+            "Supervisors can only archive protocols for projects they supervise.",
         });
       }
-
-      await protocol.destroy();
-
-      return res.json({
-        status: "success",
-        message: "Protocol deleted successfully.",
+    } else {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and project supervisors can archive protocols.",
       });
     }
 
-    return res.status(403).json({
-      status: "error",
-      message: "Only admins and project supervisors can delete protocols.",
+    const archiveReason =
+      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+
+    await protocol.update({
+      isArchived: true,
+      archivedAt: new Date(),
+      archivedById: req.user.id,
+      archiveReason,
+    });
+
+    await writeAuditLog({
+      req,
+      action: "protocol.archived",
+      entityType: "protocol",
+      entityId: protocol.id,
+      targetUserId: protocol.createdById || null,
+      summary: `${req.user.name} archived protocol "${protocol.title}".`,
+      metadata: {
+        projectId: protocol.projectId,
+        equipmentId: protocol.equipmentId,
+        researcherId: protocol.createdById,
+        archiveReason,
+      },
+    });
+
+    return res.json({
+      status: "success",
+      message: "Protocol archived successfully.",
     });
   } catch (error) {
-    console.error("Error deleting protocol", error);
+    console.error("Error archiving protocol", error);
 
     return res.status(500).json({
       status: "error",
-      message: "An error occurred while deleting the protocol.",
+      message: "An error occurred while archiving the protocol.",
     });
   }
 };

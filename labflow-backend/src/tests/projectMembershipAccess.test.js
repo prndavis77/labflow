@@ -3,7 +3,15 @@ const bcrypt = require("bcrypt");
 
 const app = require("../server");
 const { sequelize } = require("../config/database");
-const { User, Project, ProjectMember } = require("../models");
+const {
+  User,
+  Project,
+  ProjectMember,
+  Task,
+  Experiment,
+  Protocol,
+  AuditLog,
+} = require("../models");
 
 const {
   createTestUser,
@@ -234,5 +242,55 @@ describe("Project membership access", () => {
 
     expect(response.statusCode).toBe(403);
     expect(response.body.status).toBe("error");
+  });
+
+  it("archives a project instead of permanently deleting it", async () => {
+    const project = await Project.create({
+      title: "Project to archive",
+      description: "This project should be archived, not deleted.",
+      status: "active",
+      supervisorId: supervisor.id,
+    });
+
+    const response = await request(app)
+      .delete(`/api/projects/${project.id}`)
+      .send({
+        archiveReason: "No longer active.",
+      })
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.message).toBe("Project archived successfully.");
+
+    const archivedProject = await Project.findByPk(project.id);
+
+    expect(archivedProject).not.toBeNull();
+    expect(archivedProject.isArchived).toBe(true);
+    expect(archivedProject.archivedAt).not.toBeNull();
+    expect(archivedProject.archivedById).toBe(admin.id);
+    expect(archivedProject.archiveReason).toBe("No longer active.");
+
+    const auditLog = await AuditLog.findOne({
+      where: {
+        action: "project.archived",
+        entityType: "project",
+        entityId: project.id,
+      },
+    });
+
+    expect(auditLog).not.toBeNull();
+    expect(auditLog.targetUserId).toBe(supervisor.id);
+
+    const listResponse = await request(app)
+      .get("/api/projects")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const returnedProjectIds = listResponse.body.data.projects.map(
+      (project) => project.id,
+    );
+
+    expect(returnedProjectIds).not.toContain(project.id);
   });
 });

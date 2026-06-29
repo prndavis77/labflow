@@ -238,7 +238,9 @@ const getExperiments = async (req, res) => {
     const { projectId, status, reviewStatus, researcherId, taskId } = req.query;
 
     // Build a flexible filter object from query parameters
-    const where = {};
+    const where = {
+      isArchived: false,
+    };
 
     if (projectId) {
       where.projectId = projectId;
@@ -873,47 +875,76 @@ const deleteExperiment = async (req, res) => {
       });
     }
 
-    if (req.user.role === "admin") {
-      await experiment.destroy();
-
-      return res.json({
-        status: "success",
-        message: "Experiment deleted successfully.",
+    if (experiment.isArchived) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment is already archived.",
       });
     }
 
-    if (req.user.role === "supervisor") {
-      const canDeleteExperimentProject = await canEditProjectLinkedWork(
+    if (req.user.role === "admin") {
+      // Admins can archive any experiment
+    } else if (req.user.role === "supervisor") {
+      if (!experiment.projectId) {
+        return res.status(403).json({
+          status: "error",
+          message: "Only admins can archive experiments without a project.",
+        });
+      }
+
+      const canArchiveExperimentProject = await canEditProjectLinkedWork(
         req.user,
         experiment.projectId,
       );
 
-      if (!canDeleteExperimentProject) {
+      if (!canArchiveExperimentProject) {
         return res.status(403).json({
           status: "error",
           message:
-            "Supervisors can only delete experiments for projects they supervise.",
+            "Supervisors can only archive experiments for projects they supervise.",
         });
       }
-
-      await experiment.destroy();
-
-      return res.json({
-        status: "success",
-        message: "Experiment deleted successfully.",
+    } else {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and project supervisors can archive experiments.",
       });
     }
 
-    return res.status(403).json({
-      status: "error",
-      message: "Only admins and project supervisors can delete experiments.",
+    const archiveReason =
+      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+
+    await experiment.update({
+      isArchived: true,
+      archivedAt: new Date(),
+      archivedById: req.user.id,
+      archiveReason,
+    });
+
+    await writeAuditLog({
+      req,
+      action: "experiment.archived",
+      entityType: "experiment",
+      entityId: experiment.id,
+      targetUserId: experiment.researcherId || null,
+      summary: `${req.user.name} archived experiment "${experiment.title}".`,
+      metadata: {
+        projectId: experiment.projectId,
+        researcherId: experiment.researcherId,
+        archiveReason,
+      },
+    });
+
+    return res.json({
+      status: "success",
+      message: "Experiment archived successfully.",
     });
   } catch (error) {
-    console.error("Error deleting experiment:", error);
+    console.error("Error archiving experiment:", error);
 
     return res.status(500).json({
       status: "error",
-      message: "An error occurred while deleting the experiment.",
+      message: "An error occurred while archiving the experiment.",
     });
   }
 };

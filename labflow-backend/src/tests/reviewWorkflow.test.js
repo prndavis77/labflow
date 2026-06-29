@@ -9,6 +9,7 @@ const {
   Experiment,
   Protocol,
   ReviewEvent,
+  AuditLog,
 } = require("../models");
 
 const {
@@ -351,5 +352,108 @@ describe("Experiment and protocol review workflows", () => {
     expect(response.body.status).toBe("success");
     expect(response.body.data.protocol.approvalStatus).toBe("approved");
     expect(response.body.data.protocol.approvedById).toBe(supervisor.id);
+  });
+
+  it("archives an experiment instead of permanently deleting it", async () => {
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_submitted",
+    });
+
+    const response = await request(app)
+      .delete(`/api/experiments/${experiment.id}`)
+      .send({
+        archiveReason: "No longer needed.",
+      })
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.message).toBe("Experiment archived successfully.");
+
+    const archivedExperiment = await Experiment.findByPk(experiment.id);
+
+    expect(archivedExperiment).not.toBeNull();
+    expect(archivedExperiment.isArchived).toBe(true);
+    expect(archivedExperiment.archivedAt).not.toBeNull();
+    expect(archivedExperiment.archivedById).toBe(admin.id);
+    expect(archivedExperiment.archiveReason).toBe("No longer needed.");
+
+    const auditLog = await AuditLog.findOne({
+      where: {
+        action: "experiment.archived",
+        entityType: "experiment",
+        entityId: experiment.id,
+      },
+    });
+
+    expect(auditLog).not.toBeNull();
+    expect(auditLog.targetUserId).toBe(researcher.id);
+
+    const listResponse = await request(app)
+      .get("/api/experiments")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const returnedExperimentIds = listResponse.body.data.experiments.map(
+      (experiment) => experiment.id,
+    );
+
+    expect(returnedExperimentIds).not.toContain(experiment.id);
+  });
+
+  it("archives a protocol instead of permanently deleting it", async () => {
+    const protocol = await Protocol.create({
+      title: "Protocol to archive",
+      version: "1.0",
+      purpose: "Test protocol archive behavior",
+      content: "This protocol should be archived, not deleted.",
+      approvalStatus: "draft",
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+    });
+
+    const response = await request(app)
+      .delete(`/api/protocols/${protocol.id}`)
+      .send({
+        archiveReason: "No longer needed.",
+      })
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.message).toBe("Protocol archived successfully.");
+
+    const archivedProtocol = await Protocol.findByPk(protocol.id);
+
+    expect(archivedProtocol).not.toBeNull();
+    expect(archivedProtocol.isArchived).toBe(true);
+    expect(archivedProtocol.archivedAt).not.toBeNull();
+    expect(archivedProtocol.archivedById).toBe(admin.id);
+    expect(archivedProtocol.archiveReason).toBe("No longer needed.");
+
+    const auditLog = await AuditLog.findOne({
+      where: {
+        action: "protocol.archived",
+        entityType: "protocol",
+        entityId: protocol.id,
+      },
+    });
+
+    expect(auditLog).not.toBeNull();
+    expect(auditLog.targetUserId).toBe(researcher.id);
+
+    const listResponse = await request(app)
+      .get("/api/protocols")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const returnedProtocolIds = listResponse.body.data.protocols.map(
+      (protocol) => protocol.id,
+    );
+
+    expect(returnedProtocolIds).not.toContain(protocol.id);
   });
 });

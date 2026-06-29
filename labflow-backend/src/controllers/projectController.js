@@ -8,11 +8,16 @@ const {
   NotebookEntry,
   ProjectMember,
 } = require("../models");
+
 const { Op } = require("sequelize");
+
+const { writeAuditLog } = require("../utils/auditLogger");
+
 const {
   getAccessibleProjectIds,
   canViewProject,
 } = require("../utils/projectAccess");
+
 const {
   isValidDateOnly,
   isEndDateAfterStartDate,
@@ -84,7 +89,9 @@ const getProjects = async (req, res) => {
   try {
     const { status, supervisorId } = req.query;
 
-    const where = {};
+    const where = {
+      isArchived: false,
+    };
 
     if (status) {
       where.status = status;
@@ -359,8 +366,7 @@ const updateProject = async (req, res) => {
 };
 
 // DELETE /api/projects/:id
-// Deletes a project.
-// In a real production app, soft delete or archive is often safer.
+// Archives a project.
 const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
@@ -374,49 +380,63 @@ const deleteProject = async (req, res) => {
       });
     }
 
-    const [
-      taskCount,
-      experimentCount,
-      protocolCount,
-      bookingCount,
-      notebookEntryCount,
-      projectMemberCount,
-    ] = await Promise.all([
-      Task.count({ where: { projectId: id } }),
-      Experiment.count({ where: { projectId: id } }),
-      Protocol.count({ where: { projectId: id } }),
-      EquipmentBooking.count({ where: { projectId: id } }),
-      NotebookEntry.count({ where: { projectId: id } }),
-      ProjectMember.count({ where: { projectId: id } }),
-    ]);
-
-    if (
-      taskCount > 0 ||
-      experimentCount > 0 ||
-      protocolCount > 0 ||
-      bookingCount > 0 ||
-      notebookEntryCount > 0 ||
-      projectMemberCount > 0
-    ) {
+    if (project.isArchived) {
       return res.status(400).json({
         status: "error",
-        message:
-          "Project cannot be deleted while it has related tasks, experiments, protocols, bookings, notebook entries, or project members. Archive the project instead.",
+        message: "Project is already archived.",
       });
     }
 
-    await project.destroy();
+    if (req.user.role === "admin") {
+      // Admins can archive any project.
+    } else if (req.user.role === "supervisor") {
+      if (project.supervisorId !== req.user.id) {
+        return res.status(403).json({
+          status: "error",
+          message: "Supervisors can only archive projects they supervise.",
+        });
+      }
+    } else {
+      return res.status(403).json({
+        status: "error",
+        message: "Only admins and project supervisors can archive projects.",
+      });
+    }
+
+    const archiveReason =
+      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+
+    await project.update({
+      isArchived: true,
+      archivedAt: new Date(),
+      archivedById: req.user.id,
+      archiveReason,
+    });
+
+    await writeAuditLog({
+      req,
+      action: "project.archived",
+      entityType: "project",
+      entityId: project.id,
+      targetUserId: project.supervisorId || null,
+      summary: `${req.user.name} archived project "${project.title}".`,
+      metadata: {
+        supervisorId: project.supervisorId,
+        status: project.status,
+        archiveReason,
+      },
+    });
 
     return res.json({
       status: "success",
-      message: "Project deleted successfully.",
+      message: "Project archived successfully.",
     });
   } catch (error) {
-    console.error("Error deleting project", error);
+    console.error("Error archiving project:", error);
 
     return res.status(500).json({
       status: "error",
-      message: "An error occurred while deleting the project.",
+      message: "An error occurred while archiving the project.",
     });
   }
 };

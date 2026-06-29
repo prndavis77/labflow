@@ -850,7 +850,7 @@ const deleteTask = async (req, res) => {
     }
 
     if (req.user.role === "admin") {
-      // Admins can archive any task.
+      // Admins can archive any task
     } else if (req.user.role === "supervisor") {
       if (!task.projectId) {
         return res.status(403).json({
