@@ -280,7 +280,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The current test suite includes 55 passing tests across 8 test suites. Covered areas include:
+The current test suite includes 59 passing tests across 8 test suites. Covered areas include:
 
 - Health check
 - Authentication
@@ -318,6 +318,10 @@ LabFlow includes an admin-only audit logging system for sensitive actions and re
 Audit logging currently covers user role changes, workflow permission updates, account deactivation and reactivation, admin password resets, experiment review submissions and decisions, protocol review submissions and decisions, and task completion review requests and decisions.
 
 Admins can review these events in a dedicated Audit Logs page with filters for action, entity type, actor name, and target user name.
+
+### Soft Delete and Auditability
+
+To support research-lab traceability, LabFlow avoids permanently deleting core lab records. Projects, tasks, experiments, and protocols are archived instead. This keeps historical records available for audit trails while removing inactive items from normal working views.
 
 ## Challenges and Decisions
 
@@ -384,7 +388,8 @@ The project includes:
 - Review queue and review history
 - Sequelize migrations
 - Backend security hardening
-- 55 passing automated backend tests across 8 test suites
+- Archive behavior for projects, tasks, experiments, and protocols, with audit log coverage
+- 59 passing automated backend tests across 8 test suites
 - Seeded demo data and demo accounts
 - GitHub README and portfolio case study
 

@@ -23,9 +23,21 @@ LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
-The backend includes Sequelize migrations, security hardening, audit logging, and 55 passing automated backend tests across 8 test suites.
+The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 59 passing automated backend tests across 8 test suites.
 
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
+
+### Phase 20B: Soft Delete / Archive
+
+Completed:
+
+- Added archive fields to projects, tasks, experiments, and protocols.
+- Replaced hard delete behavior with archive behavior for tasks.
+- Replaced hard delete behavior with archive behavior for experiments.
+- Replaced hard delete behavior with archive behavior for protocols.
+- Replaced hard delete behavior with archive behavior for projects.
+- Updated frontend delete wording to archive wording.
+- Added backend tests for archive behavior.
 
 ---
 
@@ -135,7 +147,7 @@ LabFlow provides a structured system for managing these workflows in one place.
 - Protected frontend routes
 - Protected backend API routes
 
-## Role-Based Access Control
+### Role-Based Access Control
 
 LabFlow supports three user roles:
 
@@ -180,6 +192,12 @@ LabFlow supports three user roles:
 Researcher workflow permissions allow admins to support different lab supervision styles. Some labs may allow researchers to independently create experiments and protocols, while other labs may require supervisor control over those workflows.
 
 Public registration creates researcher accounts only. Admin and supervisor accounts should be created through development tools or a future admin user-management workflow.
+
+### Archive / Soft Delete
+
+LabFlow now uses archive behavior for core lab records instead of permanent deletion. Projects, tasks, experiments, and protocols can be archived by authorized users. Archived records are hidden from normal lists but remain in the database for traceability and audit purposes.
+
+Archive actions are recorded in the audit log, including the actor, target record, timestamp, and relevant metadata.
 
 ---
 
@@ -234,8 +252,8 @@ LabFlow uses project member roles to control project-linked contribution rights:
 - Project leads can coordinate project-linked work and can create or edit project-linked tasks, experiments, and protocols.
 - Project members can contribute to project-linked experiments and protocols only when their researcher workflow permissions allow it.
 - Project viewers have read-only access to project-linked tasks, experiments, and protocols.
-- General SOPs without project linkage can be created, edited, reviewed, and deleted only by admins and supervisors.
-- Delete actions remain restricted to admins and supervisors. Supervisors are scoped to projects they supervise for project-linked records.
+- General SOPs without project linkage can be created, edited, reviewed, and archived only by admins and supervisors.
+- Archive actions for core records remain restricted to admins and supervisors. Supervisors are scoped to projects they supervise for project-linked records.
 
 This layered model allows LabFlow to combine global user roles, project-specific roles, and configurable researcher workflow permissions without giving researchers unrestricted access across the whole lab.
 
@@ -282,6 +300,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Admin/supervisor-only management for general SOPs
 - Audit logging for sensitive admin and review workflow actions, including role changes, workflow permission changes, account activation/deactivation, admin password resets, experiment reviews, protocol reviews, and task completion review decisions.
 - Admin-only Audit Logs page with filtering by action, entity type, actor name, and target user name.
+- Archive behavior for projects, tasks, experiments, and protocols, replacing permanent deletion for core lab records.
 
 ### Dashboard
 
@@ -1323,7 +1342,7 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 
 - Create project
 - Edit project
-- Delete project
+- Archive project
 - View projects as researcher
 - Restrict project management actions by role
 
@@ -1365,7 +1384,7 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Link task to project
 - Edit task
 - Filter tasks
-- Restrict task deletion by role
+- Restrict task archiving by role
 - Create standalone task without project linkage
 - Create project-linked task
 - Show assigned standalone tasks to researchers
@@ -1395,7 +1414,7 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Reject experiment approval as supervisor for non-supervised projects
 - Request changes with a required review note
 - Show latest review comment to researchers
-- Restrict experiment deletion by role
+- Restrict experiment archiving by role
 
 ### Protocols
 
@@ -1412,10 +1431,10 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Request changes with a required review note
 - Track approved by and approved date
 - View protocols as researcher
-- Restrict protocol management by role
+- Restrict protocol management and archiving by role
 - Reject researcher general SOP creation and editing
 - Allow supervisor general SOP management
-- Restrict supervisor project-linked protocol deletion to supervised projects
+- Restrict supervisor project-linked protocol archiving to supervised projects
 
 ### Equipment
 
@@ -1485,7 +1504,7 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 - Hide protocol create/edit actions when researcher permissions are disabled
 - Allow experiment create/edit actions when researcher permissions are enabled
 - Allow protocol create/edit actions when researcher permissions are enabled
-- Keep delete actions restricted to admins and supervisors
+- Keep archive actions restricted to admins and supervisors
 - Keep approve/request changes actions restricted to admins and supervisors
 - Confirm backend rejects unauthorized experiment/protocol create and edit requests
 
@@ -1497,7 +1516,7 @@ LabFlow includes an automated backend test suite using Jest and Supertest.
 
 The backend test suite includes authentication, authorization, project membership access, equipment booking conflict prevention, review workflows, task completion review, audit log access, and health checks.
 
-Current backend test status: 8 test suites, 55 tests passing.
+Current backend test status: 8 test suites, 59 tests passing.
 
 Covered backend areas include:
 
@@ -1577,7 +1596,7 @@ Current limitations include:
 - No file uploads
 - No email notifications
 - Audit logging exists for important admin and review workflow actions, but it is not yet immutable and does not yet include export, retention policies, or signed review controls.
-- No soft delete or archive-only enforcement for all records
+- Archive behavior exists for core lab records, but equipment, bookings, notebook entries, and project memberships still use their existing delete/remove workflows.
 - No drag-and-drop calendar
 - Portfolio/demo deployment is live, but LabFlow does not yet include full production-grade deployment automation.
 - Backend automated tests now cover core API workflows, but frontend automated tests are not yet included.
@@ -1623,7 +1642,7 @@ Recommended Version 2 improvements:
 - Lab organization model
 - Role-specific dashboards
 - More granular project membership permissions with project-specific workflow controls
-- Soft delete and archive workflows
+- Archive restore workflows and admin views for archived records
 - Immutable audit controls for research history
 - Stronger review/audit controls for signed or locked review history
 - Rich text notebook entries
