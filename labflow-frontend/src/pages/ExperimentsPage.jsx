@@ -14,7 +14,7 @@ import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import { deleteExperiment, fetchExperiments } from "../api/experimentApi";
+import { archiveExperiment, fetchExperiments } from "../api/experimentApi";
 import { fetchProjects } from "../api/projectApi";
 import { fetchProjectMembers } from "../api/projectMemberApi";
 import { fetchTasks } from "../api/taskApi";
@@ -69,8 +69,8 @@ const ExperimentsPage = () => {
   const canEditExperiments =
     isAdminOrSupervisor || currentUser?.role === "researcher";
 
-  // Only admins and supervisors can delete experiment records
-  const canDeleteExperiments = ["admin", "supervisor"].includes(
+  // Only admins and supervisors can archive experiment records
+  const canArchiveExperiments = ["admin", "supervisor"].includes(
     currentUser?.role,
   );
 
@@ -299,17 +299,17 @@ const ExperimentsPage = () => {
     await loadProtocols();
   };
 
-  const handleDelete = useCallback(
+  const handleArchive = useCallback(
     async (experimentId) => {
       try {
-        await deleteExperiment(experimentId);
+        await archiveExperiment(experimentId);
 
-        message.success("Experiment deleted successfully.");
+        message.success("Experiment archived successfully.");
 
         await loadExperiments();
       } catch (error) {
         const messageText =
-          error.response?.data?.message || "Failed to delete experiment.";
+          error.response?.data?.message || "Failed to archive experiment.";
 
         message.error(messageText);
       }
@@ -422,7 +422,7 @@ const ExperimentsPage = () => {
       {
         title: "Actions",
         key: "actions",
-        width: canDeleteExperiments ? 220 : 140,
+        width: canArchiveExperiments ? 220 : 140,
         render: (_, record) => (
           <Space>
             <Link to={`/experiments/${record.id}`}>
@@ -439,17 +439,17 @@ const ExperimentsPage = () => {
               </Button>
             )}
 
-            {canDeleteExperiments && (
+            {canArchiveExperiments && (
               <Popconfirm
-                title="Delete experiment?"
-                description="This cannot be undone."
-                okText="Delete"
+                title="Archive  experiment?"
+                description="This will hide the experiment from normal experiment lists. It will not be permanently deleted."
+                okText="Archive"
                 cancelText="Cancel"
                 okButtonProps={{ danger: true }}
-                onConfirm={() => handleDelete(record.id)}
+                onConfirm={() => handleArchive(record.id)}
               >
                 <Button size="small" danger>
-                  Delete
+                  Archive
                 </Button>
               </Popconfirm>
             )}
@@ -460,8 +460,8 @@ const ExperimentsPage = () => {
 
     return baseColumns;
   }, [
-    canDeleteExperiments,
-    handleDelete,
+    canArchiveExperiments,
+    handleArchive,
     openEditModal,
     canEditExperiments,
     canEditExperimentRecord,

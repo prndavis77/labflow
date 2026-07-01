@@ -27,9 +27,9 @@ export const updateProject = async (projectId, payload) => {
   return response.data;
 };
 
-// Delete a project
+// Archive a project
 // Only admins and supervisors should be allowed by the backend
-export const deleteProject = async (projectId) => {
+export const archiveProject = async (projectId) => {
   const response = await axiosClient.delete(`/projects/${projectId}`);
   return response.data;
 };

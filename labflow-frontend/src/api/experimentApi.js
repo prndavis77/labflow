@@ -32,8 +32,8 @@ export const updateExperiment = async (experimentId, payload) => {
   return response.data;
 };
 
-// Delete an experiment
-export const deleteExperiment = async (experimentId) => {
+// Archive an experiment
+export const archiveExperiment = async (experimentId) => {
   const response = await axiosClient.delete(`/experiments/${experimentId}`);
   return response.data;
 };

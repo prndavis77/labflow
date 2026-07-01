@@ -14,7 +14,12 @@ import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import { fetchTasks, createTask, updateTask, deleteTask } from "../api/taskApi";
+import {
+  fetchTasks,
+  createTask,
+  updateTask,
+  archiveTask,
+} from "../api/taskApi";
 import { fetchProjects } from "../api/projectApi";
 import { fetchUsers } from "../api/userApi";
 import { fetchProjectMembers } from "../api/projectMemberApi";
@@ -61,8 +66,8 @@ const TasksPage = () => {
     currentUser?.role,
   );
 
-  // Only admins and supervisors can delete tasks
-  const canDeleteTasks = isAdminOrSupervisor;
+  // Only admins and supervisors can archive tasks
+  const canArchiveTasks = isAdminOrSupervisor;
 
   // Converts projects into options for Ant Design Select.
   const projectOptions = useMemo(() => {
@@ -299,17 +304,17 @@ const TasksPage = () => {
     }
   };
 
-  const handleDelete = useCallback(
+  const handleArchive = useCallback(
     async (taskId) => {
       try {
-        await deleteTask(taskId);
+        await archiveTask(taskId);
 
-        message.success("Task deleted successfully.");
+        message.success("Task archived successfully.");
 
         await loadTasks();
       } catch (error) {
         const messageText =
-          error.response?.data?.message || "Failed to delete task.";
+          error.response?.data?.message || "Failed to archive task.";
 
         message.error(messageText);
       }
@@ -415,7 +420,7 @@ const TasksPage = () => {
       {
         title: "Actions",
         key: "actions",
-        width: canDeleteTasks ? 220 : 140,
+        width: canArchiveTasks ? 220 : 140,
         render: (_, record) => (
           <Space>
             <Link to={`/tasks/${record.id}`}>
@@ -430,14 +435,14 @@ const TasksPage = () => {
               Edit
             </Button>
 
-            {canDeleteTasks && (
+            {canArchiveTasks && (
               <Popconfirm
-                title="Delete task?"
-                description="This cannot be undone."
-                okText="Delete"
+                title="Archive task?"
+                description="This will hide the task from normal task lists. It will not be permanently deleted."
+                okText="Archive"
                 cancelText="Cancel"
                 okButtonProps={{ danger: true }}
-                onConfirm={() => handleDelete(record.id)}
+                onConfirm={() => handleArchive(record.id)}
                 disabled={
                   currentUser.role === "supervisor" && !record.projectId
                 }
@@ -449,7 +454,7 @@ const TasksPage = () => {
                     currentUser.role === "supervisor" && !record.projectId
                   }
                 >
-                  Delete
+                  Archive
                 </Button>
               </Popconfirm>
             )}
@@ -459,9 +464,9 @@ const TasksPage = () => {
     ];
     return baseColumns;
   }, [
-    canDeleteTasks,
+    canArchiveTasks,
     canEditTaskRecord,
-    handleDelete,
+    handleArchive,
     openEditModal,
     currentUser,
   ]);

@@ -13,7 +13,7 @@ import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import { deleteProject, fetchProjects } from "../api/projectApi";
+import { archiveProject, fetchProjects } from "../api/projectApi";
 import { fetchUsers } from "../api/userApi";
 import { useAuth } from "../context/useAuth";
 import { PROJECT_STATUS_COLORS } from "../constants/statusColors";
@@ -105,17 +105,17 @@ const ProjectsPage = () => {
     await loadProjects();
   };
 
-  const handleDelete = useCallback(
+  const handleArchive = useCallback(
     async (projectId) => {
       try {
-        await deleteProject(projectId);
+        await archiveProject(projectId);
 
-        message.success("Project deleted successfully.");
+        message.success("Project archived successfully.");
 
         await loadProjects();
       } catch (error) {
         const messageText =
-          error.response?.data?.message || "Failed to delete project.";
+          error.response?.data?.message || "Failed to archive project.";
 
         message.error(messageText);
       }
@@ -201,15 +201,15 @@ const ProjectsPage = () => {
                 </Button>
 
                 <Popconfirm
-                  title="Delete project?"
-                  description="This cannot be undone."
-                  okText="Delete"
+                  title="Archive project?"
+                  description="This will hide the project from normal project lists. Linked tasks, experiments, protocols, bookings, and notebook entries will remain in the database."
+                  okText="Archive"
                   cancelText="Cancel"
                   okButtonProps={{ danger: true }}
-                  onConfirm={() => handleDelete(record.id)}
+                  onConfirm={() => handleArchive(record.id)}
                 >
                   <Button size="small" danger>
-                    Delete
+                    Archive
                   </Button>
                 </Popconfirm>
               </>
@@ -218,7 +218,7 @@ const ProjectsPage = () => {
         ),
       },
     ];
-  }, [canManageProjects, handleDelete, openEditModal]);
+  }, [canManageProjects, handleArchive, openEditModal]);
 
   return (
     <>

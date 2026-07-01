@@ -31,9 +31,9 @@ export const updateProtocol = async (protocolId, payload) => {
   return response.data;
 };
 
-// Delete a protocol
+// Archive a protocol
 // The backend currently limits this to admins and supervisors
-export const deleteProtocol = async (protocolId) => {
+export const archiveProtocol = async (protocolId) => {
   const response = await axiosClient.delete(`/protocols/${protocolId}`);
   return response.data;
 };

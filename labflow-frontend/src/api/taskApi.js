@@ -29,8 +29,8 @@ export const updateTask = async (taskId, payload) => {
   return response.data;
 };
 
-// Delete a task
-export const deleteTask = async (taskId) => {
+// Archive a task
+export const archiveTask = async (taskId) => {
   const response = await axiosClient.delete(`/tasks/${taskId}`);
   return response.data;
 };

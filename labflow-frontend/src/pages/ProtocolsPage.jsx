@@ -14,7 +14,7 @@ import { PlusOutlined } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import { deleteProtocol, fetchProtocols } from "../api/protocolApi";
+import { archiveProtocol, fetchProtocols } from "../api/protocolApi";
 import { fetchProjects } from "../api/projectApi";
 import { fetchProjectMembers } from "../api/projectMemberApi";
 import {
@@ -63,8 +63,8 @@ const ProtocolsPage = () => {
   const canEditProtocols =
     isAdminOrSupervisor || currentUser?.role === "researcher";
 
-  // Only admins and supervisors can delete protocols by role
-  const canDeleteProtocols = ["admin", "supervisor"].includes(
+  // Only admins and supervisors can archive protocols by role
+  const canArchiveProtocols = ["admin", "supervisor"].includes(
     currentUser?.role,
   );
 
@@ -244,17 +244,17 @@ const ProtocolsPage = () => {
     await loadProtocols();
   };
 
-  const handleDelete = useCallback(
+  const handleArchive = useCallback(
     async (protocolId) => {
       try {
-        await deleteProtocol(protocolId);
+        await archiveProtocol(protocolId);
 
-        message.success("Protocol deleted successfully.");
+        message.success("Protocol archived successfully.");
 
         await loadProtocols();
       } catch (error) {
         const messageText =
-          error.response?.data?.message || "Failed to delete protocol.";
+          error.response?.data?.message || "Failed to archive protocol.";
 
         message.error(messageText);
       }
@@ -392,17 +392,17 @@ const ProtocolsPage = () => {
               </Button>
             )}
 
-            {canDeleteProtocols && (
+            {canArchiveProtocols && (
               <Popconfirm
-                title="Delete protocol?"
-                description="This cannot be undone."
-                okText="Delete"
+                title="Archive protocol?"
+                description="This will hide the protocol from normal protocol lists. It will not be permanently deleted."
+                okText="Archive"
                 cancelText="Cancel"
                 okButtonProps={{ danger: true }}
-                onConfirm={() => handleDelete(record.id)}
+                onConfirm={() => handleArchive(record.id)}
               >
                 <Button size="small" danger>
-                  Delete
+                  Archive
                 </Button>
               </Popconfirm>
             )}
@@ -412,8 +412,8 @@ const ProtocolsPage = () => {
     ];
   }, [
     canEditProtocols,
-    canDeleteProtocols,
-    handleDelete,
+    canArchiveProtocols,
+    handleArchive,
     openEditModal,
     canEditProtocolRecord,
   ]);
