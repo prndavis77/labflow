@@ -43,6 +43,106 @@ User.belongsTo(Organization, {
   as: "organization",
 });
 
+Organization.hasMany(Project, {
+  foreignKey: "organizationId",
+  as: "projects",
+});
+
+Project.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(Task, {
+  foreignKey: "organizationId",
+  as: "tasks",
+});
+
+Task.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(Experiment, {
+  foreignKey: "organizationId",
+  as: "experiments",
+});
+
+Experiment.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(Protocol, {
+  foreignKey: "organizationId",
+  as: "protocols",
+});
+
+Protocol.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(Equipment, {
+  foreignKey: "organizationId",
+  as: "equipment",
+});
+
+Equipment.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(EquipmentBooking, {
+  foreignKey: "organizationId",
+  as: "equipmentBookings",
+});
+
+EquipmentBooking.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(NotebookEntry, {
+  foreignKey: "organizationId",
+  as: "notebookEntries",
+});
+
+NotebookEntry.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(ProjectMember, {
+  foreignKey: "organizationId",
+  as: "projectMembers",
+});
+
+ProjectMember.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(ReviewEvent, {
+  foreignKey: "organizationId",
+  as: "reviewEvents",
+});
+
+ReviewEvent.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Organization.hasMany(AuditLog, {
+  foreignKey: "organizationId",
+  as: "auditLogs",
+});
+
+AuditLog.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
 module.exports = {
   User,
   Project,

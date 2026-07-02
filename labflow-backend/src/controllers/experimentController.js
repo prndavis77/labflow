@@ -163,6 +163,7 @@ const createExperimentReviewEvent = async ({
   action,
   comment,
   reviewerId,
+  organizationId,
 }) => {
   await ReviewEvent.create({
     targetType: "experiment",
@@ -170,6 +171,7 @@ const createExperimentReviewEvent = async ({
     action,
     comment: comment?.trim() || null,
     reviewerId,
+    organizationId,
   });
 };
 
@@ -809,6 +811,7 @@ const updateExperiment = async (req, res) => {
               ? reviewComment
               : reviewComment || "Experiment approved.",
           reviewerId: req.user.id,
+          organizationId: experiment.organizationId,
         });
 
         await writeAuditLog({

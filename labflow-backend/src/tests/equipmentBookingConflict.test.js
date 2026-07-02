@@ -48,6 +48,7 @@ describe("Equipment booking conflicts", () => {
       purpose: "Existing confirmed booking.",
       equipmentId: equipment.id,
       userId: adminUser.id,
+      organizationId: equipment.organizationId,
       projectId: null,
       experimentId: null,
     });
@@ -82,6 +83,7 @@ describe("Equipment booking conflicts", () => {
       purpose: "Existing confirmed booking.",
       equipmentId: equipment.id,
       userId: adminUser.id,
+      organizationId: equipment.organizationId,
       projectId: null,
       experimentId: null,
     });
@@ -113,6 +115,7 @@ describe("Equipment booking conflicts", () => {
       purpose: "Cancelled booking should not block.",
       equipmentId: equipment.id,
       userId: adminUser.id,
+      organizationId: equipment.organizationId,
       projectId: null,
       experimentId: null,
     });

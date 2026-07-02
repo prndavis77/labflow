@@ -75,6 +75,12 @@ const AuditLog = sequelize.define(
       allowNull: true,
       field: "user_agent",
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "audit_logs",

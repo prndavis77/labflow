@@ -11,6 +11,7 @@ const getRequestIp = (req) => {
 const writeAuditLog = async ({
   req,
   actorUserId,
+  organizationId,
   action,
   entityType,
   entityId = null,
@@ -19,8 +20,17 @@ const writeAuditLog = async ({
   metadata = null,
 }) => {
   try {
+    const resolvedOrganizationId =
+      organizationId || req?.user?.organizationId || null;
+
+    if (!resolvedOrganizationId) {
+      console.error("Audit log write skipped: organizationId is missing.");
+      return;
+    }
+
     await AuditLog.create({
       actorUserId: actorUserId || req?.user?.id || null,
+      organizationId: resolvedOrganizationId,
       action,
       entityType,
       entityId,

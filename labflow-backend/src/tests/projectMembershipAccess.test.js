@@ -104,12 +104,14 @@ describe("Project membership access", () => {
       projectId: memberProject.id,
       userId: memberResearcher.id,
       projectRole: "lead",
+      organizationId: memberProject.organizationId,
     });
 
     await ProjectMember.create({
       projectId: viewerProject.id,
       userId: viewerResearcher.id,
       projectRole: "viewer",
+      organizationId: viewerProject.organizationId,
     });
 
     adminToken = await loginAndGetToken("admin@test.com");
@@ -250,6 +252,7 @@ describe("Project membership access", () => {
       description: "This project should be archived, not deleted.",
       status: "active",
       supervisorId: supervisor.id,
+      organizationId: supervisor.organizationId,
     });
 
     const response = await request(app)

@@ -479,6 +479,7 @@ const createTask = async (req, res) => {
       projectId: resolvedProjectId,
       assignedToId: resolvedAssignedToId,
       createdById: req.user.id,
+      organizationId: req.user.organizationId,
     });
 
     const createdTask = await Task.findByPk(task.id, {
@@ -766,6 +767,7 @@ const updateTask = async (req, res) => {
             ? "Task completion confirmed."
             : "Task reopened for further work.",
         reviewerId: req.user.id,
+        organizationId: task.organizationId || req.user.organizationId,
       });
 
       await writeAuditLog({

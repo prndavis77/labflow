@@ -60,6 +60,12 @@ const ReviewEvent = sequelize.define(
         key: "id",
       },
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "review_events",

@@ -25,6 +25,7 @@ const createExperiment = async ({
   researcherId,
   createdById,
   reviewStatus = "pending",
+  organizationId,
 }) => {
   return Experiment.create({
     title: "Experiment awaiting review",
@@ -32,6 +33,7 @@ const createExperiment = async ({
     notes: "Created by automated test.",
     status: "needs_review",
     reviewStatus,
+    organizationId,
     reviewComment: null,
     startedAt: "2030-01-01",
     completedAt: null,
@@ -47,6 +49,7 @@ const createProtocol = async ({
   projectId = null,
   createdById,
   approvalStatus = "pending_review",
+  organizationId,
 }) => {
   return Protocol.create({
     title: "Protocol awaiting review",
@@ -54,6 +57,7 @@ const createProtocol = async ({
     purpose: "Test protocol review workflow.",
     content: "1. Prepare materials.\n2. Run procedure.\n3. Record results.",
     approvalStatus,
+    organizationId,
     reviewComment: null,
     projectId,
     equipmentId: null,
@@ -130,6 +134,7 @@ describe("Experiment and protocol review workflows", () => {
       projectId: supervisedProject.id,
       researcherId: researcher.id,
       createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)
@@ -159,6 +164,7 @@ describe("Experiment and protocol review workflows", () => {
       projectId: supervisedProject.id,
       researcherId: researcher.id,
       createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)
@@ -197,6 +203,7 @@ describe("Experiment and protocol review workflows", () => {
       projectId: supervisedProject.id,
       researcherId: researcher.id,
       createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)
@@ -218,6 +225,7 @@ describe("Experiment and protocol review workflows", () => {
       projectId: otherProject.id,
       researcherId: researcher.id,
       createdById: researcher.id,
+      organizationId: otherProject.organizationId,
     });
 
     const response = await request(app)
@@ -235,6 +243,7 @@ describe("Experiment and protocol review workflows", () => {
     const protocol = await createProtocol({
       projectId: supervisedProject.id,
       createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)
@@ -265,6 +274,7 @@ describe("Experiment and protocol review workflows", () => {
     const protocol = await createProtocol({
       projectId: supervisedProject.id,
       createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)
@@ -302,6 +312,7 @@ describe("Experiment and protocol review workflows", () => {
     const protocol = await createProtocol({
       projectId: supervisedProject.id,
       createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)
@@ -322,6 +333,7 @@ describe("Experiment and protocol review workflows", () => {
     const protocol = await createProtocol({
       projectId: otherProject.id,
       createdById: researcher.id,
+      organizationId: otherProject.organizationId,
     });
 
     const response = await request(app)
@@ -339,6 +351,7 @@ describe("Experiment and protocol review workflows", () => {
     const protocol = await createProtocol({
       projectId: null,
       createdById: supervisor.id,
+      organizationId: supervisor.organizationId,
     });
 
     const response = await request(app)
@@ -360,6 +373,7 @@ describe("Experiment and protocol review workflows", () => {
       researcherId: researcher.id,
       createdById: researcher.id,
       reviewStatus: "not_submitted",
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)
@@ -413,6 +427,7 @@ describe("Experiment and protocol review workflows", () => {
       approvalStatus: "draft",
       projectId: supervisedProject.id,
       createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
     });
 
     const response = await request(app)

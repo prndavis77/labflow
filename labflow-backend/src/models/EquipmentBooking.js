@@ -92,6 +92,12 @@ const EquipmentBooking = sequelize.define(
         key: "id",
       },
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "equipment_bookings",

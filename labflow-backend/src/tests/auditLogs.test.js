@@ -45,6 +45,7 @@ describe("Audit Log API", () => {
   });
 
   beforeEach(async () => {
+    const organization = await getOrCreateTestOrganization();
     await resetTestDatabase();
 
     admin = await createUser({
@@ -61,6 +62,7 @@ describe("Audit Log API", () => {
 
     await AuditLog.create({
       actorUserId: admin.id,
+      organizationId: organization.id,
       action: "user.password_reset",
       entityType: "user",
       entityId: researcher.id,
@@ -73,6 +75,7 @@ describe("Audit Log API", () => {
 
     await AuditLog.create({
       actorUserId: admin.id,
+      organizationId: organization.id,
       action: "experiment.approved",
       entityType: "experiment",
       entityId: 1,

@@ -46,6 +46,12 @@ const ProjectMember = sequelize.define(
         },
       },
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "project_members",

@@ -394,6 +394,7 @@ const createEquipmentBooking = async (req, res) => {
       userId: resolvedUserId,
       projectId: projectId || null,
       experimentId: experimentId || null,
+      organizationId: equipment.organizationId || req.user.organizationId,
     });
 
     const createdBooking = await EquipmentBooking.findByPk(booking.id, {

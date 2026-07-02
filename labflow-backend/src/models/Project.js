@@ -89,6 +89,12 @@ const Project = sequelize.define(
       allowNull: true,
       field: "archive_reason",
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "projects",

@@ -141,6 +141,7 @@ const createProtocolReviewEvent = async ({
   action,
   comment,
   reviewerId,
+  organizationId,
 }) => {
   await ReviewEvent.create({
     targetType: "protocol",
@@ -148,6 +149,7 @@ const createProtocolReviewEvent = async ({
     action,
     comment: comment?.trim() || null,
     reviewerId,
+    organizationId,
   });
 };
 
@@ -712,6 +714,7 @@ const updateProtocol = async (req, res) => {
               ? reviewComment
               : reviewComment || "Protocol approved.",
           reviewerId: req.user.id,
+          organizationId: protocol.organizationId || req.user.organizationId,
         });
 
         await writeAuditLog({

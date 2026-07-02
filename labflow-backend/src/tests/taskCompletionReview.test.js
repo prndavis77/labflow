@@ -26,6 +26,7 @@ const createTask = async ({
   projectId = null,
   assignedToId,
   createdById,
+  organizationId,
 }) => {
   return Task.create({
     title,
@@ -36,6 +37,7 @@ const createTask = async ({
     projectId,
     assignedToId,
     createdById,
+    organizationId,
   });
 };
 
@@ -101,6 +103,7 @@ describe("Task completion review", () => {
       title: "Assigned standalone task",
       assignedToId: researcher.id,
       createdById: supervisor.id,
+      organizationId: supervisor.organizationId,
     });
 
     const response = await request(app)
@@ -142,6 +145,7 @@ describe("Task completion review", () => {
       title: "Task assigned to someone else",
       assignedToId: researcher.id,
       createdById: supervisor.id,
+      organizationId: supervisor.organizationId,
     });
 
     const response = await request(app)
@@ -162,6 +166,7 @@ describe("Task completion review", () => {
       projectId: null,
       assignedToId: researcher.id,
       createdById: supervisor.id,
+      organizationId: supervisor.organizationId,
     });
 
     const response = await request(app)
@@ -183,6 +188,7 @@ describe("Task completion review", () => {
       projectId: null,
       assignedToId: researcher.id,
       createdById: supervisor.id,
+      organizationId: supervisor.organizationId,
     });
 
     const response = await request(app)
@@ -203,6 +209,7 @@ describe("Task completion review", () => {
       projectId: project.id,
       assignedToId: researcher.id,
       createdById: supervisor.id,
+      organizationId: project.organizationId,
     });
 
     const response = await request(app)
@@ -224,6 +231,7 @@ describe("Task completion review", () => {
       projectId: project.id,
       assignedToId: researcher.id,
       createdById: supervisor.id,
+      organizationId: project.organizationId,
     });
 
     const response = await request(app)
@@ -245,6 +253,7 @@ describe("Task completion review", () => {
       projectId: null,
       assignedToId: researcher.id,
       createdById: admin.id,
+      organizationId: admin.organizationId,
     });
 
     const response = await request(app)

@@ -91,6 +91,12 @@ const NotebookEntry = sequelize.define(
         key: "id",
       },
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "notebook_entries",

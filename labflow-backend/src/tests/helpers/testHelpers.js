@@ -62,35 +62,43 @@ const loginAndGetToken = async (email) => {
 
 const createTestProject = async ({
   title = "Test Project",
-  supervisorId,
-  description = "Project created by automated test.",
+  description = "Test project description",
   status = "active",
-  startDate = "2030-01-01",
-  targetEndDate = "2030-12-31",
-}) => {
+  supervisorId,
+  organizationId,
+} = {}) => {
+  const organization = organizationId
+    ? null
+    : await getOrCreateTestOrganization();
+
   return Project.create({
     title,
     description,
     status,
-    startDate,
-    targetEndDate,
     supervisorId,
+    organizationId: organizationId || organization.id,
   });
 };
 
 const createTestEquipment = async ({
   name = "Test Equipment",
   type = "HPLC",
-  location = "Test Lab",
+  location = "Lab 1",
   status = "available",
-  notes = "Equipment created by automated test.",
+  notes = "Test equipment",
+  organizationId,
 } = {}) => {
+  const organization = organizationId
+    ? null
+    : await getOrCreateTestOrganization();
+
   return Equipment.create({
     name,
     type,
     location,
     status,
     notes,
+    organizationId: organizationId || organization.id,
   });
 };
 

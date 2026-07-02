@@ -55,6 +55,12 @@ const Equipment = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "equipment",
