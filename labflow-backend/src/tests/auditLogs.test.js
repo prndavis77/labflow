@@ -5,9 +5,11 @@ const app = require("../server");
 const { sequelize } = require("../config/database");
 const { User, AuditLog } = require("../models");
 const { resetTestDatabase } = require("./helpers/dbHelpers");
+const { getOrCreateTestOrganization } = require("./helpers/testHelpers");
 
 const createUser = async ({ name, email, role }) => {
   const passwordHash = await bcrypt.hash("password123", 4);
+  const organization = await getOrCreateTestOrganization();
 
   return User.create({
     name,
@@ -15,6 +17,7 @@ const createUser = async ({ name, email, role }) => {
     passwordHash,
     role,
     department: "Testing",
+    organizationId: organization.id,
     canCreateExperiments: true,
     canEditExperiments: true,
     canCreateProtocols: true,

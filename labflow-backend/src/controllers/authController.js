@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { User } = require("../models");
+const { User, Organization } = require("../models");
 const generateToken = require("../utils/generateToken");
 const formatUserResponse = require("../utils/formatUserResponse");
 
@@ -39,12 +39,24 @@ const registerUser = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
+    const demoOrganization = await Organization.findOne({
+      where: { slug: "labflow-demo" },
+    });
+
+    if (!demoOrganization) {
+      return res.status(500).json({
+        status: "error",
+        message: "Default organization is not configured.",
+      });
+    }
+
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
       role: "researcher",
       department: department || null,
+      organizationId: demoOrganization.id,
     });
 
     const token = generateToken(user);

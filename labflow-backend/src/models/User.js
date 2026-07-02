@@ -105,6 +105,12 @@ const User = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+
+    organizationId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "organization_id",
+    },
   },
   {
     tableName: "users",

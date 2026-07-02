@@ -4,7 +4,11 @@ const app = require("../server");
 const { sequelize } = require("../config/database");
 const { User } = require("../models");
 
-const { createTestUser, loginAndGetToken } = require("./helpers/testHelpers");
+const {
+  createTestUser,
+  loginAndGetToken,
+  getOrCreateTestOrganization,
+} = require("./helpers/testHelpers");
 const { resetTestDatabase } = require("./helpers/dbHelpers");
 
 describe("Authorization", () => {

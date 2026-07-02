@@ -11,6 +11,7 @@ const NotebookEntry = require("./NotebookEntry");
 const ReviewEvent = require("./ReviewEvent");
 const ProjectMember = require("./ProjectMember");
 const AuditLog = require("./AuditLog");
+const Organization = require("./Organization");
 
 AuditLog.belongsTo(User, {
   foreignKey: "actorUserId",
@@ -32,6 +33,16 @@ User.hasMany(AuditLog, {
   as: "targetedAuditLogs",
 });
 
+Organization.hasMany(User, {
+  foreignKey: "organizationId",
+  as: "users",
+});
+
+User.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
 module.exports = {
   User,
   Project,
@@ -44,4 +55,5 @@ module.exports = {
   ReviewEvent,
   ProjectMember,
   AuditLog,
+  Organization,
 };

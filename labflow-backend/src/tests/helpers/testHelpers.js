@@ -2,16 +2,30 @@ const request = require("supertest");
 const bcrypt = require("bcrypt");
 
 const app = require("../../server");
-const { User, Project, Equipment } = require("../../models");
+const { User, Project, Equipment, Organization } = require("../../models");
 
 const TEST_PASSWORD = "password123";
 const TEST_BCRYPT_ROUNDS = process.env.NODE_ENV === "test" ? 4 : 12;
+
+const getOrCreateTestOrganization = async () => {
+  const [organization] = await Organization.findOrCreate({
+    where: { slug: "test-lab" },
+    defaults: {
+      name: "Test Lab",
+      type: "demo",
+      isActive: true,
+    },
+  });
+
+  return organization;
+};
 
 const createTestUser = async ({
   name,
   email,
   role = "researcher",
   department = "Testing",
+  organizationId,
   canCreateExperiments = true,
   canEditExperiments = true,
   canCreateProtocols = true,
@@ -19,12 +33,17 @@ const createTestUser = async ({
 }) => {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, TEST_BCRYPT_ROUNDS);
 
+  const organization = organizationId
+    ? null
+    : await getOrCreateTestOrganization();
+
   return User.create({
     name,
     email,
     passwordHash,
     role,
     department,
+    organizationId: organizationId || organization.id,
     canCreateExperiments,
     canEditExperiments,
     canCreateProtocols,
@@ -81,4 +100,5 @@ module.exports = {
   loginAndGetToken,
   createTestProject,
   createTestEquipment,
+  getOrCreateTestOrganization,
 };

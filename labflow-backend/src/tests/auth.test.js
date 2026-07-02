@@ -1,10 +1,9 @@
 const request = require("supertest");
-const bcrypt = require("bcrypt");
 
 const app = require("../server");
 const { sequelize } = require("../config/database");
 const { User } = require("../models");
-
+const { createTestUser } = require("./helpers/testHelpers");
 describe("Authentication", () => {
   beforeAll(async () => {
     await sequelize.authenticate();
@@ -18,18 +17,10 @@ describe("Authentication", () => {
       restartIdentity: true,
     });
 
-    const passwordHash = await bcrypt.hash("password123", 12);
-
-    await User.create({
+    await createTestUser({
       name: "Test Admin",
       email: "admin@test.com",
-      passwordHash,
       role: "admin",
-      department: "Testing",
-      canCreateExperiments: true,
-      canEditExperiments: true,
-      canCreateProtocols: true,
-      canEditProtocols: true,
     });
   });
 

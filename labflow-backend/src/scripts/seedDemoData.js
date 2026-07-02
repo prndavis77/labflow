@@ -13,6 +13,7 @@ const {
   NotebookEntry,
   ReviewEvent,
   ProjectMember,
+  Organization,
 } = require("../models");
 
 const SALT_ROUNDS = 12;
@@ -55,8 +56,21 @@ const clearDatabase = async () => {
   `);
 };
 
+const getOrCreateDemoOrganization = async () => {
+  const [organization] = await Organization.findOrCreate({
+    where: { slug: "labflow-demo" },
+    defaults: {
+      name: "LabFlow Demo Lab",
+      type: "demo",
+      isActive: true,
+    },
+  });
+
+  return organization;
+};
+
 // Creates demo users for testing role-based access
-const createUsers = async () => {
+const createUsers = async (organization) => {
   const passwordHash = await bcrypt.hash("password123", SALT_ROUNDS);
 
   const admin = await User.create({
@@ -64,7 +78,8 @@ const createUsers = async () => {
     email: "admin@labflow.test",
     passwordHash,
     role: "admin",
-    department: "Research Administration",
+    department: "Analytical Chemistry",
+    organizationId: organization.id,
     canCreateExperiments: true,
     canEditExperiments: true,
     canCreateProtocols: true,
@@ -77,6 +92,7 @@ const createUsers = async () => {
     passwordHash,
     role: "supervisor",
     department: "Analytical Chemistry",
+    organizationId: organization.id,
     canCreateExperiments: true,
     canEditExperiments: true,
     canCreateProtocols: true,
@@ -89,6 +105,7 @@ const createUsers = async () => {
     passwordHash: await bcrypt.hash("password123", 10),
     role: "researcher",
     department: "Analytical Chemistry",
+    organizationId: organization.id,
     canCreateExperiments: true,
     canEditExperiments: true,
     canCreateProtocols: false,
@@ -100,7 +117,8 @@ const createUsers = async () => {
     email: "jonas.weber@labflow.test",
     passwordHash: await bcrypt.hash("password123", 10),
     role: "researcher",
-    department: "Environmental Chemistry",
+    department: "Analytical Chemistry",
+    organizationId: organization.id,
     canCreateExperiments: true,
     canEditExperiments: true,
     canCreateProtocols: true,
@@ -113,6 +131,7 @@ const createUsers = async () => {
     passwordHash,
     role: "researcher",
     department: "Analytical Chemistry",
+    organizationId: organization.id,
     canCreateExperiments: false,
     canEditExperiments: false,
     canCreateProtocols: true,
@@ -650,6 +669,14 @@ const seedDemoData = async () => {
     console.log("Clearing existing data...");
 
     await clearDatabase();
+
+    console.log("Creating demo organization...");
+
+    const organization = await getOrCreateDemoOrganization();
+
+    console.log("Creating demo users...");
+
+    const users = await createUsers(organization);
 
     console.log("Creating demo users...");
 
