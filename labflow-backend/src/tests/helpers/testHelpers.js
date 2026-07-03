@@ -102,6 +102,19 @@ const createTestEquipment = async ({
   });
 };
 
+const createSecondTestOrganization = async () => {
+  const [organization] = await Organization.findOrCreate({
+    where: { slug: "second-test-lab" },
+    defaults: {
+      name: "Second Test Lab",
+      type: "demo",
+      isActive: true,
+    },
+  });
+
+  return organization;
+};
+
 module.exports = {
   TEST_PASSWORD,
   createTestUser,
@@ -109,4 +122,5 @@ module.exports = {
   createTestProject,
   createTestEquipment,
   getOrCreateTestOrganization,
+  createSecondTestOrganization,
 };
