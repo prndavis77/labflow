@@ -18,7 +18,9 @@ const getAuditLogs = async (req, res) => {
     const parsedLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
     const offset = (parsedPage - 1) * parsedLimit;
 
-    const where = {};
+    const where = {
+      organizationId: req.user.organizationId,
+    };
 
     if (action) {
       where.action = action;

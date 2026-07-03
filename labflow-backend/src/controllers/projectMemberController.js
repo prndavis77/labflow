@@ -143,7 +143,11 @@ const getProjectMemberById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const projectMember = await ProjectMember.findByPk(id, {
+    const projectMember = await ProjectMember.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
       include: projectMemberInclude,
     });
 
@@ -199,7 +203,13 @@ const createProjectMember = async (req, res) => {
       });
     }
 
-    const project = await Project.findByPk(projectId);
+    const project = await Project.findOne({
+      where: {
+        id: projectId,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -208,7 +218,12 @@ const createProjectMember = async (req, res) => {
       });
     }
 
-    const user = await User.findByPk(userId);
+    const user = await User.findOne({
+      where: {
+        id: userId,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -221,6 +236,7 @@ const createProjectMember = async (req, res) => {
       where: {
         projectId,
         userId,
+        organizationId: req.user.organizationId,
       },
     });
 
@@ -235,14 +251,16 @@ const createProjectMember = async (req, res) => {
       projectId,
       userId,
       projectRole,
+      organizationId: req.user.organizationId,
     });
 
-    const createdProjectMember = await ProjectMember.findByPk(
-      projectMember.id,
-      {
-        include: projectMemberInclude,
+    const createdProjectMember = await ProjectMember.findOne({
+      where: {
+        id: projectMember.id,
+        organizationId: req.user.organizationId,
       },
-    );
+      include: projectMemberInclude,
+    });
 
     return res.status(201).json({
       status: "success",
@@ -282,7 +300,12 @@ const updateProjectMember = async (req, res) => {
       });
     }
 
-    const projectMember = await ProjectMember.findByPk(id);
+    const projectMember = await ProjectMember.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!projectMember) {
       return res.status(404).json({
@@ -295,12 +318,13 @@ const updateProjectMember = async (req, res) => {
       projectRole,
     });
 
-    const updatedProjectMember = await ProjectMember.findByPk(
-      projectMember.id,
-      {
-        include: projectMemberInclude,
+    const updatedProjectMember = await ProjectMember.findOne({
+      where: {
+        id: projectMember.id,
+        organizationId: req.user.organizationId,
       },
-    );
+      include: projectMemberInclude,
+    });
 
     return res.json({
       status: "success",
@@ -325,7 +349,12 @@ const deleteProjectMember = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const projectMember = await ProjectMember.findByPk(id);
+    const projectMember = await ProjectMember.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!projectMember) {
       return res.status(404).json({

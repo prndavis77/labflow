@@ -57,24 +57,43 @@ const projectInclude = [
 ];
 
 // Validates that the selected project supervisor exists and has a role that is allowed to supervise projects
-const validateProjectSupervisor = async (supervisorId) => {
-  const supervisor = await User.findByPk(supervisorId);
+const validateProjectSupervisor = async (supervisorId, organizationId) => {
+  const supervisor = await User.findOne({
+    where: {
+      id: supervisorId,
+      organizationId,
+    },
+  });
 
-  if (!supervisor) {
-    return {
-      isValid: false,
-      statusCode: 404,
-      message: "Supervisor not found.",
-    };
-  }
+  const validateProjectSupervisor = async (supervisorId, organizationId) => {
+    const supervisor = await User.findOne({
+      where: {
+        id: supervisorId,
+        organizationId,
+      },
+    });
 
-  if (!["admin", "supervisor"].includes(supervisor.role)) {
+    if (!supervisor) {
+      return {
+        isValid: false,
+        statusCode: 404,
+        message: "Project supervisor not found.",
+      };
+    }
+
+    if (!["admin", "supervisor"].includes(supervisor.role)) {
+      return {
+        isValid: false,
+        statusCode: 400,
+        message: "Project supervisor must be an admin or supervisor.",
+      };
+    }
+
     return {
-      isValid: false,
-      statusCode: 400,
-      message: "Project supervisor must be an admin or supervisor.",
+      isValid: true,
+      supervisor,
     };
-  }
+  };
 
   return {
     isValid: true,
@@ -90,6 +109,7 @@ const getProjects = async (req, res) => {
     const { status, supervisorId } = req.query;
 
     const where = {
+      organizationId: req.user.organizationId,
       isArchived: false,
     };
 
@@ -137,7 +157,12 @@ const getProjectById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findByPk(id, {
+    const project = await Project.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
       include: projectInclude,
     });
 
@@ -212,8 +237,10 @@ const createProject = async (req, res) => {
     // If no supervisorId is provided, use the logged-in user as the supervisor
     const resolvedSupervisorId = supervisorId || req.user.id;
 
-    const supervisorValidation =
-      await validateProjectSupervisor(resolvedSupervisorId);
+    const supervisorValidation = await validateProjectSupervisor(
+      resolvedSupervisorId,
+      req.user.organizationId,
+    );
 
     if (!supervisorValidation.isValid) {
       return res.status(supervisorValidation.statusCode).json({
@@ -229,9 +256,14 @@ const createProject = async (req, res) => {
       startDate: startDate || null,
       targetEndDate: targetEndDate || null,
       supervisorId: resolvedSupervisorId,
+      organizationId: req.user.organizationId,
     });
 
-    const createdProject = await Project.findByPk(project.id, {
+    const createdProject = await Project.findOne({
+      where: {
+        id: project.id,
+        organizationId: req.user.organizationId,
+      },
       include: projectInclude,
     });
 
@@ -267,7 +299,12 @@ const updateProject = async (req, res) => {
       supervisorId,
     } = req.body;
 
-    const project = await Project.findByPk(id);
+    const project = await Project.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -319,8 +356,10 @@ const updateProject = async (req, res) => {
         });
       }
 
-      const supervisorValidation =
-        await validateProjectSupervisor(supervisorId);
+      const supervisorValidation = await validateProjectSupervisor(
+        resolvedSupervisorId,
+        req.user.organizationId,
+      );
 
       if (!supervisorValidation.isValid) {
         return res.status(supervisorValidation.statusCode).json({
@@ -344,7 +383,11 @@ const updateProject = async (req, res) => {
       supervisorId: resolvedSupervisorId,
     });
 
-    const updatedProject = await Project.findByPk(project.id, {
+    const updatedProject = await Project.findOne({
+      where: {
+        id: project.id,
+        organizationId: req.user.organizationId,
+      },
       include: projectInclude,
     });
 
@@ -371,7 +414,12 @@ const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findByPk(id);
+    const project = await Project.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!project) {
       return res.status(404).json({

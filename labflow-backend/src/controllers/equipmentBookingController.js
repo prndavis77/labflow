@@ -143,6 +143,7 @@ const findConflictingBooking = async ({
   startDate,
   endDate,
   ignoredBookingId,
+  organizationId,
 }) => {
   const where = {
     equipmentId,
@@ -174,7 +175,9 @@ const getEquipmentBookings = async (req, res) => {
   try {
     const { equipmentId, userId, projectId, status } = req.query;
 
-    const where = {};
+    const where = {
+      organizationId: req.user.organizationId,
+    };
 
     if (equipmentId) {
       where.equipmentId = equipmentId;
@@ -251,7 +254,11 @@ const getEquipmentBookingById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const booking = await EquipmentBooking.findByPk(id, {
+    const booking = await EquipmentBooking.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
       include: bookingInclude,
     });
 
@@ -310,7 +317,12 @@ const createEquipmentBooking = async (req, res) => {
       });
     }
 
-    const equipment = await Equipment.findByPk(equipmentId);
+    const equipment = await Equipment.findOne({
+      where: {
+        id: equipmentId,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!equipment) {
       return res.status(404).json({
@@ -329,7 +341,12 @@ const createEquipmentBooking = async (req, res) => {
     // If no userId is provided, assign the booking to the logged-in user
     const resolvedUserId = userId || req.user.id;
 
-    const user = await User.findByPk(resolvedUserId);
+    const user = await User.findOne({
+      where: {
+        id: resolvedUserId,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -339,7 +356,13 @@ const createEquipmentBooking = async (req, res) => {
     }
 
     if (projectId) {
-      const project = await Project.findByPk(projectId);
+      const project = await Project.findOne({
+        where: {
+          id: projectId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!project) {
         return res.status(404).json({
@@ -350,7 +373,13 @@ const createEquipmentBooking = async (req, res) => {
     }
 
     if (experimentId) {
-      const experiment = await Experiment.findByPk(experimentId);
+      const experiment = await Experiment.findOne({
+        where: {
+          id: experimentId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!experiment) {
         return res.status(404).json({
@@ -397,7 +426,11 @@ const createEquipmentBooking = async (req, res) => {
       organizationId: equipment.organizationId || req.user.organizationId,
     });
 
-    const createdBooking = await EquipmentBooking.findByPk(booking.id, {
+    const createdBooking = await EquipmentBooking.findOne({
+      where: {
+        id: booking.id,
+        organizationId: req.user.organizationId,
+      },
       include: bookingInclude,
     });
 
@@ -436,7 +469,12 @@ const updateEquipmentBooking = async (req, res) => {
       experimentId,
     } = req.body;
 
-    const booking = await EquipmentBooking.findByPk(id);
+    const booking = await EquipmentBooking.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!booking) {
       return res.status(404).json({
@@ -467,7 +505,12 @@ const updateEquipmentBooking = async (req, res) => {
       });
     }
 
-    const equipment = await Equipment.findByPk(resolvedEquipmentId);
+    const equipment = await Equipment.findOne({
+      where: {
+        id: resolvedEquipmentId,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!equipment) {
       return res.status(404).json({
@@ -484,7 +527,12 @@ const updateEquipmentBooking = async (req, res) => {
     }
 
     if (userId) {
-      const user = await User.findByPk(userId);
+      const user = await User.findOne({
+        where: {
+          id: userId,
+          organizationId: req.user.organizationId,
+        },
+      });
 
       if (!user) {
         return res.status(404).json({
@@ -495,7 +543,13 @@ const updateEquipmentBooking = async (req, res) => {
     }
 
     if (projectId) {
-      const project = await Project.findByPk(projectId);
+      const project = await Project.findOne({
+        where: {
+          id: projectId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!project) {
         return res.status(404).json({
@@ -506,7 +560,13 @@ const updateEquipmentBooking = async (req, res) => {
     }
 
     if (experimentId) {
-      const experiment = await Experiment.findByPk(experimentId);
+      const experiment = await Experiment.findOne({
+        where: {
+          id: experimentId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!experiment) {
         return res.status(404).json({
@@ -560,9 +620,14 @@ const updateEquipmentBooking = async (req, res) => {
         experimentId !== undefined
           ? experimentId || null
           : booking.experimentId,
+      organizationId: equipment.organizationId || req.user.organizationId,
     });
 
-    const updatedBooking = await EquipmentBooking.findByPk(booking.id, {
+    const updatedBooking = await EquipmentBooking.findOne({
+      where: {
+        id: booking.id,
+        organizationId: req.user.organizationId,
+      },
       include: bookingInclude,
     });
 
@@ -590,7 +655,12 @@ const deleteEquipmentBooking = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const booking = await EquipmentBooking.findByPk(id);
+    const booking = await EquipmentBooking.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!booking) {
       return res.status(404).json({

@@ -44,17 +44,32 @@ const reviewEventInclude = [
 // Validates that the review target exists
 // Because ReviewEvent can point to either an experiment or a protocol
 // this validation replaces a normal single-table foreign key
-const findReviewTarget = async (targetType, targetId) => {
+const findReviewTarget = async ({ targetType, targetId, organizationId }) => {
   if (targetType === "experiment") {
-    return Experiment.findByPk(targetId);
+    return Experiment.findOne({
+      where: {
+        id: targetId,
+        organizationId,
+      },
+    });
   }
 
   if (targetType === "protocol") {
-    return Protocol.findByPk(targetId);
+    return Protocol.findOne({
+      where: {
+        id: targetId,
+        organizationId,
+      },
+    });
   }
 
   if (targetType === "task") {
-    return Task.findByPk(targetId);
+    return Task.findOne({
+      where: {
+        id: targetId,
+        organizationId,
+      },
+    });
   }
 
   return null;
@@ -70,7 +85,12 @@ const canViewReviewTarget = async (user, targetType, targetId) => {
   }
 
   if (targetType === "experiment") {
-    const experiment = await Experiment.findByPk(targetId);
+    const experiment = await Experiment.findOne({
+      where: {
+        id: targetId,
+        organizationId: user.organizationId,
+      },
+    });
 
     if (!experiment) {
       return null;
@@ -80,7 +100,12 @@ const canViewReviewTarget = async (user, targetType, targetId) => {
   }
 
   if (targetType === "protocol") {
-    const protocol = await Protocol.findByPk(targetId);
+    const protocol = await Protocol.findOne({
+      where: {
+        id: targetId,
+        organizationId: user.organizationId,
+      },
+    });
 
     if (!protocol) {
       return null;
@@ -96,7 +121,12 @@ const canViewReviewTarget = async (user, targetType, targetId) => {
   }
 
   if (targetType === "task") {
-    const task = await Task.findByPk(targetId);
+    const task = await Task.findOne({
+      where: {
+        id: targetId,
+        organizationId: user.organizationId,
+      },
+    });
 
     if (!task) {
       return null;
@@ -202,7 +232,11 @@ const getReviewEventById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const reviewEvent = await ReviewEvent.findByPk(id, {
+    const reviewEvent = await ReviewEvent.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
       include: reviewEventInclude,
     });
 
@@ -286,7 +320,11 @@ const createReviewEvent = async (req, res) => {
       });
     }
 
-    const target = await findReviewTarget(targetType, targetId);
+    const target = await getReviewTarget({
+      targetType,
+      targetId,
+      organizationId: req.user.organizationId,
+    });
 
     if (!target) {
       return res.status(404).json({
@@ -313,9 +351,14 @@ const createReviewEvent = async (req, res) => {
       action,
       comment: comment?.trim() || null,
       reviewerId: req.user.id,
+      organizationId: req.user.organizationId,
     });
 
-    const createdReviewEvent = await ReviewEvent.findByPk(reviewEvent.id, {
+    const createdReviewEvent = await ReviewEvent.findOne({
+      where: {
+        id: reviewEvent.id,
+        organizationId: req.user.organizationId,
+      },
       include: reviewEventInclude,
     });
 
@@ -349,7 +392,12 @@ const deleteReviewEvent = async (req, res) => {
     }
     const { id } = req.params;
 
-    const reviewEvent = await ReviewEvent.findByPk(id);
+    const reviewEvent = await ReviewEvent.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!reviewEvent) {
       return res.status(404).json({

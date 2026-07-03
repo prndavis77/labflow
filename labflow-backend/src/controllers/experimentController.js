@@ -239,8 +239,8 @@ const getExperiments = async (req, res) => {
   try {
     const { projectId, status, reviewStatus, researcherId, taskId } = req.query;
 
-    // Build a flexible filter object from query parameters
     const where = {
+      organizationId: req.user.organizationId,
       isArchived: false,
     };
 
@@ -318,7 +318,12 @@ const getExperimentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const experiment = await Experiment.findByPk(id, {
+    const experiment = await Experiment.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
       include: experimentInclude,
     });
 
@@ -433,7 +438,13 @@ const createExperiment = async (req, res) => {
       });
     }
 
-    const project = await Project.findByPk(projectId);
+    const project = await Project.findOne({
+      where: {
+        id: projectId,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -471,7 +482,12 @@ const createExperiment = async (req, res) => {
     // If no researcher is provided, default to the logged-in user
     const resolvedResearcherId = researcherId || req.user.id;
 
-    const researcher = await User.findByPk(resolvedResearcherId);
+    const researcher = await User.findOne({
+      where: {
+        id: resolvedResearcherId,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!researcher) {
       return res.status(404).json({
@@ -481,7 +497,13 @@ const createExperiment = async (req, res) => {
     }
 
     if (taskId) {
-      const task = await Task.findByPk(taskId);
+      const task = await Task.findOne({
+        where: {
+          id: taskId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!task) {
         return res.status(404).json({
@@ -499,7 +521,13 @@ const createExperiment = async (req, res) => {
     }
 
     if (protocolId) {
-      const protocol = await Protocol.findByPk(protocolId);
+      const protocol = await Protocol.findOne({
+        where: {
+          id: protocolId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!protocol) {
         return res.status(404).json({
@@ -536,9 +564,14 @@ const createExperiment = async (req, res) => {
       taskId: taskId || null,
       protocolId: protocolId || null,
       createdById: req.user.id,
+      organizationId: req.user.organizationId,
     });
 
-    const createdExperiment = await Experiment.findByPk(experiment.id, {
+    const createdExperiment = await Experiment.findOne({
+      where: {
+        id: experiment.id,
+        organizationId: req.user.organizationId,
+      },
       include: experimentInclude,
     });
 
@@ -580,7 +613,13 @@ const updateExperiment = async (req, res) => {
       protocolId,
     } = req.body;
 
-    const experiment = await Experiment.findByPk(id);
+    const experiment = await Experiment.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
+    });
 
     if (!experiment) {
       return res.status(404).json({
@@ -692,7 +731,12 @@ const updateExperiment = async (req, res) => {
     }
 
     if (researcherId) {
-      const researcher = await User.findByPk(researcherId);
+      const researcher = await User.findOne({
+        where: {
+          id: researcherId,
+          organizationId: req.user.organizationId,
+        },
+      });
 
       if (!researcher) {
         return res.status(404).json({
@@ -703,7 +747,13 @@ const updateExperiment = async (req, res) => {
     }
 
     if (taskId) {
-      const task = await Task.findByPk(taskId);
+      const task = await Task.findOne({
+        where: {
+          id: taskId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!task) {
         return res.status(404).json({
@@ -721,7 +771,13 @@ const updateExperiment = async (req, res) => {
     }
 
     if (protocolId) {
-      const protocol = await Protocol.findByPk(protocolId);
+      const protocol = await Protocol.findOne({
+        where: {
+          id: protocolId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!protocol) {
         return res.status(404).json({
@@ -841,7 +897,11 @@ const updateExperiment = async (req, res) => {
       }
     }
 
-    const updatedExperiment = await Experiment.findByPk(experiment.id, {
+    const updatedExperiment = await Experiment.findOne({
+      where: {
+        id: experiment.id,
+        organizationId: req.user.organizationId,
+      },
       include: experimentInclude,
     });
 
@@ -869,7 +929,13 @@ const deleteExperiment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const experiment = await Experiment.findByPk(id);
+    const experiment = await Experiment.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
+    });
 
     if (!experiment) {
       return res.status(404).json({

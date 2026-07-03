@@ -104,7 +104,7 @@ const getNotebookEntries = async (req, res) => {
     const { experimentId, projectId, authorId, entryType } = req.query;
 
     // Build a flexible filter object from query parameters.
-    const where = {};
+    const where = { organizationId: req.user.organizationId };
 
     if (experimentId) {
       where.experimentId = experimentId;
@@ -177,7 +177,11 @@ const getNotebookEntryById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const entry = await NotebookEntry.findByPk(id, {
+    const entry = await NotebookEntry.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
       include: notebookEntryInclude,
     });
 
@@ -218,7 +222,12 @@ const createNotebookEntry = async (req, res) => {
       });
     }
 
-    const experiment = await Experiment.findByPk(experimentId);
+    const experiment = await Experiment.findOne({
+      where: {
+        id: experimentId,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!experiment) {
       return res.status(404).json({
@@ -235,9 +244,14 @@ const createNotebookEntry = async (req, res) => {
       experimentId: experiment.id,
       projectId: experiment.projectId,
       authorId: req.user.id,
+      organizationId: req.user.organizationId,
     });
 
-    const createdEntry = await NotebookEntry.findByPk(entry.id, {
+    const createdEntry = await NotebookEntry.findOne({
+      where: {
+        id: entry.id,
+        organizationId: req.user.organizationId,
+      },
       include: notebookEntryInclude,
     });
 
@@ -267,7 +281,12 @@ const updateNotebookEntry = async (req, res) => {
 
     const { title, entryType, content, contentFormat, experimentId } = req.body;
 
-    const entry = await NotebookEntry.findByPk(id);
+    const entry = await NotebookEntry.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!entry) {
       return res.status(404).json({
@@ -286,7 +305,12 @@ const updateNotebookEntry = async (req, res) => {
     let nextProjectId = entry.projectId;
 
     if (experimentId !== undefined) {
-      const experiment = await Experiment.findByPk(experimentId);
+      const experiment = await Experiment.findOne({
+        where: {
+          id: experimentId,
+          organizationId: req.user.organizationId,
+        },
+      });
 
       if (!experiment) {
         return res.status(404).json({
@@ -307,9 +331,14 @@ const updateNotebookEntry = async (req, res) => {
         contentFormat !== undefined ? contentFormat : entry.contentFormat,
       experimentId: nextExperimentId,
       projectId: nextProjectId,
+      organizationId: req.user.organizationId,
     });
 
-    const updatedEntry = await NotebookEntry.findByPk(entry.id, {
+    const updatedEntry = await NotebookEntry.findOne({
+      where: {
+        id: entry.id,
+        organizationId: req.user.organizationId,
+      },
       include: notebookEntryInclude,
     });
 
@@ -337,7 +366,12 @@ const deleteNotebookEntry = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const entry = await NotebookEntry.findByPk(id);
+    const entry = await NotebookEntry.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!entry) {
       return res.status(404).json({

@@ -30,15 +30,12 @@ const isAdminOrSupervisor = (user) => {
   return ["admin", "supervisor"].includes(user?.role);
 };
 
-const isUserProjectMember = async ({ userId, projectId }) => {
-  if (!userId || !projectId) {
-    return false;
-  }
-
+const isUserProjectMember = async ({ userId, projectId, organizationId }) => {
   const membership = await ProjectMember.findOne({
     where: {
       userId,
       projectId,
+      organizationId,
     },
   });
 
@@ -181,8 +178,8 @@ const getTasks = async (req, res) => {
   try {
     const { projectId, status } = req.query;
 
-    // Build a flexible where clause from optional query parameters.
     const where = {
+      organizationId: req.user.organizationId,
       isArchived: false,
     };
 
@@ -277,7 +274,11 @@ const getTaskById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const task = await Task.findByPk(id, {
+    const task = await Task.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
       include: [
         {
           model: Project,
@@ -374,7 +375,13 @@ const createTask = async (req, res) => {
         : req.user.id;
 
     if (resolvedProjectId) {
-      const project = await Project.findByPk(projectId);
+      const project = await Project.findOne({
+        where: {
+          id: projectId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!project) {
         return res.status(404).json({
@@ -401,7 +408,12 @@ const createTask = async (req, res) => {
       }
     }
 
-    const assignedUser = await User.findByPk(resolvedAssignedToId);
+    const assignedUser = await User.findOne({
+      where: {
+        id: resolvedAssignedToId,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!assignedUser) {
       return res.status(404).json({
@@ -446,6 +458,7 @@ const createTask = async (req, res) => {
         const assigneeIsProjectMember = await isUserProjectMember({
           userId: resolvedAssignedToId,
           projectId: resolvedProjectId,
+          organizationId: req.user.organizationId,
         });
 
         if (!assigneeIsProjectMember) {
@@ -482,7 +495,11 @@ const createTask = async (req, res) => {
       organizationId: req.user.organizationId,
     });
 
-    const createdTask = await Task.findByPk(task.id, {
+    const createdTask = await Task.findOne({
+      where: {
+        id: task.id,
+        organizationId: req.user.organizationId,
+      },
       include: [
         {
           model: Project,
@@ -535,7 +552,12 @@ const updateTask = async (req, res) => {
       assignedToId,
     } = req.body;
 
-    const task = await Task.findByPk(id);
+    const task = await Task.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!task) {
       return res.status(404).json({
@@ -581,7 +603,12 @@ const updateTask = async (req, res) => {
       }
 
       if (assignedToId) {
-        const assignedUser = await User.findByPk(assignedToId);
+        const assignedUser = await User.findOne({
+          where: {
+            id: assignedToId,
+            organizationId: req.user.organizationId,
+          },
+        });
 
         if (!assignedUser) {
           return res.status(404).json({
@@ -594,6 +621,7 @@ const updateTask = async (req, res) => {
           const assigneeIsProjectMember = await isUserProjectMember({
             userId: assignedToId,
             projectId: task.projectId,
+            organizationId: req.user.organizationId,
           });
 
           if (!assigneeIsProjectMember) {
@@ -792,7 +820,11 @@ const updateTask = async (req, res) => {
       });
     }
 
-    const updatedTask = await Task.findByPk(task.id, {
+    const updatedTask = await Task.findOne({
+      where: {
+        id: task.id,
+        organizationId: req.user.organizationId,
+      },
       include: [
         {
           model: Project,
@@ -835,7 +867,13 @@ const deleteTask = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const task = await Task.findByPk(id);
+    const task = await Task.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
+    });
 
     if (!task) {
       return res.status(404).json({

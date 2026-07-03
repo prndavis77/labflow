@@ -16,6 +16,9 @@ const WORKFLOW_PERMISSION_FIELDS = [
 const getUsers = async (req, res) => {
   try {
     const users = await User.findAll({
+      where: {
+        organizationId: req.user.organizationId,
+      },
       attributes: [
         "id",
         "name",
@@ -31,6 +34,7 @@ const getUsers = async (req, res) => {
         "isActive",
         "deactivatedAt",
         "deactivatedById",
+        "organizationId",
       ],
       order: [
         ["role", "ASC"],
@@ -60,7 +64,11 @@ const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user = await User.findByPk(id, {
+    const user = await User.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
       attributes: [
         "id",
         "name",
@@ -76,6 +84,7 @@ const getUserById = async (req, res) => {
         "isActive",
         "deactivatedAt",
         "deactivatedById",
+        "organizationId",
       ],
     });
 
@@ -124,7 +133,12 @@ const updateUserRole = async (req, res) => {
       });
     }
 
-    const userToUpdate = await User.findByPk(id);
+    const userToUpdate = await User.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!userToUpdate) {
       return res.status(404).json({
@@ -194,7 +208,12 @@ const updateUserWorkflowPermissions = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const userToUpdate = await User.findByPk(id);
+    const userToUpdate = await User.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!userToUpdate) {
       return res.status(404).json({
@@ -299,7 +318,12 @@ const updateUserAccountStatus = async (req, res) => {
       });
     }
 
-    const user = await User.findByPk(id);
+    const user = await User.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -372,7 +396,12 @@ const resetUserPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findByPk(id);
+    const user = await User.findOne({
+      where: {
+        id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({

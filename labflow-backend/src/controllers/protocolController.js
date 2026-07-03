@@ -218,8 +218,8 @@ const getProtocols = async (req, res) => {
   try {
     const { projectId, equipmentId, approvalStatus } = req.query;
 
-    // Build a flexible filter object from query parameters.
     const where = {
+      organizationId: req.user.organizationId,
       isArchived: false,
     };
 
@@ -296,7 +296,11 @@ const getProtocolById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const protocol = await Protocol.findByPk(id, {
+    const protocol = await Protocol.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
       include: protocolInclude,
     });
 
@@ -408,7 +412,13 @@ const createProtocol = async (req, res) => {
     }
 
     if (resolvedProjectId) {
-      const project = await Project.findByPk(resolvedProjectId);
+      const project = await Project.findOne({
+        where: {
+          id: projectId,
+          organizationId: req.user.organizationId,
+          isArchived: false,
+        },
+      });
 
       if (!project) {
         return res.status(404).json({
@@ -419,7 +429,12 @@ const createProtocol = async (req, res) => {
     }
 
     if (resolvedEquipmentId) {
-      const equipment = await Equipment.findByPk(resolvedEquipmentId);
+      const equipment = await Equipment.findOne({
+        where: {
+          id: equipmentId,
+          organizationId: req.user.organizationId,
+        },
+      });
 
       if (!equipment) {
         return res.status(404).json({
@@ -474,9 +489,14 @@ const createProtocol = async (req, res) => {
       createdById: req.user.id,
       approvedById,
       approvedAt,
+      organizationId: req.user.organizationId,
     });
 
-    const createdProtocol = await Protocol.findByPk(protocol.id, {
+    const createdProtocol = await Protocol.findOne({
+      where: {
+        id: protocol.id,
+        organizationId: req.user.organizationId,
+      },
       include: protocolInclude,
     });
 
@@ -513,7 +533,13 @@ const updateProtocol = async (req, res) => {
       equipmentId,
     } = req.body;
 
-    const protocol = await Protocol.findByPk(id);
+    const protocol = await Protocol.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
+    });
 
     if (!protocol) {
       return res.status(404).json({
@@ -632,7 +658,12 @@ const updateProtocol = async (req, res) => {
     }
 
     if (equipmentId !== undefined && requestedEquipmentId) {
-      const equipment = await Equipment.findByPk(requestedEquipmentId);
+      const equipment = await Equipment.findOne({
+        where: {
+          id: requestedEquipmentId,
+          organizationId: req.user.organizationId,
+        },
+      });
 
       if (!equipment) {
         return res.status(404).json({
@@ -745,7 +776,11 @@ const updateProtocol = async (req, res) => {
       }
     }
 
-    const updatedProtocol = await Protocol.findByPk(protocol.id, {
+    const updatedProtocol = await Protocol.findOne({
+      where: {
+        id: protocol.id,
+        organizationId: req.user.organizationId,
+      },
       include: protocolInclude,
     });
 
@@ -772,7 +807,13 @@ const deleteProtocol = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const protocol = await Protocol.findByPk(id);
+    const protocol = await Protocol.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+        isArchived: false,
+      },
+    });
 
     if (!protocol) {
       return res.status(404).json({

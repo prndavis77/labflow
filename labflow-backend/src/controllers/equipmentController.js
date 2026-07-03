@@ -20,8 +20,9 @@ const getEquipment = async (req, res) => {
   try {
     const { status } = req.query;
 
-    // Build filter object from optional query parameters
-    const where = {};
+    const where = {
+      organizationId: req.user.organizationId,
+    };
 
     if (status) {
       where.status = status;
@@ -57,7 +58,12 @@ const getEquipmentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const equipment = await Equipment.findByPk(id);
+    const equipment = await Equipment.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!equipment) {
       return res.status(404).json({
@@ -101,6 +107,7 @@ const createEquipment = async (req, res) => {
       location: location?.trim() || null,
       status: status || "available",
       notes: notes?.trim() || null,
+      organizationId: req.user.organizationId,
     });
 
     return res.status(201).json({
@@ -127,7 +134,12 @@ const updateEquipment = async (req, res) => {
     const { id } = req.params;
     const { name, type, location, status, notes } = req.body;
 
-    const equipment = await Equipment.findByPk(id);
+    const equipment = await Equipment.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!equipment) {
       return res.status(404).json({
@@ -169,7 +181,12 @@ const deleteEquipment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const equipment = await Equipment.findByPk(id);
+    const equipment = await Equipment.findOne({
+      where: {
+        id: req.params.id,
+        organizationId: req.user.organizationId,
+      },
+    });
 
     if (!equipment) {
       return res.status(404).json({
