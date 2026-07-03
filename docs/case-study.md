@@ -280,7 +280,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The current test suite includes 59 passing tests across 8 test suites. Covered areas include:
+The current test suite includes 64 passing tests across 9 test suites. Covered areas include:
 
 - Health check
 - Authentication
@@ -293,6 +293,7 @@ The current test suite includes 59 passing tests across 8 test suites. Covered a
 - Experiment review workflow
 - Protocol review workflow
 - Review history event creation
+- Cross-organization isolation for projects, tasks, and audit logs
 
 A test database safety guard prevents destructive test cleanup from running unless `NODE_ENV` is set to `test` and the configured database name contains `test`.
 
@@ -322,6 +323,14 @@ Admins can review these events in a dedicated Audit Logs page with filters for a
 ### Soft Delete and Auditability
 
 To support research-lab traceability, LabFlow avoids permanently deleting core lab records. Projects, tasks, experiments, and protocols are archived instead. This keeps historical records available for audit trails while removing inactive items from normal working views.
+
+### Organization Model and Data Isolation
+
+A major backend architecture upgrade added organization-level ownership across the application. Users now belong to an organization, and core lab records are linked to that organization.
+
+This allows LabFlow to move closer to a real multi-lab structure, where one lab's users, projects, tasks, protocols, equipment, audit logs, and review events are isolated from another lab's data.
+
+The controller layer now scopes record access by the authenticated user's organization, and a dedicated organization isolation test suite verifies that cross-organization access is blocked.
 
 ## Challenges and Decisions
 
@@ -389,7 +398,7 @@ The project includes:
 - Sequelize migrations
 - Backend security hardening
 - Archive behavior for projects, tasks, experiments, and protocols, with audit log coverage
-- 59 passing automated backend tests across 8 test suites
+- 64 passing automated backend tests across 9 test suites
 - Seeded demo data and demo accounts
 - GitHub README and portfolio case study
 
@@ -399,7 +408,7 @@ LabFlow is intentionally focused on MVP workflows.
 
 Current limitations include:
 
-- No lab or organization model yet
+- Organization-level data ownership and backend isolation exist, but LabFlow does not yet include organization management screens, invitation-based onboarding, or full tenant administration workflows.
 - No file uploads
 - No rich text editor for notebook entries
 - No image attachments for experiment notebooks
@@ -410,7 +419,7 @@ Current limitations include:
 - Admin password reset exists, but self-service password reset and email verification are not yet included.
 - No frontend automated tests yet
 - No production-grade monitoring or centralized logging
-- No organization-level tenant isolation
+- Organization-level backend isolation exists, but additional production-grade tenant controls would still be needed before handling real institutional data.
 - Equipment inventory metrics are still global because equipment is not project-owned yet
 - Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
 
@@ -418,8 +427,10 @@ Current limitations include:
 
 Recommended future improvements include:
 
-- Lab organization model
-- Multi-lab or tenant-aware data separation
+- Organization management UI
+- Invitation-based lab onboarding
+- Organization-level roles and tenant administration workflows
+- Additional production-grade tenant controls
 - Rich text notebook entries
 - File attachments and image uploads
 - Experiment notebook PDF export

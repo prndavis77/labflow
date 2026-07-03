@@ -23,7 +23,7 @@ LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
-The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 59 passing automated backend tests across 8 test suites.
+The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 64 passing automated backend tests across 9 test suites.
 
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
 
@@ -198,6 +198,14 @@ Public registration creates researcher accounts only. Admin and supervisor accou
 LabFlow now uses archive behavior for core lab records instead of permanent deletion. Projects, tasks, experiments, and protocols can be archived by authorized users. Archived records are hidden from normal lists but remain in the database for traceability and audit purposes.
 
 Archive actions are recorded in the audit log, including the actor, target record, timestamp, and relevant metadata.
+
+### Organization-Based Data Isolation
+
+LabFlow now includes an organization model that prepares the application for multi-lab or multi-department use.
+
+Each user belongs to an organization, and core records are organization-owned, including projects, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, project members, review events, and audit logs.
+
+Backend queries are scoped by the authenticated user's organization so users from one lab cannot access records from another lab. Cross-organization isolation is covered by automated tests.
 
 ---
 
@@ -709,6 +717,8 @@ LabFlow demonstrates several full-stack development concepts:
 - Security headers with Helmet
 - Authentication route rate limiting
 - Restricted CORS configuration for local and deployed frontend origins
+- Organization-based data ownership and backend query scoping
+- Cross-organization isolation tests for projects, tasks, and audit logs
 
 ---
 
@@ -1514,9 +1524,9 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite includes authentication, authorization, project membership access, equipment booking conflict prevention, review workflows, task completion review, audit log access, and health checks.
+The backend test suite currently includes 9 test suites and 64 passing tests, including authorization, review workflows, audit logs, soft archive behavior, equipment booking conflicts, and organization isolation.
 
-Current backend test status: 8 test suites, 59 tests passing.
+Current backend test status: 9 test suites, 64 tests passing.
 
 Covered backend areas include:
 
@@ -1538,6 +1548,7 @@ Covered backend areas include:
 - Project membership-aware project visibility
 - Supervisor-scoped project visibility
 - Project lead, viewer, and non-member task creation rules
+- Cross-organization isolation for projects, tasks, and audit logs
 
 Run backend tests from the backend folder:
 
@@ -1591,7 +1602,7 @@ LabFlow MVP Version 1.1 is intentionally focused on core workflows.
 
 Current limitations include:
 
-- No lab or organization model yet
+- Organization-level data ownership and backend scoping exist, but LabFlow does not yet include a full organization management UI, lab invitations, or multi-organization admin workflows.
 - Dashboard project-linked metrics are role-aware for researchers, but equipment inventory metrics are still global because equipment is not project-owned yet.
 - No file uploads
 - No email notifications
@@ -1606,11 +1617,11 @@ Current limitations include:
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
 - Researcher workflow permissions are still global per user, while project membership controls project access separately
 - User management supports account deactivation/reactivation and admin password reset, but does not yet include email verification, self-service password reset, or invitation-based onboarding.
-- Supervisor access is now project-scoped, but LabFlow does not yet include a separate lab or organization model for multi-lab deployments
+- Supervisor access is project-scoped within the user's organization, but LabFlow does not yet include full multi-lab onboarding, invitations, or organization administration workflows.
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
 - Sequelize migrations are now available for the current MVP schema, but automated production deployment and migration workflows still need further hardening.
-- Basic security headers and authentication rate limiting are included, but production-grade monitoring, account lockout, email verification, immutable audit controls, and tenant isolation are not yet implemented.
+- Basic security headers, authentication rate limiting, and organization-level backend isolation are included, but production-grade monitoring, account lockout, email verification, immutable audit controls, and advanced tenant administration controls are not yet implemented.
 - Demo accounts use shared demo credentials and are not suitable for real production use.
 
 ---
@@ -1639,7 +1650,7 @@ LabFlow was built as a portfolio project to demonstrate applied software develop
 
 Recommended Version 2 improvements:
 
-- Lab organization model
+- Organization management UI and invitation-based lab onboarding
 - Role-specific dashboards
 - More granular project membership permissions with project-specific workflow controls
 - Archive restore workflows and admin views for archived records
@@ -1663,6 +1674,7 @@ Recommended Version 2 improvements:
 - Project-specific workflow permissions
 - Equipment access model for lab-wide, project-specific, or restricted instruments
 - Task completion notes or admin feedback when reopening tasks
+- Expanded tenant administration workflows, including organization settings, invitations, and organization-level roles
 
 ---
 
