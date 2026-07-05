@@ -8,9 +8,10 @@
     "start": "node src/server.js",
     "seed": "node src/scripts/seedDemoData.js",
     "setup:db": "node src/scripts/setupDatabase.js",
-    "migrate": "sequelize-cli db:migrate",
-    "migrate:undo": "sequelize-cli db:migrate:undo",
-    "migrate:undo:all": "sequelize-cli db:migrate:undo:all",
+    "migrate": "sequelize-cli db:migrate --config src/config/sequelize-cli.js",
+    "migrate:status": "sequelize-cli db:migrate:status --config src/config/sequelize-cli.js",
+    "migrate:undo": "sequelize-cli db:migrate:undo --config src/config/sequelize-cli.js",
+    "migrate:undo:all": "sequelize-cli db:migrate:undo:all --config src/config/sequelize-cli.js",
     "migration:generate": "sequelize-cli migration:generate --name",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:watch": "cross-env NODE_ENV=test jest --watch"

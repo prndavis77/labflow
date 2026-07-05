@@ -84,6 +84,7 @@ const createUsers = async (organization) => {
     canEditExperiments: true,
     canCreateProtocols: true,
     canEditProtocols: true,
+    organizationId: organization.id,
   });
 
   const supervisor = await User.create({
@@ -97,6 +98,7 @@ const createUsers = async (organization) => {
     canEditExperiments: true,
     canCreateProtocols: true,
     canEditProtocols: true,
+    organizationId: organization.id,
   });
 
   const researcherOne = await User.create({
@@ -110,6 +112,7 @@ const createUsers = async (organization) => {
     canEditExperiments: true,
     canCreateProtocols: false,
     canEditProtocols: false,
+    organizationId: organization.id,
   });
 
   const researcherTwo = await User.create({
@@ -123,6 +126,7 @@ const createUsers = async (organization) => {
     canEditExperiments: true,
     canCreateProtocols: true,
     canEditProtocols: true,
+    organizationId: organization.id,
   });
 
   const researcherThree = await User.create({
@@ -136,6 +140,7 @@ const createUsers = async (organization) => {
     canEditExperiments: false,
     canCreateProtocols: true,
     canEditProtocols: true,
+    organizationId: organization.id,
   });
 
   return {
@@ -148,7 +153,7 @@ const createUsers = async (organization) => {
 };
 
 // Creates realistic university lab research projects
-const createProjects = async (users) => {
+const createProjects = async (users, organization) => {
   const caffeineProject = await Project.create({
     title: "HPLC Method Development for Caffeine Analysis",
     description:
@@ -157,6 +162,7 @@ const createProjects = async (users) => {
     startDate: toDateOnly(daysFromNow(-14)),
     targetEndDate: toDateOnly(daysFromNow(60)),
     supervisorId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const microplasticProject = await Project.create({
@@ -167,6 +173,7 @@ const createProjects = async (users) => {
     startDate: toDateOnly(daysFromNow(-30)),
     targetEndDate: toDateOnly(daysFromNow(90)),
     supervisorId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const gcmsProject = await Project.create({
@@ -177,6 +184,7 @@ const createProjects = async (users) => {
     startDate: toDateOnly(daysFromNow(7)),
     targetEndDate: toDateOnly(daysFromNow(120)),
     supervisorId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   return {
@@ -186,43 +194,49 @@ const createProjects = async (users) => {
   };
 };
 
-async function createProjectMembers(users, projects) {
+const createProjectMembers = async (users, projects, organization) => {
   await ProjectMember.bulkCreate([
     {
       projectId: projects.caffeineProject.id,
       userId: users.supervisor.id,
       projectRole: "lead",
+      organizationId: organization.id,
     },
     {
       projectId: projects.caffeineProject.id,
       userId: users.researcherOne.id,
       projectRole: "member",
+      organizationId: organization.id,
     },
     {
       projectId: projects.gcmsProject.id,
       userId: users.supervisor.id,
       projectRole: "lead",
+      organizationId: organization.id,
     },
     {
       projectId: projects.gcmsProject.id,
       userId: users.researcherTwo.id,
       projectRole: "member",
+      organizationId: organization.id,
     },
     {
       projectId: projects.microplasticProject.id,
       userId: users.supervisor.id,
       projectRole: "lead",
+      organizationId: organization.id,
     },
     {
       projectId: projects.microplasticProject.id,
       userId: users.researcherThree.id,
       projectRole: "member",
+      organizationId: organization.id,
     },
   ]);
-}
+};
 
 // Creates project-linked tasks with different priorities and due dates
-const createTasks = async (users, projects) => {
+const createTasks = async (users, projects, organization) => {
   const taskOne = await Task.create({
     title: "Prepare caffeine calibration standards",
     description:
@@ -233,6 +247,7 @@ const createTasks = async (users, projects) => {
     projectId: projects.caffeineProject.id,
     assignedToId: users.researcherOne.id,
     createdById: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const taskTwo = await Task.create({
@@ -245,6 +260,7 @@ const createTasks = async (users, projects) => {
     projectId: projects.caffeineProject.id,
     assignedToId: users.researcherOne.id,
     createdById: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const taskThree = await Task.create({
@@ -257,6 +273,7 @@ const createTasks = async (users, projects) => {
     projectId: projects.microplasticProject.id,
     assignedToId: users.researcherTwo.id,
     createdById: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const taskFour = await Task.create({
@@ -269,6 +286,7 @@ const createTasks = async (users, projects) => {
     projectId: projects.gcmsProject.id,
     assignedToId: users.researcherTwo.id,
     createdById: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const taskFive = await Task.create({
@@ -281,6 +299,7 @@ const createTasks = async (users, projects) => {
     projectId: null,
     assignedToId: users.researcherOne.id,
     createdById: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const taskSix = await Task.create({
@@ -293,6 +312,7 @@ const createTasks = async (users, projects) => {
     projectId: null,
     assignedToId: users.researcherTwo.id,
     createdById: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   return {
@@ -304,7 +324,7 @@ const createTasks = async (users, projects) => {
 };
 
 // Creates reusable lab protocols and approval states
-const createProtocols = async (users, projects) => {
+const createProtocols = async (users, projects, organization) => {
   const caffeineProtocol = await Protocol.create({
     title: "HPLC Caffeine Quantification Method",
     version: "1.0",
@@ -319,6 +339,7 @@ const createProtocols = async (users, projects) => {
     createdById: users.supervisor.id,
     approvedById: users.supervisor.id,
     approvedAt: toDateOnly(daysFromNow(-3)),
+    organizationId: organization.id,
   });
 
   const microplasticProtocol = await Protocol.create({
@@ -335,6 +356,7 @@ const createProtocols = async (users, projects) => {
     createdById: users.researcherTwo.id,
     approvedById: null,
     approvedAt: null,
+    organizationId: organization.id,
   });
 
   const gcmsProtocol = await Protocol.create({
@@ -352,6 +374,7 @@ const createProtocols = async (users, projects) => {
     createdById: users.supervisor.id,
     approvedById: null,
     approvedAt: null,
+    organizationId: organization.id,
   });
 
   return {
@@ -362,7 +385,13 @@ const createProtocols = async (users, projects) => {
 };
 
 // Creates laboratory experiments linked to projects, tasks, researchers, and protocols
-const createExperiments = async (users, projects, tasks, protocols) => {
+const createExperiments = async (
+  users,
+  projects,
+  tasks,
+  protocols,
+  organization,
+) => {
   const experimentOne = await Experiment.create({
     title: "Caffeine calibration curve run 1",
     objective:
@@ -379,6 +408,7 @@ const createExperiments = async (users, projects, tasks, protocols) => {
     taskId: tasks.taskOne.id,
     protocolId: protocols.caffeineProtocol.id,
     createdById: users.researcherOne.id,
+    organizationId: organization.id,
   });
 
   const experimentTwo = await Experiment.create({
@@ -398,6 +428,7 @@ const createExperiments = async (users, projects, tasks, protocols) => {
     taskId: tasks.taskThree.id,
     protocolId: protocols.microplasticProtocol.id,
     createdById: users.researcherTwo.id,
+    organizationId: organization.id,
   });
 
   const experimentThree = await Experiment.create({
@@ -416,6 +447,7 @@ const createExperiments = async (users, projects, tasks, protocols) => {
     taskId: tasks.taskFour.id,
     protocolId: protocols.gcmsProtocol.id,
     createdById: users.researcherTwo.id,
+    organizationId: organization.id,
   });
 
   return {
@@ -426,7 +458,7 @@ const createExperiments = async (users, projects, tasks, protocols) => {
 };
 
 // Creates demo notebook entries linked to experiments.
-const createNotebookEntries = async (users, experiments) => {
+const createNotebookEntries = async (users, experiments, organization) => {
   const entryOne = await NotebookEntry.create({
     title: "Initial HPLC setup observation",
     entryType: "observation",
@@ -436,6 +468,7 @@ const createNotebookEntries = async (users, experiments) => {
     experimentId: experiments.experimentOne.id,
     projectId: experiments.experimentOne.projectId,
     authorId: users.researcherOne.id,
+    organizationId: organization.id,
   });
 
   const entryTwo = await NotebookEntry.create({
@@ -447,6 +480,7 @@ const createNotebookEntries = async (users, experiments) => {
     experimentId: experiments.experimentOne.id,
     projectId: experiments.experimentOne.projectId,
     authorId: users.researcherOne.id,
+    organizationId: organization.id,
   });
 
   const entryThree = await NotebookEntry.create({
@@ -458,6 +492,7 @@ const createNotebookEntries = async (users, experiments) => {
     experimentId: experiments.experimentTwo.id,
     projectId: experiments.experimentTwo.projectId,
     authorId: users.researcherTwo.id,
+    organizationId: organization.id,
   });
 
   const entryFour = await NotebookEntry.create({
@@ -469,6 +504,7 @@ const createNotebookEntries = async (users, experiments) => {
     experimentId: experiments.experimentTwo.id,
     projectId: experiments.experimentTwo.projectId,
     authorId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   return {
@@ -482,7 +518,12 @@ const createNotebookEntries = async (users, experiments) => {
 // Creates demo review history events for experiments and protocols.
 // These records demonstrate repeated review cycles and the difference between
 // the latest review feedback and the full review history.
-const createReviewEvents = async (users, experiments, protocols) => {
+const createReviewEvents = async (
+  users,
+  experiments,
+  protocols,
+  organization,
+) => {
   const experimentChangeRequest = await ReviewEvent.create({
     targetType: "experiment",
     targetId: experiments.experimentTwo.id,
@@ -490,6 +531,7 @@ const createReviewEvents = async (users, experiments, protocols) => {
     comment:
       "Please add the blank preparation details and clarify whether the same filter batch was used for both workflows.",
     reviewerId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const experimentFollowUpChangeRequest = await ReviewEvent.create({
@@ -499,6 +541,7 @@ const createReviewEvents = async (users, experiments, protocols) => {
     comment:
       "The blank preparation details are clearer now, but the microscope inspection criteria still need to be specified.",
     reviewerId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const protocolChangeRequest = await ReviewEvent.create({
@@ -508,6 +551,7 @@ const createReviewEvents = async (users, experiments, protocols) => {
     comment:
       "Please add acceptance criteria for blank runs and specify the mass scan range before this protocol can be approved.",
     reviewerId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   const protocolApproval = await ReviewEvent.create({
@@ -516,6 +560,7 @@ const createReviewEvents = async (users, experiments, protocols) => {
     action: "approved",
     comment: "Protocol approved for caffeine quantification demo workflow.",
     reviewerId: users.supervisor.id,
+    organizationId: organization.id,
   });
 
   return {
@@ -527,13 +572,14 @@ const createReviewEvents = async (users, experiments, protocols) => {
 };
 
 // Creates shared lab equipment inventory
-const createEquipment = async () => {
+const createEquipment = async (organization) => {
   const hplc = await Equipment.create({
     name: "HPLC Agilent 1260",
     type: "HPLC",
     location: "Analytical Lab Room 203",
     status: "available",
     notes: "Main HPLC system for UV-based quantification.",
+    organizationId: organization.id,
   });
 
   const gcms = await Equipment.create({
@@ -542,6 +588,7 @@ const createEquipment = async () => {
     location: "Forensic Chemistry Lab 105",
     status: "available",
     notes: "Used for volatile compound screening and forensic sample analysis.",
+    organizationId: organization.id,
   });
 
   const gcms_2 = await Equipment.create({
@@ -551,6 +598,7 @@ const createEquipment = async () => {
     status: "maintenance",
     notes:
       "Used for volatile compound screening and forensic sample analysis. Currently under maintenance for detector replacement.",
+    organizationId: organization.id,
   });
 
   return {
@@ -561,7 +609,7 @@ const createEquipment = async () => {
 };
 
 // Creates equipment-specific SOPs after equipment exists.
-const createEquipmentProtocols = async (users, equipment) => {
+const createEquipmentProtocols = async (users, equipment, organization) => {
   const hplcSop = await Protocol.create({
     title: "HPLC Agilent 1260 Startup and Shutdown SOP",
     version: "1.0",
@@ -576,6 +624,7 @@ const createEquipmentProtocols = async (users, equipment) => {
     createdById: users.supervisor.id,
     approvedById: users.supervisor.id,
     approvedAt: toDateOnly(daysFromNow(-5)),
+    organizationId: organization.id,
   });
 
   const gcmsSop = await Protocol.create({
@@ -592,6 +641,7 @@ const createEquipmentProtocols = async (users, equipment) => {
     createdById: users.supervisor.id,
     approvedById: null,
     approvedAt: null,
+    organizationId: organization.id,
   });
 
   return {
@@ -606,6 +656,7 @@ const createEquipmentBookings = async (
   projects,
   experiments,
   equipment,
+  organization,
 ) => {
   const activeBooking = await EquipmentBooking.create({
     title: "Active HPLC caffeine run",
@@ -617,6 +668,7 @@ const createEquipmentBookings = async (
     userId: users.researcherOne.id,
     projectId: projects.caffeineProject.id,
     experimentId: experiments.experimentOne.id,
+    organizationId: organization.id,
   });
 
   const futureBooking = await EquipmentBooking.create({
@@ -629,6 +681,7 @@ const createEquipmentBookings = async (
     userId: users.researcherTwo.id,
     projectId: projects.gcmsProject.id,
     experimentId: null,
+    organizationId: organization.id,
   });
 
   return {
@@ -657,6 +710,14 @@ const ensureSchemaExists = async () => {
 
 // Main seed runner
 const seedDemoData = async () => {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_PRODUCTION_SEED !== "true"
+  ) {
+    throw new Error(
+      "Refusing to run seed script in production without ALLOW_PRODUCTION_SEED=true.",
+    );
+  }
   try {
     console.log("Connecting to database...");
 
@@ -678,25 +739,21 @@ const seedDemoData = async () => {
 
     const users = await createUsers(organization);
 
-    console.log("Creating demo users...");
-
-    const users = await createUsers();
-
     console.log("Creating demo projects...");
 
-    const projects = await createProjects(users);
+    const projects = await createProjects(users, organization);
 
     console.log("Creating project memberships...");
 
-    await createProjectMembers(users, projects);
+    await createProjectMembers(users, projects, organization);
 
     console.log("Creating demo tasks...");
 
-    const tasks = await createTasks(users, projects);
+    const tasks = await createTasks(users, projects, organization);
 
     console.log("Creating demo protocols...");
 
-    const protocols = await createProtocols(users, projects);
+    const protocols = await createProtocols(users, projects, organization);
 
     console.log("Creating demo experiments...");
 
@@ -705,27 +762,34 @@ const seedDemoData = async () => {
       projects,
       tasks,
       protocols,
+      organization,
     );
 
     console.log("Creating demo notebook entries...");
 
-    await createNotebookEntries(users, experiments);
+    await createNotebookEntries(users, experiments, organization);
 
     console.log("Creating demo review history...");
 
-    await createReviewEvents(users, experiments, protocols);
+    await createReviewEvents(users, experiments, protocols, organization);
 
     console.log("Creating demo equipment...");
 
-    const equipment = await createEquipment();
+    const equipment = await createEquipment(organization);
 
     console.log("Creating equipment SOPs...");
 
-    await createEquipmentProtocols(users, equipment);
+    await createEquipmentProtocols(users, equipment, organization);
 
     console.log("Creating demo equipment bookings...");
 
-    await createEquipmentBookings(users, projects, experiments, equipment);
+    await createEquipmentBookings(
+      users,
+      projects,
+      experiments,
+      equipment,
+      organization,
+    );
 
     console.log("Demo data seeded successfully.");
     console.log("");

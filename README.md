@@ -1125,6 +1125,22 @@ The `npm run setup:db` command is kept only as a legacy/demo fallback from the o
 
 Before LabFlow is used as real production software, additional hardening would still be required, including email verification, centralized logging, monitoring, stricter secrets management, account lockout rules, organization-level tenant isolation, immutable audit controls, and a more complete production deployment process.
 
+### Production Deployment Safety
+
+Production migrations should be run intentionally and only after local backend tests pass.
+
+Before running production migrations:
+
+- Confirm `npm test` passes locally against the test database.
+- Confirm the production database URL is used only in the current terminal session.
+- Check migration status before and after running migrations.
+- Do not run `npm test` or `npm run seed` against production.
+- Clear production environment variables after migration commands.
+
+See `docs/production-deployment.md` for the full deployment checklist.
+
+---
+
 ## Local Setup
 
 ### Prerequisites
