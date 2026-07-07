@@ -4,11 +4,16 @@ const {
   listInvitations,
   createInvitation,
   revokeInvitation,
+  getInvitationForAcceptance,
+  acceptInvitation,
 } = require("../controllers/invitationController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 const { ROLES } = require("../constants/roles");
 
 const router = express.Router();
+
+router.get("/accept/:token", getInvitationForAcceptance);
+router.post("/accept/:token", acceptInvitation);
 
 router.use(protect);
 

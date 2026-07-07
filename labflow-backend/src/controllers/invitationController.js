@@ -1,3 +1,4 @@
+const bcrypt = require("bcrypt");
 const { Op } = require("sequelize");
 const { Invitation, User, Organization } = require("../models");
 const {
@@ -51,6 +52,45 @@ const formatInvitationResponse = (invitation) => {
         }
       : null,
   };
+};
+
+const formatAcceptInvitationResponse = (invitation) => {
+  return {
+    id: invitation.id,
+    email: invitation.email,
+    name: invitation.name,
+    role: invitation.role,
+    expiresAt: invitation.expiresAt,
+    organization: invitation.organization
+      ? {
+          id: invitation.organization.id,
+          name: invitation.organization.name,
+          slug: invitation.organization.slug,
+        }
+      : null,
+  };
+};
+
+const findPendingInvitationByToken = async (token) => {
+  const tokenHash = hashInvitationToken(token);
+
+  return Invitation.findOne({
+    where: {
+      tokenHash,
+      status: "pending",
+    },
+    include: [
+      {
+        model: Organization,
+        as: "organization",
+        attributes: ["id", "name", "slug", "isActive"],
+      },
+    ],
+  });
+};
+
+const isInvitationExpired = (invitation) => {
+  return new Date(invitation.expiresAt).getTime() < Date.now();
 };
 
 const listInvitations = async (req, res) => {
@@ -250,8 +290,166 @@ const revokeInvitation = async (req, res) => {
   });
 };
 
+const getInvitationForAcceptance = async (req, res) => {
+  const token = req.params.token;
+
+  if (!token) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invitation token is required.",
+    });
+  }
+
+  const invitation = await findPendingInvitationByToken(token);
+
+  if (!invitation) {
+    return res.status(404).json({
+      status: "error",
+      message: "Invitation not found or no longer valid.",
+    });
+  }
+
+  if (isInvitationExpired(invitation)) {
+    invitation.status = "expired";
+    await invitation.save();
+
+    return res.status(410).json({
+      status: "error",
+      message: "Invitation has expired.",
+    });
+  }
+
+  if (!invitation.organization || invitation.organization.isActive === false) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invitation organization is not active.",
+    });
+  }
+
+  return res.status(200).json({
+    status: "success",
+    data: {
+      invitation: formatAcceptInvitationResponse(invitation),
+    },
+  });
+};
+
+const acceptInvitation = async (req, res) => {
+  const token = req.params.token;
+  const password = String(req.body.password || "");
+
+  if (!token) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invitation token is required.",
+    });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({
+      status: "error",
+      message: "Password must be at least 8 characters long.",
+    });
+  }
+
+  const invitation = await findPendingInvitationByToken(token);
+
+  if (!invitation) {
+    return res.status(404).json({
+      status: "error",
+      message: "Invitation not found or no longer valid.",
+    });
+  }
+
+  if (isInvitationExpired(invitation)) {
+    invitation.status = "expired";
+    await invitation.save();
+
+    return res.status(410).json({
+      status: "error",
+      message: "Invitation has expired.",
+    });
+  }
+
+  if (!invitation.organization || invitation.organization.isActive === false) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invitation organization is not active.",
+    });
+  }
+
+  const existingUser = await User.findOne({
+    where: {
+      email: invitation.email,
+      organizationId: invitation.organizationId,
+    },
+  });
+
+  if (existingUser) {
+    return res.status(409).json({
+      status: "error",
+      message: "A user with this email already exists in this organization.",
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const user = await User.create({
+    name: invitation.name,
+    email: invitation.email,
+    passwordHash,
+    role: invitation.role,
+    organizationId: invitation.organizationId,
+    isActive: true,
+    canCreateExperiments:
+      invitation.role === "researcher" ? invitation.canCreateExperiments : true,
+    canEditExperiments:
+      invitation.role === "researcher" ? invitation.canEditExperiments : true,
+    canCreateProtocols:
+      invitation.role === "researcher" ? invitation.canCreateProtocols : true,
+    canEditProtocols:
+      invitation.role === "researcher" ? invitation.canEditProtocols : true,
+  });
+
+  invitation.status = "accepted";
+  invitation.acceptedAt = new Date();
+  invitation.acceptedUserId = user.id;
+  await invitation.save();
+
+  await writeAuditLog({
+    actorUserId: invitation.invitedById,
+    organizationId: invitation.organizationId,
+    action: "invitation.accepted",
+    entityType: "invitation",
+    entityId: invitation.id,
+    targetUserId: user.id,
+    summary: `Invitation accepted by ${invitation.email}.`,
+    metadata: {
+      email: invitation.email,
+      role: invitation.role,
+      acceptedUserId: user.id,
+    },
+  });
+
+  return res.status(201).json({
+    status: "success",
+    message: "Invitation accepted. You can now log in.",
+    data: {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organizationId: user.organizationId,
+      },
+    },
+  });
+};
+
 module.exports = {
   listInvitations,
   createInvitation,
   revokeInvitation,
+  getInvitationForAcceptance,
+  acceptInvitation,
 };
