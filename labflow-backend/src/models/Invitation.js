@@ -39,6 +39,11 @@ const Invitation = sequelize.define(
       defaultValue: "researcher",
     },
 
+    department: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+    },
+
     tokenHash: {
       type: DataTypes.STRING(255),
       allowNull: false,

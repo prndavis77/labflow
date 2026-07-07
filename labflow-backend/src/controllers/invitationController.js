@@ -25,6 +25,7 @@ const formatInvitationResponse = (invitation) => {
     email: invitation.email,
     name: invitation.name,
     role: invitation.role,
+    department: invitation.department,
     status: invitation.status,
     expiresAt: invitation.expiresAt,
     acceptedAt: invitation.acceptedAt,
@@ -137,6 +138,10 @@ const createInvitation = async (req, res) => {
   const name = String(req.body.name || "").trim();
   const role = req.body.role || "researcher";
 
+  const department = req.body.department
+    ? String(req.body.department).trim()
+    : null;
+
   const allowedRoles = ["admin", "supervisor", "researcher"];
 
   if (!name) {
@@ -203,6 +208,7 @@ const createInvitation = async (req, res) => {
     email,
     name,
     role,
+    department,
     tokenHash,
     status: "pending",
     expiresAt,
@@ -399,6 +405,7 @@ const acceptInvitation = async (req, res) => {
     email: invitation.email,
     passwordHash,
     role: invitation.role,
+    department: invitation.department || null,
     organizationId: invitation.organizationId,
     isActive: true,
     canCreateExperiments:

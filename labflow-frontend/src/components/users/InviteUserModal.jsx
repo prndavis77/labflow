@@ -35,6 +35,7 @@ const InviteUserModal = ({ open, onClose }) => {
       const payload = {
         name: values.name,
         email: values.email,
+        department: values.department?.trim() || null,
         role: values.role,
         canCreateExperiments:
           values.role === "researcher"
@@ -104,6 +105,10 @@ const InviteUserModal = ({ open, onClose }) => {
           ]}
         >
           <Input placeholder="new.researcher@example.com" />
+        </Form.Item>
+
+        <Form.Item label="Department" name="department">
+          <Input placeholder="Analytical Chemistry" />
         </Form.Item>
 
         <Form.Item
