@@ -27,6 +27,7 @@ import { USER_ROLE_OPTIONS } from "../constants/statusOptions";
 import { USER_ROLE_COLORS } from "../constants/statusColors";
 import { useAuth } from "../context/useAuth";
 import { formatDateTime, formatLabel } from "../utils/formatters";
+import InviteUserModal from "../components/users/InviteUserModal";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -39,12 +40,14 @@ const AdminUsersPage = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
-  const [passwordResetUser, setPasswordResetUser] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
+  const [passwordResetUser, setPasswordResetUser] = useState(null);
 
   // Loads all users for admin management
   const loadUsers = useCallback(async () => {
@@ -458,6 +461,10 @@ const AdminUsersPage = () => {
               Admin User Management
             </Title>
 
+            <Button type="primary" onClick={() => setInviteModalOpen(true)}>
+              Invite User
+            </Button>
+
             <Paragraph style={{ marginBottom: 4 }}>
               View users and manage user roles. Role changes affect what users
               can access and modify across LabFlow.
@@ -538,6 +545,11 @@ const AdminUsersPage = () => {
           />
         </Space>
       </Modal>
+
+      <InviteUserModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+      />
     </Space>
   );
 };
