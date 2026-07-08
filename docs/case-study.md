@@ -280,7 +280,9 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The current test suite includes 64 passing tests across 9 test suites. Covered areas include:
+The backend test suite currently includes 10 passing test suites and 75 passing tests.
+
+The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, review workflows, and the invitation onboarding flow. Covered areas include:
 
 - Health check
 - Authentication
@@ -382,9 +384,27 @@ Dashboard data needed to change depending on the current user.
 
 I separated project-linked dashboard filtering from task-specific assignment filtering. This allows researchers to see project-linked data only for their project memberships while still seeing standalone tasks assigned to them.
 
+## Organization-Based Onboarding
+
+A key part of the latest LabFlow iteration was moving from a single-lab demo structure toward a multi-organization foundation.
+
+Each user now belongs to an organization, and all major records are scoped by `organizationId`. This prevents users from one lab from accessing another lab’s projects, tasks, experiments, protocols, equipment, bookings, notebook entries, review history, or audit logs.
+
+To make this visible to users, the application displays the active lab/workspace name in the main UI. For example, a user can see that they are working inside the DNA Laboratory, Toxicology Laboratory, or another configured organization.
+
+## Invitation-Based User Onboarding
+
+LabFlow now supports admin-controlled invitations.
+
+Instead of relying only on open registration, an admin can invite a user by entering their name, email, role, optional department, and researcher workflow permissions. The backend creates a secure invitation token, stores only the token hash, and returns an invitation link.
+
+When the invited user opens the link, LabFlow shows the invitation details, including the organization. The user sets a password, and the backend creates the account inside the invitation’s organization. Accepted invitations are marked as used and cannot be reused.
+
+This creates a more realistic onboarding flow for university labs, where access should be controlled by lab administrators rather than open public signup.
+
 ## Result
 
-LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application.
 
 The project includes:
 
@@ -398,7 +418,7 @@ The project includes:
 - Sequelize migrations
 - Backend security hardening
 - Archive behavior for projects, tasks, experiments, and protocols, with audit log coverage
-- 64 passing automated backend tests across 9 test suites
+- 75 passing automated backend tests across 10 test suites
 - Seeded demo data and demo accounts
 - GitHub README and portfolio case study
 
@@ -408,14 +428,13 @@ LabFlow is intentionally focused on MVP workflows.
 
 Current limitations include:
 
-- Organization-level data ownership and backend isolation exist, but LabFlow does not yet include organization management screens, invitation-based onboarding, or full tenant administration workflows.
+- Organization-level data ownership, backend isolation, and invitation-based onboarding exist, but LabFlow does not yet include organization management screens or full tenant administration workflows.
 - No file uploads
 - No rich text editor for notebook entries
 - No image attachments for experiment notebooks
 - No PDF export for experiment notebooks
 - No email notifications
-- Audit logging exists for important admin and review workflow actions, but it is not yet immutable and does not yet include export, retention policies, or signed review controls.
-- Account deactivation/reactivation exists, but there is no invitation-based onboarding yet.
+- Account deactivation/reactivation, admin password reset, and invitation-based onboarding exist, but email verification and self-service password reset are not yet included.
 - Admin password reset exists, but self-service password reset and email verification are not yet included.
 - No frontend automated tests yet
 - No production-grade monitoring or centralized logging
@@ -428,7 +447,8 @@ Current limitations include:
 Recommended future improvements include:
 
 - Organization management UI
-- Invitation-based lab onboarding
+- Email delivery for invitation links
+- Invitation resend, revoke, and expiration management improvements
 - Organization-level roles and tenant administration workflows
 - Additional production-grade tenant controls
 - Rich text notebook entries
@@ -440,7 +460,6 @@ Recommended future improvements include:
 - Frontend component and workflow tests
 - Immutable audit controls and audit export
 - Email verification and self-service password reset
-- Admin invitation workflow
 - Project invitation workflow
 - Project-specific workflow permissions
 - Equipment access model for lab-wide, project-specific, or restricted instruments

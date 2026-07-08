@@ -19,11 +19,11 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 ## Project Status
 
-LabFlow MVP Version 1.1 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application.
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
-The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 64 passing automated backend tests across 9 test suites.
+The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 75 passing automated backend tests across 10 test suites.
 
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
 
@@ -207,6 +207,18 @@ Each user belongs to an organization, and core records are organization-owned, i
 
 Backend queries are scoped by the authenticated user's organization so users from one lab cannot access records from another lab. Cross-organization isolation is covered by automated tests.
 
+### Organization-Based Lab Workspaces
+
+LabFlow now supports organization-scoped lab workspaces. Each user belongs to an organization, and core records are scoped by `organizationId`, including projects, tasks, experiments, protocols, equipment, bookings, notebook entries, review events, and audit logs.
+
+This allows the app to separate data between labs such as:
+
+- DNA Laboratory
+- Toxicology Laboratory
+- Analytical Chemistry Unit
+
+The active organization is also shown in the application UI so users can clearly see which lab workspace they are using.
+
 ---
 
 ## Researcher Workflow Permissions
@@ -267,7 +279,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 
 ---
 
-## MVP Version 1.1 Features
+## MVP Version 1.2 Features
 
 - Experiment-linked notebook entries
 - Review Queue for supervisor/admin review workflows
@@ -309,6 +321,13 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Audit logging for sensitive admin and review workflow actions, including role changes, workflow permission changes, account activation/deactivation, admin password resets, experiment reviews, protocol reviews, and task completion review decisions.
 - Admin-only Audit Logs page with filtering by action, entity type, actor name, and target user name.
 - Archive behavior for projects, tasks, experiments, and protocols, replacing permanent deletion for core lab records.
+- Role-based access control for admins, supervisors, and researchers
+- Organization-scoped lab workspaces
+- Admin-created invitations
+- Secure invitation acceptance flow
+- Visible active lab/workspace context in the UI
+- Project, task, experiment, protocol, equipment, booking, notebook, review, archive, and audit-log workflows
+- Backend test coverage with 75 passing tests
 
 ### Dashboard
 
@@ -619,6 +638,21 @@ The interface prevents admins from changing their own role from the admin users 
 
 Workflow permission controls are shown for researcher accounts. Admin and supervisor accounts show full access by role.
 
+### Invitation-Based Onboarding
+
+Admins can invite users into their organization instead of relying only on public registration.
+
+The invitation flow includes:
+
+1. Admin creates an invitation with name, email, role, optional department, and researcher permissions.
+2. LabFlow generates a secure invitation link.
+3. The invitation token is hashed before storage.
+4. The invited user opens the link and sets a password.
+5. LabFlow creates the user inside the correct organization.
+6. The invitation is marked as accepted and cannot be reused.
+
+For the MVP, invitation links are shown directly in the admin UI instead of being sent by email.
+
 ---
 
 ## Screenshots
@@ -774,11 +808,13 @@ labflow/
       constants/
         roles.js
       controllers/
+        auditLogController.js
         authController.js
         dashboardController.js
         equipmentBookingController.js
         equipmentController.js
         experimentController.js
+        invitationController.js
         notebookEntryController.js
         projectController.js
         projectMemberController.js
@@ -790,22 +826,28 @@ labflow/
       migrations/
         20260622122950-initial-labflow-schema.js
       models/
+        AuditLog.js
         Equipment.js
         EquipmentBooking.js
         Experiment.js
+        index.js
+        Invitation.js
         NotebookEntry.js
+        Organization.js
         Project.js
         ProjectMember.js
         Protocol.js
+        ReviewEvent.js
         Task.js
         User.js
-        index.js
       routes/
+        auditLogRoutes.js
         authRoutes.js
         dashboardRoutes.js
         equipmentBookingRoutes.js
         equipmentRoutes.js
         experimentRoutes.js
+        invitationRoutes.js
         notebookEntryRoutes.js
         projectRoutes.js
         projectMemberRoutes.js
@@ -833,6 +875,7 @@ labflow/
         equipmentApi.js
         equipmentBookingApi.js
         experimentApi.js
+        invitationApi.js
         notebookEntryApi.js
         projectApi.js
         projectMemberApi.js
@@ -842,9 +885,16 @@ labflow/
         axiosClient.js
       components/
         experiments/
-            ExperimentFormModal.jsx
+          ExperimentFormModal.jsx
+        projects/
+          ProjectFormModal.jsx
+          ProjectMemversCard.jsx
         protocols/
-            ProtocolFormModal.jsx
+          ProtocolFormModal.jsx
+        tasks/
+          TaskFormModal.jsx
+        users/
+          InviteUserModal.jsx
         ScrollToTop.jsx
       constants/
         statusColors.js
@@ -853,6 +903,8 @@ labflow/
         AuthContext.jsx
       layouts/
       pages/
+        AcceptInvitePage.jsx
+        AdminUsersPage.jsx
         DashboardPage.jsx
         EquipmentDetailPage.jsx
         EquipmentPage.jsx
@@ -881,7 +933,7 @@ labflow/
 
 ## Database Models
 
-LabFlow MVP Version 1.1 includes the following main models.
+LabFlow MVP Version 1.2 includes the following main models.
 
 ### User
 
@@ -1354,7 +1406,7 @@ This demonstrates how LabFlow can support different lab supervision styles while
 
 ## Manual Regression Test Coverage
 
-LabFlow MVP Version 1.1 was manually tested across the following workflows:
+LabFlow MVP Version 1.2 was manually tested across the following workflows:
 
 ### Authentication
 
@@ -1540,9 +1592,9 @@ LabFlow MVP Version 1.1 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 9 test suites and 64 passing tests, including authorization, review workflows, audit logs, soft archive behavior, equipment booking conflicts, and organization isolation.
+The backend test suite currently includes 10 passing test suites and 75 passing tests, including authorization, review workflows, audit logs, soft archive behavior, equipment booking conflicts, and organization isolation.
 
-Current backend test status: 9 test suites, 64 tests passing.
+Current backend test status: 10 test suites, 75 tests passing.
 
 Covered backend areas include:
 
@@ -1614,11 +1666,11 @@ Admins can confirm or reopen any task completion request, including standalone t
 
 ## Current Limitations
 
-LabFlow MVP Version 1.1 is intentionally focused on core workflows.
+LabFlow MVP Version 1.2 is intentionally focused on core workflows.
 
 Current limitations include:
 
-- Organization-level data ownership and backend scoping exist, but LabFlow does not yet include a full organization management UI, lab invitations, or multi-organization admin workflows.
+- Organization-level data ownership, backend scoping, and admin-created invitations are now included, but LabFlow does not yet include a full organization management UI or complete multi-organization tenant administration workflows.
 - Dashboard project-linked metrics are role-aware for researchers, but equipment inventory metrics are still global because equipment is not project-owned yet.
 - No file uploads
 - No email notifications
@@ -1632,8 +1684,8 @@ Current limitations include:
 - No PDF export for experiment notebooks
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
 - Researcher workflow permissions are still global per user, while project membership controls project access separately
-- User management supports account deactivation/reactivation and admin password reset, but does not yet include email verification, self-service password reset, or invitation-based onboarding.
-- Supervisor access is project-scoped within the user's organization, but LabFlow does not yet include full multi-lab onboarding, invitations, or organization administration workflows.
+- User management supports account deactivation/reactivation, admin password reset, and invitation-based onboarding, but does not yet include email verification or self-service password reset.
+- Supervisor access is project-scoped within the user's organization, and admin-created invitations are supported, but LabFlow does not yet include full organization administration workflows.
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
 - Sequelize migrations are now available for the current MVP schema, but automated production deployment and migration workflows still need further hardening.
@@ -1666,7 +1718,9 @@ LabFlow was built as a portfolio project to demonstrate applied software develop
 
 Recommended Version 2 improvements:
 
-- Organization management UI and invitation-based lab onboarding
+- Organization management UI
+- Email delivery for invitation links
+- Invitation management improvements, such as resend and expiration controls
 - Role-specific dashboards
 - More granular project membership permissions with project-specific workflow controls
 - Archive restore workflows and admin views for archived records
@@ -1684,7 +1738,6 @@ Recommended Version 2 improvements:
 - Frontend component and workflow tests
 - Production deployment automation and migration-based database setup
 - Self-service password reset and email verification
-- Admin invitation workflow
 - More granular supervisor assignment rules beyond the current project supervisor ownership model
 - Project invitations and membership approval workflow
 - Project-specific workflow permissions
