@@ -60,6 +60,7 @@ const formatAcceptInvitationResponse = (invitation) => {
     id: invitation.id,
     email: invitation.email,
     name: invitation.name,
+    department: invitation.department,
     role: invitation.role,
     expiresAt: invitation.expiresAt,
     organization: invitation.organization
