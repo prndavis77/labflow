@@ -59,13 +59,23 @@ const registerUser = async (req, res) => {
       organizationId: demoOrganization.id,
     });
 
+    const createdUser = await User.findByPk(user.id, {
+  include: [
+    {
+      model: Organization,
+      as: "organization",
+      attributes: ["id", "name", "slug", "type"],
+    },
+  ],
+});
+
     const token = generateToken(user);
 
     return res.status(201).json({
       status: "success",
       message: "User registered successfully.",
       data: {
-        user: formatUserResponse(user),
+        user: formatUserResponse(createdUser),
         token,
       },
     });
@@ -94,6 +104,13 @@ const loginUser = async (req, res) => {
 
     const user = await User.findOne({
       where: { email: normalizedEmail },
+      include: [
+        {
+          model: Organization,
+          as: "organization",
+          attributes: ["id", "name", "slug", "type"],
+        },
+      ],
     });
 
     if (!user) {
@@ -140,12 +157,38 @@ const loginUser = async (req, res) => {
 };
 
 const getCurrentUser = async (req, res) => {
-  return res.json({
-    status: "success",
-    data: {
-      user: formatUserResponse(req.user),
-    },
-  });
+  try {
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Organization,
+          as: "organization",
+          attributes: ["id", "name", "slug", "type"],
+        },
+      ],
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found.",
+      });
+    }
+
+    return res.json({
+      status: "success",
+      data: {
+        user: formatUserResponse(user),
+      },
+    });
+  } catch (error) {
+    console.error("Get current user error", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "An error occurred while loading the current user.",
+    });
+  }
 };
 
 module.exports = {

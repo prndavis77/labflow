@@ -39,7 +39,7 @@ import {
 } from "../constants/statusColors";
 import { formatLabel } from "../utils/formatters";
 
-const { Title, Paragraph } = Typography;
+const { Title, Paragraph, Text } = Typography;
 
 // Formats ISO date strings for readable dashboard display
 function formatDateTime(value) {
@@ -472,6 +472,10 @@ const DashboardPage = () => {
             <Title level={2} style={{ marginBottom: 4 }}>
               Dashboard
             </Title>
+
+            {user?.organization?.name && (
+              <Text type="secondary">Workspace: {user.organization.name}</Text>
+            )}
             <Paragraph style={{ marginBottom: 0 }}>
               Welcome back, {user?.name}. Here is the current overview of lab
               projects, tasks, experiments, protocols, and equipment bookings.

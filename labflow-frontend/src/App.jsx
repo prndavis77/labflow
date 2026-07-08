@@ -18,7 +18,7 @@ import { useAuth } from "./context/useAuth";
 import ScrollToTop from "./components/ScrollToTop";
 
 const { Header, Sider, Content } = Layout;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const App = () => {
   const navigate = useNavigate();
@@ -149,15 +149,18 @@ const App = () => {
               University Laboratory Project Management
             </Title>
 
-            {user && (
-              <Space>
-                <Tag color="blue">{user.role}</Tag>
-                <span>{user.name}</span>
-                <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-                  Logout
-                </Button>
-              </Space>
-            )}
+            <Space>
+              {user?.organization?.name && (
+                <Text type="secondary">Lab: {user.organization.name}</Text>
+              )}
+
+              <Tag color="blue">{user.role}</Tag>
+              <Text>{user?.name}</Text>
+
+              <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+                Logout
+              </Button>
+            </Space>
           </Header>
 
           <Content style={{ margin: "24px" }}>
