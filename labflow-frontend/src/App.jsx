@@ -154,7 +154,7 @@ const App = () => {
                 <Text type="secondary">Lab: {user.organization.name}</Text>
               )}
 
-              <Tag color="blue">{user.role}</Tag>
+              {user?.role && <Tag color="blue">{user.role}</Tag>}
               <Text>{user?.name}</Text>
 
               <Button icon={<LogoutOutlined />} onClick={handleLogout}>
