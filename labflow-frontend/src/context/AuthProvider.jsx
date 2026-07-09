@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "./AuthContext";
 import { getCurrentUser, loginUser, registerUser } from "../api/authApi";
 
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
     loadCurrentUser();
   }, [token]);
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     const result = await loginUser(credentials);
 
     localStorage.setItem("labflow_token", result.data.token);
@@ -53,9 +53,9 @@ export const AuthProvider = ({ children }) => {
     setUser(result.data.user);
 
     return result.data.user;
-  };
+  }, []);
 
-  const register = async (payload) => {
+  const register = useCallback(async (payload) => {
     const result = await registerUser(payload);
 
     localStorage.setItem("labflow_token", result.data.token);
@@ -64,14 +64,14 @@ export const AuthProvider = ({ children }) => {
     setUser(result.data.user);
 
     return result.data.user;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem("labflow_token");
 
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }) => {
       register,
       logout,
     }),
-    [user, token, isAuthLoading],
+    [user, token, isAuthLoading, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
