@@ -1,4 +1,4 @@
-import { Layout, Menu, Typography, Button, Space, Tag } from "antd";
+import { Layout, Menu, Typography, Button, Space, Spin, Tag } from "antd";
 import {
   DashboardOutlined,
   ProjectOutlined,
@@ -23,7 +23,7 @@ const { Title, Text } = Typography;
 const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthLoading } = useAuth();
 
   // Auth pages should not show the main app sidebar.
   const isAuthPage = ["/login", "/register"].includes(location.pathname);
@@ -40,6 +40,10 @@ const App = () => {
         <AppRoutes />
       </>
     );
+  }
+
+  if (isAuthLoading) {
+    return <Spin fullscreen />;
   }
 
   if (!user) {
