@@ -18,6 +18,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
 import AdminAuditLogsPage from "../pages/AdminAuditLogsPage";
 import AcceptInvitePage from "../pages/AcceptInvitePage";
+import OrganizationSettingsPage from "../pages/OrganizationSettingsPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 const AppRoutes = () => {
@@ -40,12 +41,22 @@ const AppRoutes = () => {
           </PublicOnlyRoute>
         }
       />
+
       <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
       <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/organization"
+        element={
+          <ProtectedRoute>
+            <OrganizationSettingsPage />
           </ProtectedRoute>
         }
       />

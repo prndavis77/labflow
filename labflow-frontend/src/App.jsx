@@ -1,15 +1,16 @@
 import { Layout, Menu, Typography, Button, Space, Spin, Tag } from "antd";
 import {
-  DashboardOutlined,
-  ProjectOutlined,
-  ExperimentOutlined,
-  CheckSquareOutlined,
-  CalendarOutlined,
-  FileTextOutlined,
-  LogoutOutlined,
   AuditOutlined,
-  TeamOutlined,
+  CalendarOutlined,
+  CheckSquareOutlined,
+  DashboardOutlined,
+  ExperimentOutlined,
+  FileTextOutlined,
   HistoryOutlined,
+  LogoutOutlined,
+  ProjectOutlined,
+  SettingOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router";
 
@@ -68,6 +69,11 @@ const App = () => {
             key: "/admin/users",
             icon: <TeamOutlined />,
             label: "Users",
+          },
+          {
+            key: "/organization",
+            icon: <SettingOutlined />,
+            label: "Organization",
           },
           {
             key: "/admin/audit-logs",
