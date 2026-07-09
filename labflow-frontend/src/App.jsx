@@ -28,6 +28,29 @@ const App = () => {
   // Auth pages should not show the main app sidebar.
   const isAuthPage = ["/login", "/register"].includes(location.pathname);
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  if (isAuthPage) {
+    return (
+      <>
+        <ScrollToTop />
+        <AppRoutes />
+      </>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <ScrollToTop />
+        <AppRoutes />
+      </>
+    );
+  }
+
   const menuItems = [
     {
       key: "/dashboard",
@@ -35,7 +58,7 @@ const App = () => {
       label: "Dashboard",
     },
 
-    ...(user?.role === "admin"
+    ...(user.role === "admin"
       ? [
           {
             key: "/admin/users",
@@ -50,7 +73,7 @@ const App = () => {
         ]
       : []),
 
-    ...(user?.role === "admin" || user?.role === "supervisor"
+    ...(user.role === "admin" || user.role === "supervisor"
       ? [
           {
             key: "/review",
@@ -87,21 +110,7 @@ const App = () => {
     },
   ];
 
-  function handleLogout() {
-    logout();
-    navigate("/login");
-  }
-
-  if (isAuthPage) {
-    return (
-      <>
-        <ScrollToTop />
-        <AppRoutes />
-      </>
-    );
-  }
-
-  // Finds the best sidebar key based on the current route.
+  // Finds the best sidebar key based on the current route
   const selectedMenuKey =
     menuItems.find((item) => location.pathname.startsWith(item.key))?.key ||
     "/dashboard";
@@ -150,12 +159,12 @@ const App = () => {
             </Title>
 
             <Space>
-              {user?.organization?.name && (
+              {user.organization?.name && (
                 <Text type="secondary">Lab: {user.organization.name}</Text>
               )}
 
-              {user?.role && <Tag color="blue">{user.role}</Tag>}
-              <Text>{user?.name}</Text>
+              {user.role && <Tag color="blue">{user.role}</Tag>}
+              {user.name && <Text>{user.name}</Text>}
 
               <Button icon={<LogoutOutlined />} onClick={handleLogout}>
                 Logout
