@@ -28,6 +28,7 @@ import { USER_ROLE_COLORS } from "../constants/statusColors";
 import { useAuth } from "../context/useAuth";
 import { formatDateTime, formatLabel } from "../utils/formatters";
 import InviteUserModal from "../components/users/InviteUserModal";
+import InvitationList from "../components/users/InvitationList";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -48,6 +49,8 @@ const AdminUsersPage = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [passwordResetUser, setPasswordResetUser] = useState(null);
+
+  const [invitationRefreshKey, setInvitationRefreshKey] = useState(0);
 
   // Loads all users for admin management
   const loadUsers = useCallback(async () => {
@@ -511,6 +514,8 @@ const AdminUsersPage = () => {
         />
       </Card>
 
+      <InvitationList refreshKey={invitationRefreshKey} />
+
       <Modal
         title={
           passwordResetUser
@@ -549,6 +554,9 @@ const AdminUsersPage = () => {
       <InviteUserModal
         open={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
+        onInvitationCreated={() => {
+          setInvitationRefreshKey((current) => current + 1);
+        }}
       />
     </Space>
   );

@@ -14,7 +14,7 @@ import {
 
 import { createInvitation } from "../../api/invitationApi";
 
-const InviteUserModal = ({ open, onClose }) => {
+const InviteUserModal = ({ open, onClose, onInvitationCreated }) => {
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
@@ -58,6 +58,11 @@ const InviteUserModal = ({ open, onClose }) => {
       const response = await createInvitation(payload);
 
       setInviteLink(response.data.inviteLink);
+
+      if (onInvitationCreated) {
+        onInvitationCreated();
+      }
+
       message.success("Invitation created.");
     } catch (error) {
       message.error(
