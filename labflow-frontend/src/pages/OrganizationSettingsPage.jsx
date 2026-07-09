@@ -19,11 +19,11 @@ import { useAuth } from "../context/useAuth";
 const { Title, Paragraph } = Typography;
 
 const ORGANIZATION_TYPE_OPTIONS = [
-  { value: "university_lab", label: "University Lab" },
-  { value: "research_group", label: "Research Group" },
+  { value: "lab", label: "University Lab" },
   { value: "department", label: "Department" },
-  { value: "core_facility", label: "Core Facility" },
-  { value: "other", label: "Other" },
+  { value: "institution", label: "Institution" },
+  { value: "company", label: "Company" },
+  { value: "demo", label: "Demo" },
 ];
 
 const OrganizationSettingsPage = () => {
