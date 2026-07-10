@@ -96,6 +96,8 @@ I designed and built the full-stack MVP, including:
 - Sequelize migrations
 - Backend automated tests with Jest and Supertest
 - Deployment to Vercel, Render, and Neon PostgreSQL
+- Organization settings workflow
+- Invitation list management
 
 ## Tech Stack
 
@@ -280,9 +282,9 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The backend test suite currently includes 10 passing test suites and 75 passing tests.
+The backend test suite currently includes 11 passing test suites and 83 passing tests.
 
-The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, review workflows, and the invitation onboarding flow. Covered areas include:
+The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, review workflows, the invitation onboarding flow, and organization settings. Covered areas include:
 
 - Health check
 - Authentication
@@ -333,6 +335,20 @@ A major backend architecture upgrade added organization-level ownership across t
 This allows LabFlow to move closer to a real multi-lab structure, where one lab's users, projects, tasks, protocols, equipment, audit logs, and review events are isolated from another lab's data.
 
 The controller layer now scopes record access by the authenticated user's organization, and a dedicated organization isolation test suite verifies that cross-organization access is blocked.
+
+### Organization Settings and Tenant Administration
+
+LabFlow now includes a basic organization settings workflow. Admins can view and update the current organization’s name and type, while regular users can view the organization context but cannot change it.
+
+The app always uses the authenticated user’s `organizationId` rather than accepting an organization ID from the request body or URL. This keeps organization settings scoped to the current tenant and avoids cross-organization updates.
+
+Organization setting changes are written to the audit log, including previous and new values.
+
+### Invitation List Management
+
+Admins can view invitations for their organization, including invitee details, role, department, status, expiration date, invited-by information, and accepted date.
+
+Pending invitations can be revoked from the admin interface. Accepted, revoked, and expired invitations remain visible for traceability.
 
 ## Challenges and Decisions
 
@@ -418,7 +434,7 @@ The project includes:
 - Sequelize migrations
 - Backend security hardening
 - Archive behavior for projects, tasks, experiments, and protocols, with audit log coverage
-- 75 passing automated backend tests across 10 test suites
+- 83 passing automated backend tests across 11 test suites
 - Seeded demo data and demo accounts
 - GitHub README and portfolio case study
 
@@ -428,14 +444,13 @@ LabFlow is intentionally focused on MVP workflows.
 
 Current limitations include:
 
-- Organization-level data ownership, backend isolation, and invitation-based onboarding exist, but LabFlow does not yet include organization management screens or full tenant administration workflows.
+- Organization-level data ownership, backend isolation, invitation-based onboarding, and basic organization settings exist, but LabFlow does not yet include full tenant administration workflows.
 - No file uploads
 - No rich text editor for notebook entries
 - No image attachments for experiment notebooks
 - No PDF export for experiment notebooks
 - No email notifications
 - Account deactivation/reactivation, admin password reset, and invitation-based onboarding exist, but email verification and self-service password reset are not yet included.
-- Admin password reset exists, but self-service password reset and email verification are not yet included.
 - No frontend automated tests yet
 - No production-grade monitoring or centralized logging
 - Organization-level backend isolation exists, but additional production-grade tenant controls would still be needed before handling real institutional data.
@@ -446,7 +461,7 @@ Current limitations include:
 
 Recommended future improvements include:
 
-- Organization management UI
+- Expanded organization administration, including logos, contact details, organization admins, and tenant-level policies
 - Email delivery for invitation links
 - Invitation resend, revoke, and expiration management improvements
 - Organization-level roles and tenant administration workflows

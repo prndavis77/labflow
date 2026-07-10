@@ -23,7 +23,7 @@ LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
-The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 75 passing automated backend tests across 10 test suites.
+The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 83 passing automated backend tests across 11 test suites.
 
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
 
@@ -219,6 +219,8 @@ This allows the app to separate data between labs such as:
 
 The active organization is also shown in the application UI so users can clearly see which lab workspace they are using.
 
+Admins can also manage basic organization settings from the app, including the organization name and organization type. The active organization name is shown in the main UI so users can clearly see which lab workspace they are using.
+
 ---
 
 ## Researcher Workflow Permissions
@@ -327,7 +329,11 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Secure invitation acceptance flow
 - Visible active lab/workspace context in the UI
 - Project, task, experiment, protocol, equipment, booking, notebook, review, archive, and audit-log workflows
-- Backend test coverage with 75 passing tests
+- Organization settings page for admins
+- Editable organization name and type
+- Invitation list management with status, expiration, invited-by, and accepted-date details
+- Pending invitation revoke action
+- Backend test coverage with 83 passing tests across 11 test suites
 
 ### Dashboard
 
@@ -653,6 +659,8 @@ The invitation flow includes:
 
 For the MVP, invitation links are shown directly in the admin UI instead of being sent by email.
 
+Admins can view an invitation list showing invitee name, email, role, department, status, expiration date, invited date, invited-by information, and accepted date. Pending invitations can be revoked from the admin interface.
+
 ---
 
 ## Screenshots
@@ -888,7 +896,7 @@ labflow/
           ExperimentFormModal.jsx
         projects/
           ProjectFormModal.jsx
-          ProjectMemversCard.jsx
+          ProjectMembersCard.jsx
         protocols/
           ProtocolFormModal.jsx
         tasks/
@@ -1592,9 +1600,9 @@ LabFlow MVP Version 1.2 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 10 passing test suites and 75 passing tests, including authorization, review workflows, audit logs, soft archive behavior, equipment booking conflicts, and organization isolation.
+The backend test suite currently includes 11 passing test suites and 83 passing tests, including authorization, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
 
-Current backend test status: 10 test suites, 75 tests passing.
+Current backend test status: 11 test suites, 83 tests passing.
 
 Covered backend areas include:
 
@@ -1617,6 +1625,10 @@ Covered backend areas include:
 - Supervisor-scoped project visibility
 - Project lead, viewer, and non-member task creation rules
 - Cross-organization isolation for projects, tasks, and audit logs
+- Invitation onboarding and revoke behavior
+- Organization settings view/update behavior
+- Admin-only organization updates
+- Organization settings audit log creation
 
 Run backend tests from the backend folder:
 
@@ -1670,7 +1682,7 @@ LabFlow MVP Version 1.2 is intentionally focused on core workflows.
 
 Current limitations include:
 
-- Organization-level data ownership, backend scoping, and admin-created invitations are now included, but LabFlow does not yet include a full organization management UI or complete multi-organization tenant administration workflows.
+- Organization-level data ownership, backend scoping, admin-created invitations, and basic organization settings are now included, but LabFlow does not yet include complete multi-organization tenant administration workflows.
 - Dashboard project-linked metrics are role-aware for researchers, but equipment inventory metrics are still global because equipment is not project-owned yet.
 - No file uploads
 - No email notifications
@@ -1718,7 +1730,7 @@ LabFlow was built as a portfolio project to demonstrate applied software develop
 
 Recommended Version 2 improvements:
 
-- Organization management UI
+- Expanded organization administration, including logo, address, contact details, organization admins, and tenant-level policies
 - Email delivery for invitation links
 - Invitation management improvements, such as resend and expiration controls
 - Role-specific dashboards
