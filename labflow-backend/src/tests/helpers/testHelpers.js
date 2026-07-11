@@ -30,6 +30,7 @@ const createTestUser = async ({
   canEditExperiments = true,
   canCreateProtocols = true,
   canEditProtocols = true,
+  requiresReview = true,
 }) => {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, TEST_BCRYPT_ROUNDS);
 
@@ -48,6 +49,7 @@ const createTestUser = async ({
     canEditExperiments,
     canCreateProtocols,
     canEditProtocols,
+    requiresReview,
   });
 };
 

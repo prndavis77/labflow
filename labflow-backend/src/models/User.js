@@ -90,6 +90,13 @@ const User = sequelize.define(
       field: "can_edit_protocols",
     },
 
+    requiresReview: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: "requires_review",
+    },
+
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

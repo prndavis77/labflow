@@ -112,6 +112,7 @@ const createUsers = async (organization) => {
     canEditExperiments: true,
     canCreateProtocols: false,
     canEditProtocols: false,
+    requiresReview: true,
     organizationId: organization.id,
   });
 
@@ -126,6 +127,7 @@ const createUsers = async (organization) => {
     canEditExperiments: true,
     canCreateProtocols: true,
     canEditProtocols: true,
+    requiresReview: false,
     organizationId: organization.id,
   });
 
@@ -140,6 +142,7 @@ const createUsers = async (organization) => {
     canEditExperiments: false,
     canCreateProtocols: true,
     canEditProtocols: true,
+    requiresReview: true,
     organizationId: organization.id,
   });
 

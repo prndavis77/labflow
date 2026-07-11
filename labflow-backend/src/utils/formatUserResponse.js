@@ -18,6 +18,7 @@ const formatUserResponse = (user) => ({
   canEditExperiments: user.canEditExperiments,
   canCreateProtocols: user.canCreateProtocols,
   canEditProtocols: user.canEditProtocols,
+  requiresReview: user.requiresReview,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
