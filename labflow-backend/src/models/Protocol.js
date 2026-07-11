@@ -68,6 +68,19 @@ const Protocol = sequelize.define(
       field: "approval_status",
     },
 
+    reviewStatus: {
+      type: DataTypes.ENUM(
+        "not_submitted",
+        "pending",
+        "approved",
+        "changes_requested",
+        "not_required",
+      ),
+      allowNull: false,
+      defaultValue: "not_submitted",
+      field: "review_status",
+    },
+
     // Stores the latest supervisor/admin protocol review feedback
     // Later this can be replaced by a review history table
     reviewComment: {

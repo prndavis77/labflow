@@ -10,6 +10,7 @@ const {
   Protocol,
   ReviewEvent,
   AuditLog,
+  ProjectMember,
 } = require("../models");
 
 const {
@@ -120,6 +121,19 @@ describe("Experiment and protocol review workflows", () => {
       supervisorId: otherSupervisor.id,
     });
 
+    await ProjectMember.create({
+      projectId: supervisedProject.id,
+      userId: researcher.id,
+      projectRole: "member",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    await researcher.update({
+      canCreateExperiments: true,
+      canCreateProtocols: true,
+      requiresReview: true,
+    });
+
     adminToken = await loginAndGetToken("admin@test.com");
     supervisorToken = await loginAndGetToken("supervisor@test.com");
     otherSupervisorToken = await loginAndGetToken("other.supervisor@test.com");
@@ -127,6 +141,128 @@ describe("Experiment and protocol review workflows", () => {
 
   afterAll(async () => {
     await sequelize.close();
+  });
+
+  it("creates an experiment with review not submitted when researcher review is required", async () => {
+    await researcher.update({
+      requiresReview: true,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const response = await request(app)
+      .post("/api/experiments")
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        title: "Review-required experiment",
+        objective: "Verify the default experiment review policy.",
+        projectId: supervisedProject.id,
+        researcherId: researcher.id,
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.experiment.reviewStatus).toBe("not_submitted");
+
+    const createdExperiment = await Experiment.findByPk(
+      response.body.data.experiment.id,
+    );
+
+    expect(createdExperiment).not.toBeNull();
+    expect(createdExperiment.reviewStatus).toBe("not_submitted");
+  });
+
+  it("creates an experiment with review not required when researcher is exempt", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const response = await request(app)
+      .post("/api/experiments")
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        title: "Review-exempt experiment",
+        objective: "Verify the exempt experiment review policy.",
+        projectId: supervisedProject.id,
+        researcherId: researcher.id,
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.experiment.reviewStatus).toBe("not_required");
+
+    const createdExperiment = await Experiment.findByPk(
+      response.body.data.experiment.id,
+    );
+
+    expect(createdExperiment).not.toBeNull();
+    expect(createdExperiment.reviewStatus).toBe("not_required");
+  });
+
+  it("creates a protocol with review not submitted when researcher review is required", async () => {
+    await researcher.update({
+      requiresReview: true,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const response = await request(app)
+      .post("/api/protocols")
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        title: "Review-required protocol",
+        version: "1.0",
+        purpose: "Verify the default protocol review policy.",
+        content: "1. Prepare the sample.\n2. Run the analysis.",
+        projectId: supervisedProject.id,
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.protocol.approvalStatus).toBe("draft");
+    expect(response.body.data.protocol.reviewStatus).toBe("not_submitted");
+
+    const createdProtocol = await Protocol.findByPk(
+      response.body.data.protocol.id,
+    );
+
+    expect(createdProtocol).not.toBeNull();
+    expect(createdProtocol.approvalStatus).toBe("draft");
+    expect(createdProtocol.reviewStatus).toBe("not_submitted");
+  });
+
+  it("creates a protocol with review not required when researcher is exempt", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const response = await request(app)
+      .post("/api/protocols")
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        title: "Review-exempt protocol",
+        version: "1.0",
+        purpose: "Verify the exempt protocol review policy.",
+        content: "1. Prepare the sample.\n2. Run the analysis.",
+        projectId: supervisedProject.id,
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.protocol.approvalStatus).toBe("draft");
+    expect(response.body.data.protocol.reviewStatus).toBe("not_required");
+
+    const createdProtocol = await Protocol.findByPk(
+      response.body.data.protocol.id,
+    );
+
+    expect(createdProtocol).not.toBeNull();
+    expect(createdProtocol.approvalStatus).toBe("draft");
+    expect(createdProtocol.reviewStatus).toBe("not_required");
   });
 
   it("allows an admin to approve an experiment", async () => {

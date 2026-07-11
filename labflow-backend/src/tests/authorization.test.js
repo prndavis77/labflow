@@ -351,4 +351,108 @@ describe("Authorization", () => {
       "New password must be at least 8 characters.",
     );
   });
+
+  it("allows an admin to disable review requirements for a researcher", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/permissions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        requiresReview: false,
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.user.requiresReview).toBe(false);
+
+    const updatedResearcher = await User.findByPk(researcher.id);
+
+    expect(updatedResearcher.requiresReview).toBe(false);
+  });
+
+  it("allows an admin to enable review requirements for a researcher", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/permissions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        requiresReview: true,
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.user.requiresReview).toBe(true);
+
+    const updatedResearcher = await User.findByPk(researcher.id);
+
+    expect(updatedResearcher.requiresReview).toBe(true);
+  });
+
+  it("rejects a non-boolean review requirement value", async () => {
+    const adminToken = await loginAndGetToken("admin@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/permissions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        requiresReview: "false",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "requiresReview must be a boolean value.",
+    );
+
+    const unchangedResearcher = await User.findByPk(researcher.id);
+
+    expect(unchangedResearcher.requiresReview).toBe(true);
+  });
+
+  it("rejects review requirement updates from a researcher", async () => {
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const researcher = await User.findOne({
+      where: {
+        email: "researcher@test.com",
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/api/users/${researcher.id}/permissions`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        requiresReview: false,
+      });
+
+    expect(response.statusCode).toBe(403);
+
+    const unchangedResearcher = await User.findByPk(researcher.id);
+
+    expect(unchangedResearcher.requiresReview).toBe(true);
+  });
 });
