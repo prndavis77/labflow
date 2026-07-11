@@ -36,6 +36,7 @@ const AdminUsersPage = () => {
   const { user: currentUser } = useAuth();
 
   const [users, setUsers] = useState([]);
+
   const [selectedRoleFilter, setSelectedRoleFilter] = useState(undefined);
 
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -44,11 +45,12 @@ const AdminUsersPage = () => {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
 
+  const [bulkUpdatingField, setBulkUpdatingField] = useState(null);
+  const [passwordResetUser, setPasswordResetUser] = useState(null);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  const [passwordResetUser, setPasswordResetUser] = useState(null);
 
   const [invitationRefreshKey, setInvitationRefreshKey] = useState(0);
 
@@ -86,6 +88,121 @@ const AdminUsersPage = () => {
 
     return users.filter((user) => user.role === selectedRoleFilter);
   }, [users, selectedRoleFilter]);
+
+  const researcherUsers = useMemo(
+    () => users.filter((user) => user.role === "researcher"),
+    [users],
+  );
+
+  const getBulkPermissionState = useCallback(
+    (field) => {
+      if (researcherUsers.length === 0) {
+        return {
+          checked: false,
+          isMixed: false,
+        };
+      }
+
+      const enabledCount = researcherUsers.filter((user) =>
+        Boolean(user[field]),
+      ).length;
+
+      return {
+        checked: enabledCount === researcherUsers.length,
+        isMixed: enabledCount > 0 && enabledCount < researcherUsers.length,
+      };
+    },
+    [researcherUsers],
+  );
+
+  const handleBulkWorkflowPermissionChange = useCallback(
+    async (field, checked) => {
+      if (researcherUsers.length === 0) {
+        message.info("There are no researcher accounts to update.");
+        return;
+      }
+
+      try {
+        setBulkUpdatingField(field);
+
+        const results = await Promise.allSettled(
+          researcherUsers.map((researcher) =>
+            updateUserWorkflowPermissions(researcher.id, {
+              [field]: checked,
+            }),
+          ),
+        );
+
+        const failedResults = results.filter(
+          (result) => result.status === "rejected",
+        );
+
+        await loadUsers();
+
+        if (failedResults.length > 0) {
+          message.warning(
+            `${researcherUsers.length - failedResults.length} of ${
+              researcherUsers.length
+            } researcher accounts were updated.`,
+          );
+
+          return;
+        }
+
+        message.success(
+          `Updated ${researcherUsers.length} researcher account${
+            researcherUsers.length === 1 ? "" : "s"
+          }.`,
+        );
+      } catch (error) {
+        const messageText =
+          error.response?.data?.message ||
+          "Failed to update researcher permissions.";
+
+        message.error(messageText);
+      } finally {
+        setBulkUpdatingField(null);
+      }
+    },
+    [loadUsers, researcherUsers],
+  );
+
+  const renderBulkPermissionSwitch = useCallback(
+    (field, label) => {
+      const { checked, isMixed } = getBulkPermissionState(field);
+      const isThisFieldUpdating = bulkUpdatingField === field;
+      const isAnyBulkUpdateRunning = bulkUpdatingField !== null;
+
+      return (
+        <Space>
+          <Switch
+            size="small"
+            checked={checked}
+            loading={isThisFieldUpdating}
+            disabled={
+              researcherUsers.length === 0 ||
+              isAnyBulkUpdateRunning ||
+              isUpdatingPermissions
+            }
+            onChange={(nextChecked) =>
+              handleBulkWorkflowPermissionChange(field, nextChecked)
+            }
+          />
+
+          <Text>{label}</Text>
+
+          {isMixed && <Tag>Mixed</Tag>}
+        </Space>
+      );
+    },
+    [
+      bulkUpdatingField,
+      getBulkPermissionState,
+      handleBulkWorkflowPermissionChange,
+      isUpdatingPermissions,
+      researcherUsers.length,
+    ],
+  );
 
   // Changes a user's role through the admin-only backend endpoint
   const handleRoleChange = useCallback(
@@ -140,13 +257,15 @@ const AdminUsersPage = () => {
   // Renders one permission switch for researcher workflow permissions.
   const renderPermissionSwitch = useCallback(
     (record, field, label) => {
+      const isBulkUpdateRunning = bulkUpdatingField !== null;
+
       return (
         <Space>
           <Switch
             size="small"
             checked={Boolean(record[field])}
             loading={isUpdatingPermissions}
-            disabled={isUpdatingPermissions}
+            disabled={isUpdatingPermissions || isBulkUpdateRunning}
             onChange={(checked) =>
               handleWorkflowPermissionChange(record, field, checked)
             }
@@ -156,7 +275,7 @@ const AdminUsersPage = () => {
         </Space>
       );
     },
-    [handleWorkflowPermissionChange, isUpdatingPermissions],
+    [bulkUpdatingField, handleWorkflowPermissionChange, isUpdatingPermissions],
   );
 
   const handleAccountStatusChange = useCallback(
@@ -339,6 +458,22 @@ const AdminUsersPage = () => {
         },
       },
       {
+        title: "Review Requirement",
+        key: "reviewRequirement",
+        width: 230,
+        render: (_, record) => {
+          if (record.role !== "researcher") {
+            return <Text type="secondary">Not required by role</Text>;
+          }
+
+          return renderPermissionSwitch(
+            record,
+            "requiresReview",
+            "Requires review",
+          );
+        },
+      },
+      {
         title: "Created",
         dataIndex: "createdAt",
         key: "createdAt",
@@ -476,7 +611,8 @@ const AdminUsersPage = () => {
             <Paragraph type="secondary" style={{ marginBottom: 0 }}>
               Researcher workflow permissions control whether researcher
               accounts can independently create or edit experiments and
-              protocols. Admins and supervisors have full access by role.
+              protocols, and whether their new experiments and protocols require
+              formal review. Admins and supervisors have full access by role.
             </Paragraph>
           </div>
 
@@ -493,6 +629,67 @@ const AdminUsersPage = () => {
       {errorMessage && <Alert type="error" message={errorMessage} showIcon />}
 
       <Card>
+        <Card
+          size="small"
+          title="Bulk researcher settings"
+          style={{ marginBottom: 16 }}
+        >
+          <Paragraph type="secondary">
+            These controls update the selected permission for every researcher
+            account. A Mixed label means researchers currently have different
+            settings.
+          </Paragraph>
+
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <div>
+              <Text strong>Experiment permissions</Text>
+
+              <div style={{ marginTop: 8 }}>
+                <Space wrap size="large">
+                  {renderBulkPermissionSwitch(
+                    "canCreateExperiments",
+                    "Allow all researchers to create experiments",
+                  )}
+
+                  {renderBulkPermissionSwitch(
+                    "canEditExperiments",
+                    "Allow all researchers to edit experiments",
+                  )}
+                </Space>
+              </div>
+            </div>
+
+            <div>
+              <Text strong>Protocol permissions</Text>
+
+              <div style={{ marginTop: 8 }}>
+                <Space wrap size="large">
+                  {renderBulkPermissionSwitch(
+                    "canCreateProtocols",
+                    "Allow all researchers to create protocols",
+                  )}
+
+                  {renderBulkPermissionSwitch(
+                    "canEditProtocols",
+                    "Allow all researchers to edit protocols",
+                  )}
+                </Space>
+              </div>
+            </div>
+
+            <div>
+              <Text strong>Review policy</Text>
+
+              <div style={{ marginTop: 8 }}>
+                {renderBulkPermissionSwitch(
+                  "requiresReview",
+                  "Require experiment and protocol review for all researchers",
+                )}
+              </div>
+            </div>
+          </Space>
+        </Card>
+
         <Space wrap style={{ marginBottom: 16 }}>
           <Select
             allowClear
@@ -510,7 +707,7 @@ const AdminUsersPage = () => {
           dataSource={filteredUsers}
           loading={isLoadingUsers}
           pagination={{ pageSize: 10, showSizeChanger: true }}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 2200 }}
         />
       </Card>
 

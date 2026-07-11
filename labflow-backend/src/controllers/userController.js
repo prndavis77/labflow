@@ -9,6 +9,7 @@ const WORKFLOW_PERMISSION_FIELDS = [
   "canEditExperiments",
   "canCreateProtocols",
   "canEditProtocols",
+  "requiresReview",
 ];
 
 // GET /api/users
@@ -29,6 +30,7 @@ const getUsers = async (req, res) => {
         "canEditExperiments",
         "canCreateProtocols",
         "canEditProtocols",
+        "requiresReview",
         "createdAt",
         "updatedAt",
         "isActive",
@@ -79,6 +81,7 @@ const getUserById = async (req, res) => {
         "canEditExperiments",
         "canCreateProtocols",
         "canEditProtocols",
+        "requiresReview",
         "createdAt",
         "updatedAt",
         "isActive",
@@ -259,6 +262,7 @@ const updateUserWorkflowPermissions = async (req, res) => {
       canEditExperiments: userToUpdate.canEditExperiments,
       canCreateProtocols: userToUpdate.canCreateProtocols,
       canEditProtocols: userToUpdate.canEditProtocols,
+      requiresReview: userToUpdate.requiresReview,
     };
 
     await userToUpdate.update(updates);
@@ -277,6 +281,7 @@ const updateUserWorkflowPermissions = async (req, res) => {
           canEditExperiments: userToUpdate.canEditExperiments,
           canCreateProtocols: userToUpdate.canCreateProtocols,
           canEditProtocols: userToUpdate.canEditProtocols,
+          requiresReview: userToUpdate.requiresReview,
         },
         changedFields: updates,
       },
