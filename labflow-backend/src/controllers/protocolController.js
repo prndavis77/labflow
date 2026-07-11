@@ -162,6 +162,7 @@ const formatProtocolResponse = (protocol) => {
     purpose: protocol.purpose,
     content: protocol.content,
     approvalStatus: protocol.approvalStatus,
+    reviewStatus: protocol.reviewStatus,
     reviewComment: protocol.reviewComment,
     projectId: protocol.projectId,
     equipmentId: protocol.equipmentId,
@@ -477,6 +478,13 @@ const createProtocol = async (req, res) => {
       });
     }
 
+    const shouldBypassReview =
+      req.user.role === "researcher" && req.user.requiresReview === false;
+
+    const initialReviewStatus = shouldBypassReview
+      ? "not_required"
+      : "not_submitted";
+
     const protocol = await Protocol.create({
       title: title.trim(),
       version: version?.trim() || "1.0",
@@ -490,6 +498,7 @@ const createProtocol = async (req, res) => {
       approvedById,
       approvedAt,
       organizationId: req.user.organizationId,
+      reviewStatus: initialReviewStatus,
     });
 
     const createdProtocol = await Protocol.findOne({
