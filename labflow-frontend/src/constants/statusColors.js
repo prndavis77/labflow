@@ -35,6 +35,7 @@ export const EXPERIMENT_STATUS_COLORS = {
 
 export const REVIEW_STATUS_COLORS = {
   not_submitted: "default",
+  not_required: "default",
   pending: "orange",
   approved: "green",
   changes_requested: "red",

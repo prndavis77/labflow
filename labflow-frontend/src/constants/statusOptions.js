@@ -42,6 +42,7 @@ export const REVIEW_STATUS_OPTIONS = [
   { label: "Pending", value: "pending" },
   { label: "Approved", value: "approved" },
   { label: "Changes Requested", value: "changes_requested" },
+  { label: "Review Not Required", value: "not_required" },
 ];
 
 export const EDITABLE_REVIEW_STATUS_OPTIONS = [

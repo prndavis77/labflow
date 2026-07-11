@@ -61,6 +61,7 @@ const Experiment = sequelize.define(
         "pending",
         "approved",
         "changes_requested",
+        "not_required",
       ),
       allowNull: false,
       defaultValue: "not_submitted",

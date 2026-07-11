@@ -30,6 +30,7 @@ const VALID_REVIEW_STATUSES = [
   "pending",
   "approved",
   "changes_requested",
+  "not_required",
 ];
 
 const VALID_EXPERIMENT_STATUSES = [
@@ -385,7 +386,6 @@ const createExperiment = async (req, res) => {
       objective,
       notes,
       status,
-      reviewStatus,
       reviewComment,
       startedAt,
       completedAt,
@@ -406,35 +406,6 @@ const createExperiment = async (req, res) => {
       return res.status(400).json({
         status: "error",
         message: "Invalid experiment status.",
-      });
-    }
-
-    if (
-      reviewStatus !== undefined &&
-      !VALID_REVIEW_STATUSES.includes(reviewStatus)
-    ) {
-      return res.status(400).json({
-        status: "error",
-        message: "Invalid review status.",
-      });
-    }
-
-    if (
-      reviewStatus !== undefined &&
-      ["approved", "changes_requested"].includes(reviewStatus) &&
-      !["admin", "supervisor"].includes(req.user.role)
-    ) {
-      return res.status(403).json({
-        status: "error",
-        message:
-          "Only admins and supervisors can create experiments with review decisions.",
-      });
-    }
-
-    if (reviewStatus === "changes_requested" && !reviewComment?.trim()) {
-      return res.status(400).json({
-        status: "error",
-        message: "A review comment is required when requesting changes.",
       });
     }
 
@@ -550,12 +521,19 @@ const createExperiment = async (req, res) => {
       }
     }
 
+    const shouldBypassReview =
+      req.user.role === "researcher" && req.user.requiresReview === false;
+
+    const initialReviewStatus = shouldBypassReview
+      ? "not_required"
+      : "not_submitted";
+
     const experiment = await Experiment.create({
       title: title.trim(),
       objective: objective?.trim() || null,
       notes: notes?.trim() || null,
       status: status || "planned",
-      reviewStatus: reviewStatus || "not_submitted",
+      reviewStatus: initialReviewStatus,
       reviewComment: reviewComment?.trim() || null,
       startedAt: startedAt || null,
       completedAt: completedAt || null,
