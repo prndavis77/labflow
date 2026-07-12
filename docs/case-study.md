@@ -68,7 +68,8 @@ LabFlow centralizes core research lab workflows into one system:
 - Review history tracking
 - Role-aware dashboard metrics
 - Admin user management
-- Configurable researcher workflow permissions
+- Configurable researcher workflow permissions and review requirements
+- Bulk researcher permission and review-policy controls
 - Project membership and project-specific access rules
 
 The result is a working MVP that models how research work, supervision, review, and shared equipment usage can fit together in a single full-stack web application.
@@ -167,7 +168,7 @@ This avoids giving researchers broad access just because they have a general per
 
 Project viewers have read-only access to project-linked work. Project members can contribute when their workflow permissions allow it. Project leads can coordinate project-linked work.
 
-### Researcher Workflow Permissions
+### Researcher Workflow Permissions and Review Policy
 
 Admins can configure whether each researcher can:
 
@@ -175,10 +176,15 @@ Admins can configure whether each researcher can:
 - Edit experiments
 - Create protocols
 - Edit protocols
+- Work under mandatory experiment and protocol review
 
-This supports different lab supervision styles. Some labs may allow experienced researchers to work independently, while others may require tighter supervisor control over experiments and protocols.
+The admin user management page supports both individual switches and bulk controls that update all researcher accounts. Bulk controls are available for experiment permissions, protocol permissions, and the review requirement.
 
-The frontend hides actions that a researcher should not use, while the backend still enforces the same rules for security.
+Researchers who require review create experiments and protocols with a review status of `not_submitted`. Researchers who are exempt create them with `not_required`, so the system can distinguish independent work from supervisor-approved work without falsely marking exempt records as approved.
+
+This supports different lab supervision styles. Some labs may require formal review for every experiment and method, while others may allow experienced researchers to work independently and request help only when needed.
+
+The frontend communicates the configured policy, while the backend remains the enforcement point.
 
 ### Locked Project Linkage
 
@@ -282,7 +288,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The backend test suite currently includes 11 passing test suites and 83 passing tests.
+The backend test suite currently includes 11 passing test suites and 91 passing tests.
 
 The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, review workflows, the invitation onboarding flow, and organization settings. Covered areas include:
 
@@ -296,6 +302,9 @@ The tests cover authentication, role-based access, organization-scoped data isol
 - Task completion review
 - Experiment review workflow
 - Protocol review workflow
+- Admin updates to researcher review requirements
+- Review-required and review-exempt experiment creation
+- Review-required and review-exempt protocol creation
 - Review history event creation
 - Cross-organization isolation for projects, tasks, and audit logs
 
@@ -400,6 +409,12 @@ Dashboard data needed to change depending on the current user.
 
 I separated project-linked dashboard filtering from task-specific assignment filtering. This allows researchers to see project-linked data only for their project memberships while still seeing standalone tasks assigned to them.
 
+### 9. Supporting Different Researcher Review Requirements
+
+Labs do not all use the same supervision model. Some supervisors review every experiment and protocol, while others allow experienced researchers to work independently until help is needed.
+
+I added a researcher-level review policy that separates workflow permission from review requirement. Researchers who require review create records with `not_submitted`, while review-exempt researchers create records with `not_required`. The admin interface supports individual and bulk policy changes, and the backend enforces the behavior during experiment and protocol creation.
+
 ## Organization-Based Onboarding
 
 A key part of the latest LabFlow iteration was moving from a single-lab demo structure toward a multi-organization foundation.
@@ -434,7 +449,7 @@ The project includes:
 - Sequelize migrations
 - Backend security hardening
 - Archive behavior for projects, tasks, experiments, and protocols, with audit log coverage
-- 83 passing automated backend tests across 11 test suites
+- 91 passing automated backend tests across 11 test suites
 - Seeded demo data and demo accounts
 - GitHub README and portfolio case study
 

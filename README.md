@@ -23,9 +23,21 @@ LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application
 
 This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
 
-The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 83 passing automated backend tests across 11 test suites.
+The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 91 passing automated backend tests across 11 test suites.
 
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
+
+### Phase 20G: Researcher Review Policy
+
+Completed:
+
+- Added a researcher-level `requiresReview` policy field.
+- Added review-exempt experiment and protocol creation using the `not_required` review status.
+- Kept normal review workflow behavior for researchers who still require review.
+- Added an individual Review Requirement switch to the admin user management table.
+- Added bulk researcher controls for experiment permissions, protocol permissions, and review requirements.
+- Added backend authorization and review-workflow tests for the new policy.
+- Verified the full backend test suite with 91 passing tests across 11 test suites.
 
 ### Phase 20B: Soft Delete / Archive
 
@@ -223,9 +235,9 @@ Admins can also manage basic organization settings from the app, including the o
 
 ---
 
-## Researcher Workflow Permissions
+## Researcher Workflow Permissions and Review Policy
 
-LabFlow includes configurable workflow permissions for researcher accounts.
+LabFlow includes configurable workflow permissions and review requirements for researcher accounts.
 
 Admins can control whether each researcher can:
 
@@ -233,12 +245,17 @@ Admins can control whether each researcher can:
 - Edit experiments
 - Create protocols
 - Edit protocols
+- Work under mandatory experiment and protocol review
+
+Admins can change these settings individually from the user table or use bulk controls to update all researcher accounts at once. Bulk controls are available for experiment creation and editing, protocol creation and editing, and the review requirement.
+
+When `requiresReview` is enabled, new experiments and protocols start with a review status of `not_submitted` and follow the normal review workflow.
+
+When `requiresReview` is disabled, new experiments and protocols start with a review status of `not_required`. This allows experienced or trusted researchers to work independently while preserving a clear audit-friendly distinction between approved work and work that does not require formal review.
 
 Admins have global workflow access. Supervisors have workflow access scoped to projects where they are assigned as the project supervisor. Researcher permissions provide finer control for labs with different supervision styles.
 
-For example, one researcher may be allowed to independently create and edit experiments but not protocols. Another researcher may be allowed to create and edit protocols but not experiments. A third researcher may be allowed to create and edit both.
-
-Researchers still cannot approve experiments, approve protocols, request review changes, or delete protected experiment/protocol records.
+Researchers still cannot approve experiments, approve protocols, request review changes, or archive protected experiment/protocol records unless their role allows it.
 
 ---
 
@@ -290,7 +307,8 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Required review notes when requesting changes
 - Admin user management
 - Admin-controlled role changes
-- Configurable researcher workflow permissions
+- Configurable researcher workflow permissions and review requirements
+- Bulk researcher permission and review-policy controls
 - Project membership model
 - Project members section on project detail pages
 - Membership-aware project access for researchers
@@ -483,6 +501,7 @@ Review statuses include:
 - Pending
 - Approved
 - Changes Requested
+- Review Not Required
 
 ### Experiment Notebook Entries
 
@@ -531,6 +550,7 @@ Protocol records include:
 - Purpose
 - Content
 - Approval status
+- Review status
 - Review comment
 - Project
 - Equipment
@@ -637,7 +657,9 @@ Admins can:
 - View all users
 - Filter users by role
 - Change another user's role
-- Configure researcher workflow permissions
+- Configure individual researcher workflow permissions
+- Configure whether individual researchers require experiment and protocol review
+- Apply bulk experiment, protocol, and review-policy settings to all researchers
 - View account creation and update dates
 
 The interface prevents admins from changing their own role from the admin users page. The backend also protects role updates and permission updates so only admin users can perform those actions.
@@ -742,7 +764,8 @@ LabFlow demonstrates several full-stack development concepts:
 - Flexible protocol model for project protocols, equipment SOPs, and general SOPs
 - Cross-linked detail pages for related lab records
 - Admin user management with role update workflow
-- Configurable researcher workflow permissions
+- Configurable researcher workflow permissions and review requirements
+- Bulk researcher permission and review-policy controls
 - Permission-aware frontend actions backed by backend authorization
 - Reusable experiment and protocol form modals
 - Detail-page editing through shared modal components
@@ -1586,6 +1609,11 @@ LabFlow MVP Version 1.2 was manually tested across the following workflows:
 
 - Toggle researcher experiment permissions from the admin users page
 - Toggle researcher protocol permissions from the admin users page
+- Toggle the individual researcher review requirement
+- Apply bulk experiment permission changes to all researchers
+- Apply bulk protocol permission changes to all researchers
+- Apply the review requirement to all researchers
+- Show mixed bulk-control state when researcher settings differ
 - Hide experiment create/edit actions when researcher permissions are disabled
 - Hide protocol create/edit actions when researcher permissions are disabled
 - Allow experiment create/edit actions when researcher permissions are enabled
@@ -1600,9 +1628,9 @@ LabFlow MVP Version 1.2 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 11 passing test suites and 83 passing tests, including authorization, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
+The backend test suite currently includes 11 passing test suites and 91 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
 
-Current backend test status: 11 test suites, 83 tests passing.
+Current backend test status: 11 test suites, 91 tests passing.
 
 Covered backend areas include:
 
@@ -1619,6 +1647,9 @@ Covered backend areas include:
 - Supervisor-scoped project task completion review
 - Experiment approval and change request workflows
 - Protocol approval and change request workflows
+- Admin updates to researcher review requirements
+- Review-required and review-exempt experiment creation
+- Review-required and review-exempt protocol creation
 - Required review comments when requesting changes
 - Review history event creation
 - Project membership-aware project visibility
@@ -1695,7 +1726,7 @@ Current limitations include:
 - No file attachments or image uploads for notebook entries
 - No PDF export for experiment notebooks
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
-- Researcher workflow permissions are still global per user, while project membership controls project access separately
+- Researcher workflow permissions and review requirements are still global per user, while project membership controls project access separately
 - User management supports account deactivation/reactivation, admin password reset, and invitation-based onboarding, but does not yet include email verification or self-service password reset.
 - Supervisor access is project-scoped within the user's organization, and admin-created invitations are supported, but LabFlow does not yet include full organization administration workflows.
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
