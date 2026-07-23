@@ -21,9 +21,9 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application.
 
-This version includes authentication, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, and demo seed data.
+This version includes organization-scoped workspaces, public workspace creation for first administrators, invitation-only onboarding for additional users, organization settings, role-based access control, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, review history, experiment-linked notebook entries, audit logging, archive behavior, and safely scoped demo seed data.
 
-The backend includes Sequelize migrations, security hardening, audit logging, archive behavior for core lab records, and 91 passing automated backend tests across 11 test suites.
+The backend includes Sequelize migrations, security hardening, organization-level data isolation, transactional workspace and invitation onboarding, audit logging, archive behavior for core lab records, and 107 passing automated backend tests across 13 test suites.
 
 The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
 
@@ -37,7 +37,7 @@ Completed:
 - Added an individual Review Requirement switch to the admin user management table.
 - Added bulk researcher controls for experiment permissions, protocol permissions, and review requirements.
 - Added backend authorization and review-workflow tests for the new policy.
-- Verified the full backend test suite with 91 passing tests across 11 test suites.
+- Verified the full backend test suite with 107 passing tests across 13 test suites.
 
 ### Phase 20B: Soft Delete / Archive
 
@@ -50,6 +50,24 @@ Completed:
 - Replaced hard delete behavior with archive behavior for projects.
 - Updated frontend delete wording to archive wording.
 - Added backend tests for archive behavior.
+
+### Phase 20H: Workspace Creation and Invitation-Only Onboarding
+
+Completed:
+
+- Updated public registration so it creates a new organization workspace and its first administrator.
+- Added normalized, unique organization slug generation.
+- Restricted public organization types to lab, department, institution, and company.
+- Removed public researcher account registration.
+- Required additional admins, supervisors, and researchers to join through organization invitations.
+- Added transactional workspace registration so organization and administrator creation succeed or roll back together.
+- Added transactional invitation acceptance so user creation and invitation updates succeed or roll back together.
+- Enforced globally unique user email addresses.
+- Prevented accepted invitation tokens from being reused.
+- Updated login, registration, and invitation acceptance wording.
+- Added workspace registration and invitation security tests.
+- Updated demo seeding so it resets only the dedicated demo organization and does not delete user-created workspaces.
+- Increased backend coverage to 107 passing tests across 13 test suites.
 
 ---
 
@@ -151,7 +169,8 @@ LabFlow provides a structured system for managing these workflows in one place.
 
 ### Authentication
 
-- User registration
+- Public workspace creation for a new organization and its first administrator
+- Invitation-only account creation for additional admins, supervisors, and researchers
 - User login
 - JWT-based authentication
 - Persistent login using stored token
@@ -203,7 +222,7 @@ LabFlow supports three user roles:
 
 Researcher workflow permissions allow admins to support different lab supervision styles. Some labs may allow researchers to independently create experiments and protocols, while other labs may require supervisor control over those workflows.
 
-Public registration creates researcher accounts only. Admin and supervisor accounts should be created through development tools or a future admin user-management workflow.
+Public registration is reserved for creating a new organization workspace and its first administrator. Additional admins, supervisors, and researchers must be invited by an administrator from within the organization.
 
 ### Archive / Soft Delete
 
@@ -232,6 +251,26 @@ This allows the app to separate data between labs such as:
 The active organization is also shown in the application UI so users can clearly see which lab workspace they are using.
 
 Admins can also manage basic organization settings from the app, including the organization name and organization type. The active organization name is shown in the main UI so users can clearly see which lab workspace they are using.
+
+### Workspace Creation and User Onboarding
+
+LabFlow separates workspace creation from user onboarding.
+
+A new customer or lab administrator can use the public registration page to create:
+
+- A new organization workspace
+- A unique organization slug
+- The first administrator account for that organization
+
+Public registration does not allow users to select a role, join an existing organization, or create a researcher account. The backend ignores client-supplied role, organization ID, activation, and workflow-permission fields.
+
+After the workspace is created, additional users must be invited by an administrator. Invitations contain the user’s organization, email address, role, optional department, and researcher workflow permissions.
+
+Invitation tokens are generated securely, but only a SHA-256 hash of the token is stored in the database. When the invitation is accepted, the account is created inside the invitation’s organization. The invitation is then marked as accepted and cannot be reused.
+
+Workspace registration and invitation acceptance use database transactions so partial account or organization records are not left behind when an operation fails.
+
+User email addresses are globally unique in the current architecture. Each account therefore belongs to one organization.
 
 ---
 
@@ -345,13 +384,19 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Organization-scoped lab workspaces
 - Admin-created invitations
 - Secure invitation acceptance flow
+- Public creation of a new organization workspace and first administrator
+- Unique normalized organization slug generation
+- Invitation-only onboarding for additional organization users
+- Transactional workspace registration and invitation acceptance
+- Globally unique account email enforcement
+- Demo-only seed cleanup that preserves user-created organizations
 - Visible active lab/workspace context in the UI
 - Project, task, experiment, protocol, equipment, booking, notebook, review, archive, and audit-log workflows
 - Organization settings page for admins
 - Editable organization name and type
 - Invitation list management with status, expiration, invited-by, and accepted-date details
 - Pending invitation revoke action
-- Backend test coverage with 83 passing tests across 11 test suites
+- Backend test coverage with 107 passing tests across 13 test suites
 
 ### Dashboard
 
@@ -838,6 +883,7 @@ labflow/
         sequelize-cli.js
       constants/
         roles.js
+        statusCodes.js
       controllers/
         auditLogController.js
         authController.js
@@ -847,15 +893,27 @@ labflow/
         experimentController.js
         invitationController.js
         notebookEntryController.js
+        organizationController.js
         projectController.js
         projectMemberController.js
         protocolController.js
+        reviewEventController.js
         taskController.js
         userController.js
       middleware/
         authMiddleware.js
       migrations/
         20260622122950-initial-labflow-schema.js
+        20260625133918-add-user-account-status.js
+        20260626130549-create-audit-logs.js
+        20260628153801-add-archive-fields-to-core-records.js
+        20260702103623-add-organizations-and-user-organization.js
+        20260702155102-add-organization-id-to-core-records.js
+        20260706101545-create-invitations.js
+        20260707201348-add-department-to-invitations.js
+        20260711125439-add-requires-review-to-users.js
+        20260711160206-add-not-required-experiment-review-status.js
+        20260711225539-add-review-status-to-protocols.js
       models/
         AuditLog.js
         Equipment.js
@@ -880,40 +938,64 @@ labflow/
         experimentRoutes.js
         invitationRoutes.js
         notebookEntryRoutes.js
-        projectRoutes.js
+        organizationRoutes.js
         projectMemberRoutes.js
+        projectRoutes.js
         protocolRoutes.js
+        reviewEventRoutes.js
         taskRoutes.js
         userRoutes.js
       scripts/
         seedDemoData.js
+        setupDatabase.js
       seeders/
       tests/
         helpers/
+          dbHelpers.js
           testHelpers.js
+        auditLogs.test.js
+        auth.test.js
+        authorization.test.js
+        equipmentBookingConflict.test.js
+        health.test.js
+        invitations.test.js
+        organizationIsolation.test.js
+        organizationSettings.test.js
+        organizationSlug.test.js
+        projectMembershipAccess.test.js
+        reviewWorkflow.test.js
+        setupTests.js
+        taskCompletionReview.test.js
+        workspaceRegistration.test.js
       utils/
+        auditLogger.js
         dateUtils.js
         formatUserResponse.js
         generateToken.js
+        invitationTokens.js
+        organizationSlug.js
         projectAccess.js
+        workflowPermissions.js
       server.js
 
   labflow-frontend/
     src/
       api/
         authApi.js
+        axiosClient.js
         dashboardApi.js
         equipmentApi.js
         equipmentBookingApi.js
         experimentApi.js
         invitationApi.js
         notebookEntryApi.js
+        organizationApi.js
         projectApi.js
         projectMemberApi.js
         protocolApi.js
+        reviewEventApi.js
         taskApi.js
         userApi.js
-        axiosClient.js
       components/
         experiments/
           ExperimentFormModal.jsx
@@ -925,16 +1007,22 @@ labflow/
         tasks/
           TaskFormModal.jsx
         users/
+          InvitationList.jsx
           InviteUserModal.jsx
         ScrollToTop.jsx
       constants/
+        actionOptions.js
+        entityTypeOptions.js
         statusColors.js
         statusOptions.js
       context/
         AuthContext.jsx
+        AuthProvider.jsx
+        useAuth.js
       layouts/
       pages/
         AcceptInvitePage.jsx
+        AdminAuditLogsPage.jsx
         AdminUsersPage.jsx
         DashboardPage.jsx
         EquipmentDetailPage.jsx
@@ -943,6 +1031,7 @@ labflow/
         ExperimentsPage.jsx
         LoginPage.jsx
         NotFoundPage.jsx
+        OrganizationSettingsPage.jsx
         ProjectDetailPage.jsx
         ProjectsPage.jsx
         ProtocolDetailPage.jsx
@@ -955,12 +1044,17 @@ labflow/
         AppRoutes.jsx
         ProtectedRoute.jsx
         PublicOnlyRoute.jsx
+      services/
+        auditLogService.js
       utils/
         formatters.js
+        projectRoleAccess.js
       App.jsx
       main.jsx
 
 ```
+
+---
 
 ## Database Models
 
@@ -1188,6 +1282,18 @@ PATCH  /api/notebook-entries/:id
 DELETE /api/notebook-entries/:id
 ```
 
+### Invitations
+
+```txt
+POST   /api/invitations
+GET    /api/invitations
+GET    /api/invitations/accept/:token
+POST   /api/invitations/accept/:token
+PATCH  /api/invitations/:id/revoke
+```
+
+---
+
 ## Security and Deployment Notes
 
 LabFlow is currently prepared for portfolio/demo deployment. It should not be used with real laboratory or research data without additional production hardening.
@@ -1196,11 +1302,11 @@ Production environment variables should be stored only in the hosting provider's
 
 LabFlow includes basic backend hardening for the demo API, including security headers with Helmet, authentication rate limiting, restricted CORS origins, JWT authentication, password hashing, protected routes, role-based authorization, and project-scoped backend access checks.
 
-Public registration creates researcher accounts only. Admin and supervisor users should be created through controlled seed data or a future admin-only workflow.
+Public registration creates a new organization workspace and its first administrator. Additional admins, supervisors, and researchers must be invited by an administrator from within the organization.
 
 The included demo seed data uses shared demo credentials for portfolio testing. These credentials are not suitable for real production use.
 
-The `npm run seed` command is intended for local and demo setup only. It clears existing demo data and replaces it with seeded test data. It should not be run against a real production database with customer or research records.
+The `npm run seed` command is intended for local and demo setup only. The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization. It does not delete data from other organizations. It should not be run against a real production database with customer or research records.
 
 LabFlow now includes a Sequelize migration baseline for the current MVP schema. New databases should be initialized with migrations instead of relying on Sequelize schema sync.
 
@@ -1276,7 +1382,7 @@ Optional: seed the database with demo data:
 npm run seed
 ```
 
-The seed script is intended for local and portfolio/demo setup only. It clears existing demo data and replaces it with seeded test records.
+The seed script is intended for local and portfolio/demo setup only. The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization. It does not delete data from other organizations.
 
 Start the backend:
 
@@ -1359,7 +1465,7 @@ cd labflow-backend
 npm run seed
 ```
 
-Warning: the seed script clears existing data and replaces it with demo data. It is intended for local and portfolio/demo setup only. Do not run `npm run seed` against a real production database containing customer, laboratory, or research records.
+Warning: The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization. It does not delete data from other organizations.
 
 ### Database Migrations
 
@@ -1435,13 +1541,22 @@ The demo researcher accounts intentionally use different project memberships and
 
 This demonstrates how LabFlow can support different lab supervision styles while still limiting researchers to the projects where they are members.
 
+The demo seed script manages only the dedicated `labflow-demo` organization. Reseeding removes and recreates records belonging to that demo workspace without truncating or deleting data from other organizations.
+
+The seeded workspace includes admins, supervisors, researchers with different workflow and review policies, project leads and members, review history, notebook entries, equipment, bookings, and representative project workflows.
+
+---
+
 ## Manual Regression Test Coverage
 
 LabFlow MVP Version 1.2 was manually tested across the following workflows:
 
 ### Authentication
 
-- Register new researcher
+- Create a new organization workspace and first administrator
+- Prevent public researcher registration
+- Accept an administrator-created invitation
+- Prevent reuse of an accepted invitation
 - Login existing user
 - Persist login after refresh
 - Logout
@@ -1628,9 +1743,9 @@ LabFlow MVP Version 1.2 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 11 passing test suites and 91 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
+The backend test suite currently includes 13 passing test suites and 107 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
 
-Current backend test status: 11 test suites, 91 tests passing.
+Current backend test status: 13 test suites, 107 tests passing.
 
 Covered backend areas include:
 
@@ -1660,6 +1775,14 @@ Covered backend areas include:
 - Organization settings view/update behavior
 - Admin-only organization updates
 - Organization settings audit log creation
+- Workspace registration
+- First-administrator creation
+- Organization slug generation
+- Unsupported organization type rejection
+- Client-supplied role and organization field protection
+- Global email uniqueness
+- Invitation acceptance rollback
+- Invitation token reuse protection
 
 Run backend tests from the backend folder:
 
@@ -1713,7 +1836,7 @@ LabFlow MVP Version 1.2 is intentionally focused on core workflows.
 
 Current limitations include:
 
-- Organization-level data ownership, backend scoping, admin-created invitations, and basic organization settings are now included, but LabFlow does not yet include complete multi-organization tenant administration workflows.
+- Organization-level ownership, backend isolation, public workspace creation, invitation-based onboarding, and basic organization settings are included, but LabFlow does not yet support multi-organization memberships, organization switching, billing, custom domains, or full institutional tenant administration.
 - Dashboard project-linked metrics are role-aware for researchers, but equipment inventory metrics are still global because equipment is not project-owned yet.
 - No file uploads
 - No email notifications
@@ -1728,12 +1851,12 @@ Current limitations include:
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
 - Researcher workflow permissions and review requirements are still global per user, while project membership controls project access separately
 - User management supports account deactivation/reactivation, admin password reset, and invitation-based onboarding, but does not yet include email verification or self-service password reset.
-- Supervisor access is project-scoped within the user's organization, and admin-created invitations are supported, but LabFlow does not yet include full organization administration workflows.
 - Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
 - Project membership is not yet connected to notifications or invitations
 - Sequelize migrations are now available for the current MVP schema, but automated production deployment and migration workflows still need further hardening.
 - Basic security headers, authentication rate limiting, and organization-level backend isolation are included, but production-grade monitoring, account lockout, email verification, immutable audit controls, and advanced tenant administration controls are not yet implemented.
 - Demo accounts use shared demo credentials and are not suitable for real production use.
+- User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 
 ---
 

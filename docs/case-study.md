@@ -71,6 +71,11 @@ LabFlow centralizes core research lab workflows into one system:
 - Configurable researcher workflow permissions and review requirements
 - Bulk researcher permission and review-policy controls
 - Project membership and project-specific access rules
+- Public organization workspace creation
+- First-administrator onboarding
+- Invitation-only onboarding for additional users
+- Secure invitation token hashing and one-time acceptance
+- Organization-scoped demo seed behavior
 
 The result is a working MVP that models how research work, supervision, review, and shared equipment usage can fit together in a single full-stack web application.
 
@@ -99,6 +104,10 @@ I designed and built the full-stack MVP, including:
 - Deployment to Vercel, Render, and Neon PostgreSQL
 - Organization settings workflow
 - Invitation list management
+- Workspace registration and first-admin onboarding
+- Unique organization slug generation
+- Transactional registration and invitation acceptance
+- Multi-organization-safe demo seed behavior
 
 ## Tech Stack
 
@@ -288,9 +297,9 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The backend test suite currently includes 11 passing test suites and 91 passing tests.
+The backend test suite currently includes 13 passing test suites and 107 passing tests.
 
-The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, review workflows, the invitation onboarding flow, and organization settings. Covered areas include:
+The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, researcher review policy, workspace registration, organization slug generation, invitation onboarding, transactional rollback behavior, and organization settings.
 
 - Health check
 - Authentication
@@ -307,6 +316,14 @@ The tests cover authentication, role-based access, organization-scoped data isol
 - Review-required and review-exempt protocol creation
 - Review history event creation
 - Cross-organization isolation for projects, tasks, and audit logs
+- Public organization workspace creation
+- First-administrator account creation
+- Organization slug normalization and uniqueness
+- Rejection of unsupported public organization types
+- Ignoring client-supplied registration roles and organization fields
+- Global duplicate-email protection
+- Invitation token reuse prevention
+- Transaction rollback during failed invitation acceptance
 
 A test database safety guard prevents destructive test cleanup from running unless `NODE_ENV` is set to `test` and the configured database name contains `test`.
 
@@ -415,23 +432,50 @@ Labs do not all use the same supervision model. Some supervisors review every ex
 
 I added a researcher-level review policy that separates workflow permission from review requirement. Researchers who require review create records with `not_submitted`, while review-exempt researchers create records with `not_required`. The admin interface supports individual and bulk policy changes, and the backend enforces the behavior during experiment and protocol creation.
 
-## Organization-Based Onboarding
+### 10. Separating Workspace Creation From User Onboarding
 
-A key part of the latest LabFlow iteration was moving from a single-lab demo structure toward a multi-organization foundation.
+A key part of the latest LabFlow iteration was separating creation of a new lab workspace from onboarding users into an existing organization.
 
-Each user now belongs to an organization, and all major records are scoped by `organizationId`. This prevents users from one lab from accessing another lab’s projects, tasks, experiments, protocols, equipment, bookings, notebook entries, review history, or audit logs.
+The public registration page now creates a new organization and its first administrator. The user provides the organization name, organization type, administrator name, email address, optional department, and password.
 
-To make this visible to users, the application displays the active lab/workspace name in the main UI. For example, a user can see that they are working inside the DNA Laboratory, Toxicology Laboratory, or another configured organization.
+The backend normalizes the organization name into a URL-safe slug. If the slug already exists, LabFlow creates a unique suffix such as `-2` or `-3`.
 
-## Invitation-Based User Onboarding
+Workspace registration runs inside a database transaction. The organization and first administrator are therefore created together. If either operation fails, the transaction rolls back and no partial workspace is left behind.
 
-LabFlow now supports admin-controlled invitations.
+The backend also ignores client-supplied role, organization ID, activation, and researcher workflow fields. Public registration always creates the first user as an active administrator in the newly created organization.
 
-Instead of relying only on open registration, an admin can invite a user by entering their name, email, role, optional department, and researcher workflow permissions. The backend creates a secure invitation token, stores only the token hash, and returns an invitation link.
+### 11. Preventing Partial Onboarding Records
 
-When the invited user opens the link, LabFlow shows the invitation details, including the organization. The user sets a password, and the backend creates the account inside the invitation’s organization. Accepted invitations are marked as used and cannot be reused.
+After the first administrator creates the workspace, additional users can join only through an administrator-created invitation.
 
-This creates a more realistic onboarding flow for university labs, where access should be controlled by lab administrators rather than open public signup.
+An invitation stores the intended user’s:
+
+- Name
+- Email address
+- Role
+- Optional department
+- Organization
+- Researcher workflow permissions
+- Review requirement
+- Expiration date
+
+The invitation token is returned in the invitation link, but only its SHA-256 hash is stored in the database.
+
+When the invited user opens the link, LabFlow shows the organization and invitation details. The user sets a password, and the backend creates the account using the organization, role, email address, and permissions stored on the invitation rather than accepting those fields from the client.
+
+Invitation acceptance is transactional. User creation and the invitation status update either both succeed or both roll back. Accepted invitations cannot be reused.
+
+User email addresses are currently globally unique, so one email address can belong to only one LabFlow organization. Supporting one account across multiple organizations would require a future membership model.
+
+### 12. Making Demo Seeding Safe for Multiple Organizations
+
+The demo seed workflow was updated for the new organization model.
+
+Earlier seed behavior could clear records globally. The revised script finds or creates the dedicated `labflow-demo` organization and deletes only records belonging to that workspace.
+
+All cleanup and demo data creation run within one database transaction. If the seed fails, the transaction rolls back instead of leaving the demo workspace partially populated.
+
+This allows demo data to be safely refreshed without deleting organizations or records created through public workspace registration.
 
 ## Result
 
@@ -449,8 +493,12 @@ The project includes:
 - Sequelize migrations
 - Backend security hardening
 - Archive behavior for projects, tasks, experiments, and protocols, with audit log coverage
-- 91 passing automated backend tests across 11 test suites
+- 107 passing automated backend tests across 13 test suites
 - Seeded demo data and demo accounts
+- Public workspace creation with first-administrator onboarding
+- Invitation-only onboarding for additional users
+- Transactional registration and invitation acceptance
+- Multi-organization-safe demo seed behavior
 - GitHub README and portfolio case study
 
 ## Current Limitations
@@ -459,7 +507,6 @@ LabFlow is intentionally focused on MVP workflows.
 
 Current limitations include:
 
-- Organization-level data ownership, backend isolation, invitation-based onboarding, and basic organization settings exist, but LabFlow does not yet include full tenant administration workflows.
 - No file uploads
 - No rich text editor for notebook entries
 - No image attachments for experiment notebooks
@@ -468,17 +515,18 @@ Current limitations include:
 - Account deactivation/reactivation, admin password reset, and invitation-based onboarding exist, but email verification and self-service password reset are not yet included.
 - No frontend automated tests yet
 - No production-grade monitoring or centralized logging
-- Organization-level backend isolation exists, but additional production-grade tenant controls would still be needed before handling real institutional data.
+- Organization-level ownership, backend isolation, public workspace creation, first-administrator onboarding, invitation-based user onboarding, and basic organization settings exist, but LabFlow does not yet include multi-organization user memberships, custom domains, subscription management, billing, or full institutional tenant administration.
 - Equipment inventory metrics are still global because equipment is not project-owned yet
 - Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
+- Invitation links are generated by the application, but automated invitation email delivery is not yet implemented.
+- User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 
 ## Future Improvements
 
 Recommended future improvements include:
 
 - Expanded organization administration, including logos, contact details, organization admins, and tenant-level policies
-- Email delivery for invitation links
-- Invitation resend, revoke, and expiration management improvements
+- Invitation resend support and improved expiration handling
 - Organization-level roles and tenant administration workflows
 - Additional production-grade tenant controls
 - Rich text notebook entries
@@ -494,6 +542,13 @@ Recommended future improvements include:
 - Project-specific workflow permissions
 - Equipment access model for lab-wide, project-specific, or restricted instruments
 - Production deployment automation and monitoring
+- Multi-organization membership model for users
+- Organization switching for users with access to multiple workspaces
+- Custom organization domains or subdomains
+- Subscription and billing support
+- Automated invitation email delivery
+- Workspace ownership transfer
+- Additional organization administrator management
 
 ## Portfolio Summary
 
