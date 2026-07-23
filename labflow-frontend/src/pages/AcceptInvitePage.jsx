@@ -18,6 +18,16 @@ import {
   getInvitationForAcceptance,
 } from "../api/invitationApi";
 
+const { Title, Text } = Typography;
+
+const formatRole = (role) => {
+  if (!role) {
+    return "Unknown";
+  }
+
+  return role.charAt(0).toUpperCase() + role.slice(1);
+};
+
 const AcceptInvitePage = () => {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -31,39 +41,39 @@ const AcceptInvitePage = () => {
   );
 
   useEffect(() => {
-  if (!token) {
-    return;
-  }
-
-  let isMounted = true;
-
-  const loadInvitation = async () => {
-    try {
-      const response = await getInvitationForAcceptance(token);
-
-      if (isMounted) {
-        setInvitation(response.data.invitation);
-      }
-    } catch (error) {
-      if (isMounted) {
-        setLoadError(
-          error.response?.data?.message ||
-            "Invitation not found or no longer valid.",
-        );
-      }
-    } finally {
-      if (isMounted) {
-        setLoading(false);
-      }
+    if (!token) {
+      return;
     }
-  };
 
-  loadInvitation();
+    let isMounted = true;
 
-  return () => {
-    isMounted = false;
-  };
-}, [token]);
+    const loadInvitation = async () => {
+      try {
+        const response = await getInvitationForAcceptance(token);
+
+        if (isMounted) {
+          setInvitation(response.data.invitation);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLoadError(
+            error.response?.data?.message ||
+              "Invitation not found or no longer valid.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInvitation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   const handleSubmit = async (values) => {
     setSubmitting(true);
@@ -114,13 +124,13 @@ const AcceptInvitePage = () => {
       <Card>
         <Space direction="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <Typography.Title level={2} style={{ marginBottom: 8 }}>
-              Accept Invitation
-            </Typography.Title>
+            <Title level={2} style={{ marginBottom: 8 }}>
+              Accept Your LabFlow Invitation
+            </Title>
 
-            <Typography.Text type="secondary">
+            <Text type="secondary">
               Set a password to finish creating your LabFlow account.
-            </Typography.Text>
+            </Text>
           </div>
 
           <Alert
@@ -129,19 +139,19 @@ const AcceptInvitePage = () => {
             message="Invitation details"
             description={
               <Space direction="vertical">
-                <Typography.Text>
+                <Text>
                   <strong>Name:</strong> {invitation.name}
-                </Typography.Text>
-                <Typography.Text>
+                </Text>
+                <Text>
                   <strong>Email:</strong> {invitation.email}
-                </Typography.Text>
-                <Typography.Text>
-                  <strong>Role:</strong> {invitation.role}
-                </Typography.Text>
-                <Typography.Text>
+                </Text>
+                <Text>
+                  <strong>Role:</strong> {formatRole(invitation.role)}
+                </Text>
+                <Text>
                   <strong>Organization:</strong>{" "}
                   {invitation.organization?.name || "Unknown"}
-                </Typography.Text>
+                </Text>
               </Space>
             }
           />

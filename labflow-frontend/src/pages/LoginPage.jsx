@@ -40,11 +40,11 @@ const LoginPage = () => {
       }}
     >
       <Card style={{ width: 420 }}>
-        <Title level={2}>Login</Title>
+        <Title level={2}>Log In to LabFlow</Title>
 
         <Paragraph>
-          Sign in to manage laboratory projects, experiments, tasks, and
-          equipment bookings
+          Access your organization’s projects, experiments, protocols, tasks,
+          and equipment.
         </Paragraph>
 
         {errorMessage && (
@@ -88,12 +88,13 @@ const LoginPage = () => {
           </Form.Item>
 
           <Button type="primary" htmlType="submit" block loading={isSubmitting}>
-            Login
+            Log In
           </Button>
         </Form>
 
         <Paragraph style={{ marginTop: 16, marginBottom: 0 }}>
-          Need an account? <Link to="/register">Create one</Link>
+          Setting up a new organization?{" "}
+          <Link to="/register">Create Workspace</Link>
         </Paragraph>
       </Card>
     </div>

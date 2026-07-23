@@ -1,19 +1,42 @@
 const bcrypt = require("bcrypt");
+
 const { User, Organization } = require("../models");
 const generateToken = require("../utils/generateToken");
 const formatUserResponse = require("../utils/formatUserResponse");
+const { createUniqueOrganizationSlug } = require("../utils/organizationSlug");
 
 const SALT_ROUNDS = 12;
 
-const registerUser = async (req, res) => {
-  try {
-    // Public registration should not allow users to choose admin or supervisor roles
-    const { name, email, password, department } = req.body;
+const ORGANIZATION_TYPES = ["lab", "department", "institution", "company"];
 
-    if (!name || !email || !password) {
+const normalizeEmail = (email) => {
+  return String(email || "")
+    .trim()
+    .toLowerCase();
+};
+
+const normalizeRequiredText = (value) => {
+  return String(value || "").trim();
+};
+
+const registerUser = async (req, res) => {
+  let transaction;
+
+  try {
+    const name = normalizeRequiredText(req.body.name);
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || "");
+    const department = normalizeRequiredText(req.body.department) || null;
+
+    const organizationName = normalizeRequiredText(req.body.organizationName);
+
+    const organizationType =
+      normalizeRequiredText(req.body.organizationType) || "lab";
+
+    if (!name || !email || !password || !organizationName) {
       return res.status(400).json({
         status: "error",
-        message: "Name, email, and password are required.",
+        message: "Name, email, password, and organization name are required.",
       });
     }
 
@@ -24,67 +47,99 @@ const registerUser = async (req, res) => {
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    if (!ORGANIZATION_TYPES.includes(organizationType)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Organization type must be one of: ${ORGANIZATION_TYPES.join(
+          ", ",
+        )}.`,
+      });
+    }
+
+    transaction = await User.sequelize.transaction();
 
     const existingUser = await User.findOne({
-      where: { email: normalizedEmail },
+      where: {
+        email,
+      },
+      transaction,
     });
 
     if (existingUser) {
+      await transaction.rollback();
+
       return res.status(409).json({
         status: "error",
         message: "An account with this email already exists.",
       });
     }
 
+    const organizationSlug = await createUniqueOrganizationSlug(
+      organizationName,
+      transaction,
+    );
+
+    const organization = await Organization.create(
+      {
+        name: organizationName,
+        slug: organizationSlug,
+        type: organizationType,
+        isActive: true,
+      },
+      {
+        transaction,
+      },
+    );
+
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    const demoOrganization = await Organization.findOne({
-      where: { slug: "labflow-demo" },
-    });
+    const user = await User.create(
+      {
+        name,
+        email,
+        passwordHash,
+        role: "admin",
+        department,
+        organizationId: organization.id,
+        isActive: true,
+      },
+      {
+        transaction,
+      },
+    );
 
-    if (!demoOrganization) {
-      return res.status(500).json({
-        status: "error",
-        message: "Default organization is not configured.",
-      });
-    }
-
-    const user = await User.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      passwordHash,
-      role: "researcher",
-      department: department || null,
-      organizationId: demoOrganization.id,
-    });
+    await transaction.commit();
 
     const createdUser = await User.findByPk(user.id, {
-  include: [
-    {
-      model: Organization,
-      as: "organization",
-      attributes: ["id", "name", "slug", "type"],
-    },
-  ],
-});
+      include: [
+        {
+          model: Organization,
+          as: "organization",
+          attributes: ["id", "name", "slug", "type"],
+        },
+      ],
+    });
 
-    const token = generateToken(user);
+    const token = generateToken(createdUser);
 
     return res.status(201).json({
       status: "success",
-      message: "User registered successfully.",
+      message: "Organization and administrator account created successfully.",
       data: {
         user: formatUserResponse(createdUser),
         token,
       },
     });
   } catch (error) {
-    console.error("Register error", error);
+    if (transaction && !transaction.finished) {
+      await transaction.rollback();
+    }
+
+    console.error("Error registering organization ", error);
 
     return res.status(500).json({
       status: "error",
-      message: "An error occurred while registering the user.",
+      message: "An error occurred while creating the organization account.",
     });
   }
 };

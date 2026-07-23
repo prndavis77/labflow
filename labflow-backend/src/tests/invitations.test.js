@@ -164,7 +164,7 @@ describe("Invitations API", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.body.message).toBe(
-      "A user with this email already exists in this organization.",
+      "An account with this email already exists.",
     );
   });
 
@@ -362,5 +362,140 @@ describe("Invitations API", () => {
 
     expect(emails).toContain("own-org@test.com");
     expect(emails).not.toContain("second-org@test.com");
+  });
+
+  it("rejects inviting an email that already belongs to a user", async () => {
+    const existingUser = await createTestUser({
+      name: "Existing User",
+      organizationId: secondOrganization.id,
+      email: "existing.user@university.edu",
+      role: "researcher",
+    });
+
+    const response = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "Existing User",
+        email: existingUser.email,
+        role: "researcher",
+        department: "Chemistry",
+      });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({
+      status: "error",
+      message: "An account with this email already exists.",
+    });
+
+    expect(
+      await Invitation.count({
+        where: {
+          email: existingUser.email,
+        },
+      }),
+    ).toBe(0);
+  });
+
+  it("does not allow an accepted invitation token to be reused", async () => {
+    const createResponse = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "Reusable Token Test",
+        email: "token.reuse@university.edu",
+        role: "researcher",
+        department: "Chemistry",
+      });
+
+    expect(createResponse.status).toBe(201);
+
+    const inviteLink = createResponse.body.data.inviteLink;
+    const token = inviteLink.split("/accept-invite/")[1];
+
+    const firstAcceptance = await request(app)
+      .post(`/api/invitations/accept/${token}`)
+      .send({
+        password: "password123",
+      });
+
+    expect(firstAcceptance.status).toBe(201);
+
+    const secondAcceptance = await request(app)
+      .post(`/api/invitations/accept/${token}`)
+      .send({
+        password: "password123",
+      });
+
+    expect(secondAcceptance.status).toBe(404);
+
+    const createdUsers = await User.findAll({
+      where: {
+        email: "token.reuse@university.edu",
+      },
+    });
+
+    expect(createdUsers).toHaveLength(1);
+
+    const invitation = await Invitation.findOne({
+      where: {
+        email: "token.reuse@university.edu",
+      },
+    });
+
+    expect(invitation.status).toBe("accepted");
+    expect(invitation.acceptedUserId).toBe(createdUsers[0].id);
+    expect(invitation.acceptedAt).not.toBeNull();
+  });
+
+  it("rolls back user creation if accepting the invitation fails", async () => {
+    const createResponse = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "Rollback Test User",
+        email: "rollback.test@university.edu",
+        role: "researcher",
+        department: "Chemistry",
+      });
+
+    expect(createResponse.status).toBe(201);
+
+    const inviteLink = createResponse.body.data.inviteLink;
+    const token = inviteLink.split("/accept-invite/")[1];
+
+    const updateSpy = jest
+      .spyOn(Invitation.prototype, "update")
+      .mockRejectedValueOnce(new Error("Simulated invitation update failure"));
+
+    try {
+      const response = await request(app)
+        .post(`/api/invitations/accept/${token}`)
+        .send({
+          password: "password123",
+        });
+
+      expect(response.status).toBe(500);
+    } finally {
+      updateSpy.mockRestore();
+    }
+
+    const user = await User.findOne({
+      where: {
+        email: "rollback.test@university.edu",
+      },
+    });
+
+    expect(user).toBeNull();
+
+    const invitation = await Invitation.findOne({
+      where: {
+        email: "rollback.test@university.edu",
+      },
+    });
+
+    expect(invitation.status).toBe("pending");
+    expect(invitation.acceptedAt).toBeNull();
+    expect(invitation.acceptedUserId).toBeNull();
   });
 });

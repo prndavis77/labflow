@@ -1,9 +1,37 @@
-import { Alert, Button, Card, Form, Input, Typography } from "antd";
+import {
+  Alert,
+  Button,
+  Card,
+  Divider,
+  Form,
+  Input,
+  Select,
+  Typography,
+} from "antd";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../context/useAuth";
 
 const { Title, Paragraph } = Typography;
+
+const ORGANIZATION_TYPE_OPTIONS = [
+  {
+    label: "Laboratory",
+    value: "lab",
+  },
+  {
+    label: "Department",
+    value: "department",
+  },
+  {
+    label: "Institution",
+    value: "institution",
+  },
+  {
+    label: "Company",
+    value: "company",
+  },
+];
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -17,14 +45,13 @@ const RegisterPage = () => {
       setErrorMessage("");
       setIsSubmitting(true);
 
-      // Public registration should only create researcher accounts
-      // Admin and supervisor accounts should be created by an admin later
       await register({
+        organizationName: values.organizationName,
+        organizationType: values.organizationType,
         name: values.name,
         email: values.email,
         password: values.password,
         department: values.department || null,
-        role: "researcher",
       });
 
       navigate("/dashboard");
@@ -50,11 +77,12 @@ const RegisterPage = () => {
       }}
     >
       <Card style={{ width: 460 }}>
-        <Title level={2}>Create Account</Title>
+        <Title level={2}>Create Your LabFlow Workspace</Title>
 
         <Paragraph>
-          Register as a researcher to manage lab projects, tasks, experiments,
-          protocols, and equipment bookings.
+          Create a new organization and its first administrator account.
+          Additional admins, supervisors, and researchers can be invited after
+          setup.
         </Paragraph>
 
         {errorMessage && (
@@ -66,13 +94,64 @@ const RegisterPage = () => {
           />
         )}
 
-        <Form layout="vertical" onFinish={handleRegister}>
+        <Form
+          layout="vertical"
+          onFinish={handleRegister}
+          initialValues={{
+            organizationType: "lab",
+          }}
+        >
+          <Title level={4}>Organization Details</Title>
+
+          <Form.Item
+            label="Organization Name"
+            name="organizationName"
+            rules={[
+              {
+                required: true,
+                message: "Please enter the organization name.",
+              },
+              {
+                min: 2,
+                message: "Organization name must be at least 2 characters.",
+              },
+            ]}
+          >
+            <Input placeholder="Analytical Chemistry Laboratory" />
+          </Form.Item>
+
+          <Form.Item
+            label="Organization Type"
+            name="organizationType"
+            rules={[
+              {
+                required: true,
+                message: "Please select an organization type.",
+              },
+            ]}
+          >
+            <Select
+              placeholder="Select organization type"
+              options={ORGANIZATION_TYPE_OPTIONS}
+            />
+          </Form.Item>
+
+          <Divider />
+
+          <Title level={4}>Administrator Details</Title>
+
           <Form.Item
             label="Full Name"
             name="name"
             rules={[
-              { required: true, message: "Please enter your full name." },
-              { min: 2, message: "Name must be at least 2 characters." },
+              {
+                required: true,
+                message: "Please enter your full name.",
+              },
+              {
+                min: 2,
+                message: "Name must be at least 2 characters.",
+              },
             ]}
           >
             <Input placeholder="John Doe" />
@@ -127,7 +206,6 @@ const RegisterPage = () => {
               },
               ({ getFieldValue }) => ({
                 validator(_, value) {
-                  // Confirm password must match the password field
                   if (!value || getFieldValue("password") === value) {
                     return Promise.resolve();
                   }
@@ -141,7 +219,7 @@ const RegisterPage = () => {
           </Form.Item>
 
           <Button type="primary" htmlType="submit" block loading={isSubmitting}>
-            Create Account
+            Create Workspace
           </Button>
         </Form>
 
