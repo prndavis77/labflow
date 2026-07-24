@@ -2,8 +2,12 @@ const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
 
 const {
+  ALLOWED_ATTACHMENT_EXTENSIONS,
+  ALLOWED_ATTACHMENT_MIME_TYPES,
   ATTACHMENT_CATEGORIES,
   ATTACHMENT_ENTITY_TYPES,
+  ATTACHMENT_MAX_DESCRIPTION_LENGTH,
+  ATTACHMENT_STORAGE_PROVIDERS,
   ATTACHMENT_UPLOAD_STATUSES,
 } = require("../constants/attachments");
 
@@ -49,8 +53,7 @@ const Attachment = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: false,
       validate: {
-        notEmpty: true,
-        len: [1, 20],
+        isIn: [ALLOWED_ATTACHMENT_EXTENSIONS],
       },
     },
 
@@ -58,8 +61,7 @@ const Attachment = sequelize.define(
       type: DataTypes.STRING(150),
       allowNull: false,
       validate: {
-        notEmpty: true,
-        len: [1, 150],
+        isIn: [ALLOWED_ATTACHMENT_MIME_TYPES],
       },
     },
 
@@ -84,8 +86,7 @@ const Attachment = sequelize.define(
       allowNull: false,
       defaultValue: "r2",
       validate: {
-        notEmpty: true,
-        len: [1, 50],
+        isIn: [ATTACHMENT_STORAGE_PROVIDERS],
       },
     },
 
@@ -137,6 +138,9 @@ const Attachment = sequelize.define(
     description: {
       type: DataTypes.TEXT,
       allowNull: true,
+      validate: {
+        len: [0, ATTACHMENT_MAX_DESCRIPTION_LENGTH],
+      },
     },
 
     uploadStatus: {
