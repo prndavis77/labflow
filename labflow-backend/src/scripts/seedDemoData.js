@@ -16,6 +16,7 @@ const {
   Organization,
   Invitation,
   AuditLog,
+  Attachment,
 } = require("../models");
 
 const SALT_ROUNDS = 12;
@@ -42,6 +43,13 @@ const minutesFromNow = (minutes) => {
 // Deletes records belonging only to the dedicated demo organization.
 // User-created organizations and their records are left unchanged.
 const clearDemoData = async (organization, transaction) => {
+  await Attachment.destroy({
+    where: {
+      organizationId: organization.id,
+    },
+    transaction,
+  });
+
   const organizationWhere = {
     organizationId: organization.id,
   };

@@ -13,6 +13,7 @@ const ProjectMember = require("./ProjectMember");
 const AuditLog = require("./AuditLog");
 const Organization = require("./Organization");
 const Invitation = require("./Invitation");
+const Attachment = require("./Attachment");
 
 AuditLog.belongsTo(User, {
   foreignKey: "actorUserId",
@@ -174,6 +175,36 @@ Invitation.belongsTo(User, {
   as: "acceptedUser",
 });
 
+Organization.hasMany(Attachment, {
+  foreignKey: "organizationId",
+  as: "attachments",
+});
+
+User.hasMany(Attachment, {
+  foreignKey: "uploadedById",
+  as: "uploadedAttachments",
+});
+
+User.hasMany(Attachment, {
+  foreignKey: "archivedById",
+  as: "archivedAttachments",
+});
+
+Attachment.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+Attachment.belongsTo(User, {
+  foreignKey: "uploadedById",
+  as: "uploadedBy",
+});
+
+Attachment.belongsTo(User, {
+  foreignKey: "archivedById",
+  as: "archivedBy",
+});
+
 module.exports = {
   User,
   Project,
@@ -188,4 +219,5 @@ module.exports = {
   AuditLog,
   Organization,
   Invitation,
+  Attachment,
 };
