@@ -51,7 +51,7 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
   ".tiff",
 ];
 
-git addconst BLOCKED_ATTACHMENT_EXTENSIONS = [
+const BLOCKED_ATTACHMENT_EXTENSIONS = [
   ".exe",
   ".js",
   ".mjs",
