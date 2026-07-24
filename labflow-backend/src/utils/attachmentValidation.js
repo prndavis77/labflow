@@ -351,6 +351,27 @@ const validateAttachmentUploadMetadata = ({
   };
 };
 
+const ATTACHMENT_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const validateAttachmentId = (attachmentId) => {
+  const normalizedAttachmentId = String(attachmentId || "")
+    .trim()
+    .toLowerCase();
+
+  if (!ATTACHMENT_UUID_PATTERN.test(normalizedAttachmentId)) {
+    return {
+      valid: false,
+      error: "Attachment ID must be a valid UUID.",
+    };
+  }
+
+  return {
+    valid: true,
+    value: normalizedAttachmentId,
+  };
+};
+
 module.exports = {
   getNormalizedFileExtension,
   normalizeMimeType,
@@ -365,4 +386,5 @@ module.exports = {
   validateFileSize,
   validateMimeType,
   validateOriginalFileName,
+  validateAttachmentId,
 };

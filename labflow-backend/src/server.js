@@ -22,6 +22,7 @@ const projectMemberRoutes = require("./routes/projectMemberRoutes");
 const auditLogRoutes = require("./routes/auditLogRoutes");
 const invitationRoutes = require("./routes/invitationRoutes");
 const organizationRoutes = require("./routes/organizationRoutes");
+const attachmentRoutes = require("./routes/attachmentRoutes");
 
 const app = express();
 
@@ -115,6 +116,9 @@ app.use("/api/invitations", invitationRoutes);
 
 // Organization routes
 app.use("/api/organization", organizationRoutes);
+
+// Attachment routes
+app.use("/api/attachments", attachmentRoutes);
 
 // Handles unknown API routes with a clear JSON response
 app.use((req, res) => {
