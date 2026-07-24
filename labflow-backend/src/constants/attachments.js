@@ -1,3 +1,5 @@
+const ATTACHMENT_ACCESS_ACTIONS = ["view", "upload", "update", "archive"];
+
 const ATTACHMENT_ENTITY_TYPES = [
   "experiment",
   "protocol",
@@ -110,4 +112,5 @@ module.exports = {
   ATTACHMENT_UPLOAD_URL_TTL_SECONDS,
   BLOCKED_ATTACHMENT_EXTENSIONS,
   MIME_TYPES_BY_EXTENSION,
+  ATTACHMENT_ACCESS_ACTIONS,
 };
