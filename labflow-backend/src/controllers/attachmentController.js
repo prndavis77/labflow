@@ -17,8 +17,33 @@ const { getAttachmentStorage } = require("../storage/attachmentStorage");
 
 const { formatAttachmentResponse } = require("../utils/attachmentResponse");
 
-// Replace with your actual audit helper import.
-// const { createAuditLog } = require("../utils/auditLog");
+const { writeAuditLog } = require("../utils/auditLogger");
+
+const DEFAULT_ATTACHMENT_PAGE = 1;
+const DEFAULT_ATTACHMENT_LIMIT = 20;
+const MAX_ATTACHMENT_LIMIT = 100;
+
+const parsePositiveIntegerQuery = (value, fallback) => {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const parsedValue = Number(value);
+
+  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+
+  return parsedValue;
+};
+
+const normalizeAttachmentCategory = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return String(value).trim().toLowerCase();
+};
 
 const attachmentInclude = [
   {
@@ -189,8 +214,22 @@ const initiateAttachmentUpload = async (req, res) => {
       });
     }
 
-    // Add your audit event here using the
-    // existing LabFlow audit helper.
+    await writeAuditLog({
+      req,
+      action: "attachment.upload_initiated",
+      entityType: "attachment",
+      entityId: createdAttachment.id,
+      summary: `Attachment upload initiated for ${createdAttachment.originalFileName}.`,
+      metadata: {
+        attachmentId: createdAttachment.id,
+        targetEntityType: createdAttachment.entityType,
+        targetEntityId: createdAttachment.entityId,
+        originalFileName: createdAttachment.originalFileName,
+        mimeType: createdAttachment.mimeType,
+        fileSize: Number(createdAttachment.fileSize),
+        category: createdAttachment.category,
+      },
+    });
 
     return res.status(201).json({
       status: "success",
@@ -446,8 +485,23 @@ const completeAttachmentUpload = async (req, res) => {
       });
     }
 
-    // Add attachment.upload_completed
-    // audit event here.
+    await writeAuditLog({
+      req,
+      action: "attachment.upload_completed",
+      entityType: "attachment",
+      entityId: completedAttachment.id,
+      summary: `Attachment upload completed for ${completedAttachment.originalFileName}.`,
+      metadata: {
+        attachmentId: completedAttachment.id,
+        targetEntityType: completedAttachment.entityType,
+        targetEntityId: completedAttachment.entityId,
+        originalFileName: completedAttachment.originalFileName,
+        mimeType: completedAttachment.mimeType,
+        fileSize: Number(completedAttachment.fileSize),
+        verifiedFileSize: Number(completedAttachment.verifiedFileSize),
+        category: completedAttachment.category,
+      },
+    });
 
     return res.status(200).json({
       status: "success",
@@ -469,7 +523,209 @@ const completeAttachmentUpload = async (req, res) => {
   }
 };
 
+const listAttachments = async (req, res) => {
+  try {
+    const entityType = String(req.query.entityType || "")
+      .trim()
+      .toLowerCase();
+
+    const entityId = Number(req.query.entityId);
+
+    if (!entityType) {
+      return res.status(400).json({
+        status: "error",
+        message: "entityType is required.",
+      });
+    }
+
+    if (!Number.isSafeInteger(entityId) || entityId <= 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "entityId must be a positive integer.",
+      });
+    }
+
+    const page = parsePositiveIntegerQuery(
+      req.query.page,
+      DEFAULT_ATTACHMENT_PAGE,
+    );
+
+    if (!page) {
+      return res.status(400).json({
+        status: "error",
+        message: "page must be a positive integer.",
+      });
+    }
+
+    const requestedLimit = parsePositiveIntegerQuery(
+      req.query.limit,
+      DEFAULT_ATTACHMENT_LIMIT,
+    );
+
+    if (!requestedLimit) {
+      return res.status(400).json({
+        status: "error",
+        message: "limit must be a positive integer.",
+      });
+    }
+
+    const limit = Math.min(requestedLimit, MAX_ATTACHMENT_LIMIT);
+
+    const offset = (page - 1) * limit;
+
+    const category = normalizeAttachmentCategory(req.query.category);
+
+    const access = await authorizeAttachmentTarget({
+      user: req.user,
+      entityType,
+      entityId,
+      action: "view",
+    });
+
+    if (!access.allowed) {
+      const statusCode = access.reason === "not_found" ? 404 : 403;
+
+      return res.status(statusCode).json({
+        status: "error",
+        message:
+          access.reason === "not_found"
+            ? "Attachment target not found."
+            : "You do not have permission to view attachments for this record.",
+      });
+    }
+
+    const where = {
+      organizationId: req.user.organizationId,
+      entityType,
+      entityId,
+      uploadStatus: "available",
+      isArchived: false,
+    };
+
+    if (category) {
+      where.category = category;
+    }
+
+    const result = await Attachment.findAndCountAll({
+      where,
+
+      include: attachmentInclude,
+
+      order: [
+        ["createdAt", "DESC"],
+        ["id", "DESC"],
+      ],
+
+      limit,
+      offset,
+
+      distinct: true,
+    });
+
+    const totalItems = Number(result.count) || 0;
+
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / limit);
+
+    return res.status(200).json({
+      status: "success",
+
+      data: {
+        attachments: result.rows.map(formatAttachmentResponse),
+
+        pagination: {
+          page,
+          limit,
+          totalItems,
+          totalPages,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error listing attachments", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to load attachments.",
+    });
+  }
+};
+
+const getAttachmentById = async (req, res) => {
+  try {
+    const attachmentIdValidation = validateAttachmentId(req.params.id);
+
+    if (!attachmentIdValidation.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: attachmentIdValidation.error,
+      });
+    }
+
+    const attachmentId = attachmentIdValidation.value;
+
+    const attachment = await Attachment.findOne({
+      where: {
+        id: attachmentId,
+
+        organizationId: req.user.organizationId,
+
+        uploadStatus: "available",
+        isArchived: false,
+      },
+
+      include: attachmentInclude,
+    });
+
+    if (!attachment) {
+      return res.status(404).json({
+        status: "error",
+        message: "Attachment not found.",
+      });
+    }
+
+    const access = await authorizeAttachmentTarget({
+      user: req.user,
+
+      entityType: attachment.entityType,
+
+      entityId: attachment.entityId,
+
+      action: "view",
+    });
+
+    if (!access.allowed) {
+      const statusCode = access.reason === "not_found" ? 404 : 403;
+
+      return res.status(statusCode).json({
+        status: "error",
+
+        message:
+          access.reason === "not_found"
+            ? "Attachment target not found."
+            : "You do not have permission to view this attachment.",
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+
+      data: {
+        attachment: formatAttachmentResponse(attachment),
+      },
+    });
+  } catch (error) {
+    console.error("Error loading attachment", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to load attachment.",
+    });
+  }
+};
+
 module.exports = {
   completeAttachmentUpload,
   initiateAttachmentUpload,
+  listAttachments,
+  getAttachmentById,
 };

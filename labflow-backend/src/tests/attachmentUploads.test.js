@@ -21,6 +21,10 @@ jest.mock("../storage/attachmentStorage", () => ({
   getAttachmentStorage: jest.fn(),
 }));
 
+jest.mock("../utils/auditLogger", () => ({
+  writeAuditLog: jest.fn(),
+}));
+
 const crypto = require("crypto");
 
 const { Attachment, sequelize } = require("../models");
@@ -28,6 +32,8 @@ const { Attachment, sequelize } = require("../models");
 const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
 
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
+
+const { writeAuditLog } = require("../utils/auditLogger");
 
 const {
   completeAttachmentUpload,
@@ -187,6 +193,8 @@ describe("attachment upload endpoints", () => {
 
     crypto.randomUUID.mockReturnValue(ATTACHMENT_ID);
 
+    writeAuditLog.mockResolvedValue(undefined);
+
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -226,6 +234,23 @@ describe("attachment upload endpoints", () => {
       const res = createResponse();
 
       await initiateAttachmentUpload(req, res);
+
+      expect(writeAuditLog).toHaveBeenCalledWith({
+        req,
+        action: "attachment.upload_initiated",
+        entityType: "attachment",
+        entityId: ATTACHMENT_ID,
+        summary: "Attachment upload initiated for GC-MS Run 04.csv.",
+        metadata: {
+          attachmentId: ATTACHMENT_ID,
+          targetEntityType: "experiment",
+          targetEntityId: ENTITY_ID,
+          originalFileName: "GC-MS Run 04.csv",
+          mimeType: "text/csv",
+          fileSize: 1024,
+          category: "raw_data",
+        },
+      });
 
       expect(authorizeAttachmentTarget).toHaveBeenCalledWith({
         user: req.user,
@@ -465,6 +490,8 @@ describe("attachment upload endpoints", () => {
 
       await initiateAttachmentUpload(req, res);
 
+      expect(writeAuditLog).not.toHaveBeenCalled();
+
       expect(transaction.commit).toHaveBeenCalledTimes(1);
 
       expect(res.status).toHaveBeenCalledWith(500);
@@ -511,6 +538,24 @@ describe("attachment upload endpoints", () => {
       const res = createResponse();
 
       await completeAttachmentUpload(req, res);
+
+      expect(writeAuditLog).toHaveBeenCalledWith({
+        req,
+        action: "attachment.upload_completed",
+        entityType: "attachment",
+        entityId: ATTACHMENT_ID,
+        summary: "Attachment upload completed for GC-MS Run 04.csv.",
+        metadata: {
+          attachmentId: ATTACHMENT_ID,
+          targetEntityType: "experiment",
+          targetEntityId: ENTITY_ID,
+          originalFileName: "GC-MS Run 04.csv",
+          mimeType: "text/csv",
+          fileSize: 1024,
+          verifiedFileSize: 1024,
+          category: "raw_data",
+        },
+      });
 
       expect(Attachment.findOne).toHaveBeenNthCalledWith(
         1,
@@ -1118,6 +1163,8 @@ describe("attachment upload endpoints", () => {
       expect(transaction.commit).toHaveBeenCalledTimes(1);
 
       expect(res.status).toHaveBeenCalledWith(500);
+
+      expect(writeAuditLog).not.toHaveBeenCalled();
     });
   });
 });
