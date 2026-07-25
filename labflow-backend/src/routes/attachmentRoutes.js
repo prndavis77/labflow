@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
   completeAttachmentUpload,
+  createAttachmentDownloadUrl,
   getAttachmentById,
   initiateAttachmentUpload,
   listAttachments,
@@ -18,6 +19,8 @@ router.get("/", listAttachments);
 router.post("/uploads", initiateAttachmentUpload);
 
 router.post("/:id/complete", completeAttachmentUpload);
+
+router.get("/:id/download", createAttachmentDownloadUrl);
 
 router.get("/:id", getAttachmentById);
 

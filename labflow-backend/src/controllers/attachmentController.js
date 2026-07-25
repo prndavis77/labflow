@@ -723,9 +723,133 @@ const getAttachmentById = async (req, res) => {
   }
 };
 
+const createAttachmentDownloadUrl = async (req, res) => {
+  try {
+    const attachmentIdValidation = validateAttachmentId(req.params.id);
+
+    if (!attachmentIdValidation.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: attachmentIdValidation.error,
+      });
+    }
+
+    const attachmentId = attachmentIdValidation.value;
+
+    const attachment = await Attachment.findOne({
+      where: {
+        id: attachmentId,
+        organizationId: req.user.organizationId,
+        uploadStatus: "available",
+        isArchived: false,
+      },
+      include: attachmentInclude,
+    });
+
+    if (!attachment) {
+      return res.status(404).json({
+        status: "error",
+        message: "Attachment not found.",
+      });
+    }
+
+    const access = await authorizeAttachmentTarget({
+      user: req.user,
+      entityType: attachment.entityType,
+      entityId: attachment.entityId,
+      action: "view",
+    });
+
+    if (!access.allowed) {
+      const statusCode = access.reason === "not_found" ? 404 : 403;
+
+      return res.status(statusCode).json({
+        status: "error",
+        message:
+          access.reason === "not_found"
+            ? "Attachment target not found."
+            : "You do not have permission to download this attachment.",
+      });
+    }
+
+    const attachmentStorage = getAttachmentStorage();
+
+    try {
+      await attachmentStorage.getObjectMetadata({
+        storageKey: attachment.storageKey,
+      });
+    } catch (storageError) {
+      const isStorageObjectMissing =
+        storageError?.name === "NotFound" ||
+        storageError?.name === "NoSuchKey" ||
+        storageError?.$metadata?.httpStatusCode === 404;
+
+      console.error("Error verifying attachment before download", storageError);
+
+      return res.status(isStorageObjectMissing ? 404 : 503).json({
+        status: "error",
+        message: isStorageObjectMissing
+          ? "The attachment file could not be found in storage."
+          : "File storage is temporarily unavailable.",
+      });
+    }
+
+    let download;
+
+    try {
+      download = await attachmentStorage.createDownloadUrl({
+        storageKey: attachment.storageKey,
+        originalFileName: attachment.originalFileName,
+        mimeType: attachment.mimeType,
+        expiresInSeconds: attachmentConfig.downloadUrlTtlSeconds,
+      });
+    } catch (storageError) {
+      console.error("Error creating attachment download URL", storageError);
+
+      return res.status(503).json({
+        status: "error",
+        message: "File storage is temporarily unavailable.",
+      });
+    }
+
+    await writeAuditLog({
+      req,
+      action: "attachment.download_url_created",
+      entityType: "attachment",
+      entityId: attachment.id,
+      summary: `Download URL created for ${attachment.originalFileName}.`,
+      metadata: {
+        attachmentId: attachment.id,
+        targetEntityType: attachment.entityType,
+        targetEntityId: attachment.entityId,
+        originalFileName: attachment.originalFileName,
+        mimeType: attachment.mimeType,
+        fileSize: Number(attachment.fileSize),
+        category: attachment.category,
+      },
+    });
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        attachment: formatAttachmentResponse(attachment),
+        download,
+      },
+    });
+  } catch (error) {
+    console.error("Error creating attachment download URL", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to create attachment download URL.",
+    });
+  }
+};
+
 module.exports = {
   completeAttachmentUpload,
+  createAttachmentDownloadUrl,
+  getAttachmentById,
   initiateAttachmentUpload,
   listAttachments,
-  getAttachmentById,
 };
