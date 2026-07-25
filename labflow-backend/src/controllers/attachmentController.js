@@ -8,6 +8,7 @@ const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
 
 const {
   validateAttachmentId,
+  validateAttachmentMetadataUpdate,
   validateAttachmentUploadMetadata,
 } = require("../utils/attachmentValidation");
 
@@ -523,6 +524,21 @@ const completeAttachmentUpload = async (req, res) => {
   }
 };
 
+const canManageAttachmentRecord = ({ user, attachment }) => {
+  if (user.role === "admin") {
+    return true;
+  }
+
+  if (user.role === "supervisor") {
+    return true;
+  }
+
+  return (
+    user.role === "researcher" &&
+    Number(attachment.uploadedById) === Number(user.id)
+  );
+};
+
 const listAttachments = async (req, res) => {
   try {
     const entityType = String(req.query.entityType || "")
@@ -846,10 +862,327 @@ const createAttachmentDownloadUrl = async (req, res) => {
   }
 };
 
+const updateAttachmentMetadata = async (req, res) => {
+  let transaction;
+
+  try {
+    const attachmentIdValidation = validateAttachmentId(req.params.id);
+
+    if (!attachmentIdValidation.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: attachmentIdValidation.error,
+      });
+    }
+
+    const metadataValidation = validateAttachmentMetadataUpdate({
+      category: req.body.category,
+      description: req.body.description,
+    });
+
+    if (!metadataValidation.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: metadataValidation.error,
+      });
+    }
+
+    const attachmentId = attachmentIdValidation.value;
+
+    transaction = await sequelize.transaction();
+
+    const attachment = await Attachment.findOne({
+      where: {
+        id: attachmentId,
+        organizationId: req.user.organizationId,
+        uploadStatus: "available",
+        isArchived: false,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!attachment) {
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(404).json({
+        status: "error",
+        message: "Attachment not found.",
+      });
+    }
+
+    const access = await authorizeAttachmentTarget({
+      user: req.user,
+      entityType: attachment.entityType,
+      entityId: attachment.entityId,
+      action: "update",
+      transaction,
+    });
+
+    if (!access.allowed) {
+      await transaction.rollback();
+      transaction = null;
+
+      const statusCode = access.reason === "not_found" ? 404 : 403;
+
+      return res.status(statusCode).json({
+        status: "error",
+        message:
+          access.reason === "not_found"
+            ? "Attachment target not found."
+            : "You do not have permission to update this attachment.",
+      });
+    }
+
+    if (
+      !canManageAttachmentRecord({
+        user: req.user,
+        attachment,
+      })
+    ) {
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(403).json({
+        status: "error",
+        message: "You can only update attachments that you uploaded.",
+      });
+    }
+
+    const previousMetadata = {
+      category: attachment.category,
+      description: attachment.description,
+    };
+
+    Object.assign(attachment, metadataValidation.value);
+
+    await attachment.save({
+      transaction,
+    });
+
+    await transaction.commit();
+    transaction = null;
+
+    const updatedAttachment = await Attachment.findOne({
+      where: {
+        id: attachment.id,
+        organizationId: req.user.organizationId,
+        uploadStatus: "available",
+        isArchived: false,
+      },
+      include: attachmentInclude,
+    });
+
+    if (!updatedAttachment) {
+      return res.status(500).json({
+        status: "error",
+        message: "The attachment was updated but could not be reloaded.",
+      });
+    }
+
+    await writeAuditLog({
+      req,
+      action: "attachment.metadata_updated",
+      entityType: "attachment",
+      entityId: updatedAttachment.id,
+      summary: `Attachment metadata updated for ${updatedAttachment.originalFileName}.`,
+      metadata: {
+        attachmentId: updatedAttachment.id,
+        targetEntityType: updatedAttachment.entityType,
+        targetEntityId: updatedAttachment.entityId,
+        originalFileName: updatedAttachment.originalFileName,
+        previousMetadata,
+        updatedMetadata: {
+          category: updatedAttachment.category,
+          description: updatedAttachment.description,
+        },
+      },
+    });
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        attachment: formatAttachmentResponse(updatedAttachment),
+      },
+    });
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    console.error("Error updating attachment metadata", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to update attachment metadata.",
+    });
+  }
+};
+
+const archiveAttachment = async (req, res) => {
+  let transaction;
+
+  try {
+    const attachmentIdValidation = validateAttachmentId(req.params.id);
+
+    if (!attachmentIdValidation.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: attachmentIdValidation.error,
+      });
+    }
+
+    const attachmentId = attachmentIdValidation.value;
+
+    transaction = await sequelize.transaction();
+
+    const attachment = await Attachment.findOne({
+      where: {
+        id: attachmentId,
+        organizationId: req.user.organizationId,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!attachment) {
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(404).json({
+        status: "error",
+        message: "Attachment not found.",
+      });
+    }
+
+    const access = await authorizeAttachmentTarget({
+      user: req.user,
+      entityType: attachment.entityType,
+      entityId: attachment.entityId,
+      action: "archive",
+      transaction,
+    });
+
+    if (!access.allowed) {
+      await transaction.rollback();
+      transaction = null;
+
+      const statusCode = access.reason === "not_found" ? 404 : 403;
+
+      return res.status(statusCode).json({
+        status: "error",
+        message:
+          access.reason === "not_found"
+            ? "Attachment target not found."
+            : "You do not have permission to archive this attachment.",
+      });
+    }
+
+    if (
+      !canManageAttachmentRecord({
+        user: req.user,
+        attachment,
+      })
+    ) {
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(403).json({
+        status: "error",
+        message: "You can only archive attachments that you uploaded.",
+      });
+    }
+
+    if (attachment.isArchived) {
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(200).json({
+        status: "success",
+        data: {
+          attachment: formatAttachmentResponse(attachment),
+        },
+      });
+    }
+
+    if (attachment.uploadStatus !== "available") {
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(409).json({
+        status: "error",
+        message: "Only available attachments can be archived.",
+      });
+    }
+
+    attachment.isArchived = true;
+    attachment.archivedAt = new Date();
+    attachment.archivedById = req.user.id;
+
+    await attachment.save({
+      transaction,
+    });
+
+    await transaction.commit();
+    transaction = null;
+
+    const archivedAttachment = await Attachment.findOne({
+      where: {
+        id: attachment.id,
+        organizationId: req.user.organizationId,
+      },
+      include: attachmentInclude,
+    });
+
+    if (!archivedAttachment) {
+      return res.status(500).json({
+        status: "error",
+        message: "The attachment was archived but could not be reloaded.",
+      });
+    }
+
+    await writeAuditLog({
+      req,
+      action: "attachment.archived",
+      entityType: "attachment",
+      entityId: archivedAttachment.id,
+      summary: `Attachment archived: ${archivedAttachment.originalFileName}.`,
+      metadata: {
+        attachmentId: archivedAttachment.id,
+        targetEntityType: archivedAttachment.entityType,
+        targetEntityId: archivedAttachment.entityId,
+        originalFileName: archivedAttachment.originalFileName,
+        archivedById: req.user.id,
+      },
+    });
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        attachment: formatAttachmentResponse(archivedAttachment),
+      },
+    });
+  } catch (error) {
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    console.error("Error archiving attachment", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "Unable to archive attachment.",
+    });
+  }
+};
+
 module.exports = {
+  archiveAttachment,
   completeAttachmentUpload,
   createAttachmentDownloadUrl,
   getAttachmentById,
   initiateAttachmentUpload,
   listAttachments,
+  updateAttachmentMetadata,
 };

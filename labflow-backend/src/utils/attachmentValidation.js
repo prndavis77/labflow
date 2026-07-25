@@ -372,6 +372,58 @@ const validateAttachmentId = (attachmentId) => {
   };
 };
 
+const validateAttachmentMetadataUpdate = ({ category, description }) => {
+  const hasCategory = category !== undefined;
+
+  const hasDescription = description !== undefined;
+
+  if (!hasCategory && !hasDescription) {
+    return {
+      valid: false,
+      error: "At least one metadata field must be provided.",
+    };
+  }
+
+  const value = {};
+
+  if (hasCategory) {
+    const normalizedCategory = String(category || "")
+      .trim()
+      .toLowerCase();
+
+    if (!ATTACHMENT_CATEGORIES.includes(normalizedCategory)) {
+      return {
+        valid: false,
+        error: "Attachment category is invalid.",
+      };
+    }
+
+    value.category = normalizedCategory;
+  }
+
+  if (hasDescription) {
+    if (description === null || String(description).trim() === "") {
+      value.description = null;
+    } else {
+      const normalizedDescription = String(description).trim();
+
+      if (normalizedDescription.length > ATTACHMENT_MAX_DESCRIPTION_LENGTH) {
+        return {
+          valid: false,
+          error: `Attachment description cannot exceed ${ATTACHMENT_MAX_DESCRIPTION_LENGTH} characters.`,
+        };
+      }
+
+      value.description = normalizedDescription;
+    }
+  }
+
+  return {
+    valid: true,
+    value,
+  };
+};
+
 module.exports = {
   getNormalizedFileExtension,
   normalizeMimeType,
@@ -387,4 +439,5 @@ module.exports = {
   validateMimeType,
   validateOriginalFileName,
   validateAttachmentId,
+  validateAttachmentMetadataUpdate,
 };
