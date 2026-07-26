@@ -1024,6 +1024,7 @@ labflow/
   labflow-frontend/
     src/
       api/
+        attachmentApi.js
         authApi.js
         axiosClient.js
         dashboardApi.js
@@ -1039,6 +1040,7 @@ labflow/
         reviewEventApi.js
         taskApi.js
         userApi.js
+      assets/
       components/
         experiments/
           ExperimentFormModal.jsx
@@ -1054,14 +1056,15 @@ labflow/
           InviteUserModal.jsx
         ScrollToTop.jsx
       constants/
-        actionOptions.js
-        entityTypeOptions.js
-        statusColors.js
-        statusOptions.js
+         actionOptions.js
+         attachmentOptions.js
+         entityTypeOptions.js
+         statusColors.js
+         statusOptions.js
       context/
-        AuthContext.jsx
-        AuthProvider.jsx
-        useAuth.js
+         AuthContext.js
+         AuthProvider.jsx
+         useAuth.js
       layouts/
       pages/
         AcceptInvitePage.jsx
@@ -1088,8 +1091,10 @@ labflow/
         ProtectedRoute.jsx
         PublicOnlyRoute.jsx
       services/
+        attachmentUploadService.js
         auditLogService.js
       utils/
+        attachmentUtils.js
         formatters.js
         projectRoleAccess.js
       App.jsx

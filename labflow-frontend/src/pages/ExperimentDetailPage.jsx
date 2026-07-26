@@ -26,6 +26,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchExperimentById, updateExperiment } from "../api/experimentApi";
+
 import {
   createNotebookEntry,
   deleteNotebookEntry,
@@ -202,8 +203,11 @@ const ExperimentDetailPage = () => {
         ]);
 
       setProjects(projectResult.data.projects);
+
       setUsers(userResult.data.users);
+
       setTasks(taskResult.data.tasks);
+
       setProtocols(protocolResult.data.protocols);
     } catch (error) {
       const messageText =
@@ -615,7 +619,7 @@ const ExperimentDetailPage = () => {
     ["pending", "changes_requested"].includes(experiment.reviewStatus);
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <Card loading={isLoadingExperiment && !experiment}>
         <Space style={{ marginBottom: 16 }}>
           <Button
@@ -773,7 +777,7 @@ const ExperimentDetailPage = () => {
       </Card>
 
       <Card title="Review Workflow" style={{ marginTop: 24 }}>
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Descriptions column={1} size="small">
             <Descriptions.Item label="Approval Status">
               <Tag color={EXPERIMENT_STATUS_COLORS[experiment?.reviewStatus]}>
