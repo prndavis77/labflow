@@ -139,6 +139,7 @@ describe("attachment storage", () => {
 
       expect(options).toEqual({
         expiresIn: 300,
+        signableHeaders: new Set(["content-type"]),
       });
     });
 

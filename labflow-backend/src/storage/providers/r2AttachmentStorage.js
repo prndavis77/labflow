@@ -63,6 +63,8 @@ const createR2AttachmentStorage = ({
         accessKeyId: r2Config.accessKeyId,
         secretAccessKey: r2Config.secretAccessKey,
       },
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     });
 
   const bucketName = String(r2Config.bucketName || "").trim();
@@ -94,6 +96,7 @@ const createR2AttachmentStorage = ({
 
     const url = await signUrl(s3Client, command, {
       expiresIn: normalizedExpiresIn,
+      signableHeaders: new Set(["content-type"]),
     });
 
     return {

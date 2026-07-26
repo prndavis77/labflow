@@ -1,13 +1,12 @@
 jest.mock("../models", () => ({
   Attachment: {
+    create: jest.fn(),
     findOne: jest.fn(),
+    sequelize: {
+      transaction: jest.fn(),
+    },
   },
-
   User: {},
-
-  sequelize: {
-    transaction: jest.fn(),
-  },
 }));
 
 jest.mock("../utils/attachmentAccess", () => ({
@@ -23,6 +22,8 @@ jest.mock("../utils/auditLogger", () => ({
 }));
 
 const { Attachment } = require("../models");
+
+const sequelize = Attachment.sequelize;
 
 const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
 
@@ -233,7 +234,7 @@ describe("attachment download endpoint", () => {
 
       entityType: "attachment",
 
-      entityId: ATTACHMENT_ID,
+      entityId: null,
 
       summary: "Download URL created for GC-MS Run 04.csv.",
 

@@ -1,6 +1,8 @@
 const crypto = require("crypto");
 
-const { Attachment, User, sequelize } = require("../models");
+const { Attachment, User } = require("../models");
+
+const sequelize = Attachment.sequelize;
 
 const attachmentConfig = require("../config/attachmentConfig");
 
@@ -219,7 +221,7 @@ const initiateAttachmentUpload = async (req, res) => {
       req,
       action: "attachment.upload_initiated",
       entityType: "attachment",
-      entityId: createdAttachment.id,
+      entityId: null,
       summary: `Attachment upload initiated for ${createdAttachment.originalFileName}.`,
       metadata: {
         attachmentId: createdAttachment.id,
@@ -490,7 +492,7 @@ const completeAttachmentUpload = async (req, res) => {
       req,
       action: "attachment.upload_completed",
       entityType: "attachment",
-      entityId: completedAttachment.id,
+      entityId: null,
       summary: `Attachment upload completed for ${completedAttachment.originalFileName}.`,
       metadata: {
         attachmentId: completedAttachment.id,
@@ -832,7 +834,7 @@ const createAttachmentDownloadUrl = async (req, res) => {
       req,
       action: "attachment.download_url_created",
       entityType: "attachment",
-      entityId: attachment.id,
+      entityId: null,
       summary: `Download URL created for ${attachment.originalFileName}.`,
       metadata: {
         attachmentId: attachment.id,
@@ -985,7 +987,7 @@ const updateAttachmentMetadata = async (req, res) => {
       req,
       action: "attachment.metadata_updated",
       entityType: "attachment",
-      entityId: updatedAttachment.id,
+      entityId: null,
       summary: `Attachment metadata updated for ${updatedAttachment.originalFileName}.`,
       metadata: {
         attachmentId: updatedAttachment.id,
@@ -1146,7 +1148,7 @@ const archiveAttachment = async (req, res) => {
       req,
       action: "attachment.archived",
       entityType: "attachment",
-      entityId: archivedAttachment.id,
+      entityId: null,
       summary: `Attachment archived: ${archivedAttachment.originalFileName}.`,
       metadata: {
         attachmentId: archivedAttachment.id,

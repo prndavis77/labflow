@@ -6,11 +6,11 @@ jest.mock("../models", () => ({
   Attachment: {
     create: jest.fn(),
     findOne: jest.fn(),
+    sequelize: {
+      transaction: jest.fn(),
+    },
   },
   User: {},
-  sequelize: {
-    transaction: jest.fn(),
-  },
 }));
 
 jest.mock("../utils/attachmentAccess", () => ({
@@ -27,7 +27,9 @@ jest.mock("../utils/auditLogger", () => ({
 
 const crypto = require("crypto");
 
-const { Attachment, sequelize } = require("../models");
+const { Attachment } = require("../models");
+
+const sequelize = Attachment.sequelize;
 
 const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
 
@@ -239,7 +241,7 @@ describe("attachment upload endpoints", () => {
         req,
         action: "attachment.upload_initiated",
         entityType: "attachment",
-        entityId: ATTACHMENT_ID,
+        entityId: null,
         summary: "Attachment upload initiated for GC-MS Run 04.csv.",
         metadata: {
           attachmentId: ATTACHMENT_ID,
@@ -543,7 +545,7 @@ describe("attachment upload endpoints", () => {
         req,
         action: "attachment.upload_completed",
         entityType: "attachment",
-        entityId: ATTACHMENT_ID,
+        entityId: null,
         summary: "Attachment upload completed for GC-MS Run 04.csv.",
         metadata: {
           attachmentId: ATTACHMENT_ID,

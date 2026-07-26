@@ -1,14 +1,13 @@
 jest.mock("../models", () => ({
   Attachment: {
-    findAndCountAll: jest.fn(),
+    create: jest.fn(),
     findOne: jest.fn(),
+    findAndCountAll: jest.fn(),
+    sequelize: {
+      transaction: jest.fn(),
+    },
   },
-
   User: {},
-
-  sequelize: {
-    transaction: jest.fn(),
-  },
 }));
 
 jest.mock("../utils/attachmentAccess", () => ({
@@ -16,6 +15,8 @@ jest.mock("../utils/attachmentAccess", () => ({
 }));
 
 const { Attachment } = require("../models");
+
+const sequelize = Attachment.sequelize;
 
 const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
 
