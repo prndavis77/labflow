@@ -48,3 +48,211 @@ npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
 Remove-Item Env:DATABASE_URL
 Remove-Item Env:NODE_ENV
 ```
+
+## Attachment Storage Deployment
+
+LabFlow attachments use private Cloudflare R2 object storage.
+
+### Required backend environment variables
+
+Configure these values on the deployed backend service:
+
+```text
+ATTACHMENT_STORAGE_PROVIDER=r2
+ATTACHMENT_MAX_FILE_SIZE_BYTES=26214400
+ATTACHMENT_PENDING_TTL_MINUTES=30
+ATTACHMENT_UPLOAD_URL_TTL_SECONDS=300
+ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS=60
+ATTACHMENT_CLEANUP_BATCH_SIZE=100
+
+R2_ACCOUNT_ID
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+R2_BUCKET_NAME
+```
+
+The R2 account ID, access key, secret key, and bucket name are secrets or deployment-specific values. Do not commit them to the repository.
+
+### R2 bucket requirements
+
+- Keep the bucket private.
+- Do not enable public bucket access.
+- Create an API token restricted to the LabFlow bucket where possible.
+- Give the token only the object permissions required by the backend.
+- Configure CORS for the deployed frontend origin.
+- Do not include the R2 secret key in frontend environment variables.
+- Do not expose R2 credentials through API responses.
+- Do not log signed URLs.
+
+### Attachment database migration
+
+Before enabling attachment routes in production:
+
+```bash
+npm run migrate:status
+npm run migrate
+npm run migrate:status
+```
+
+Confirm that the attachment migration is listed as applied.
+
+### Deployment verification
+
+After deploying the backend:
+
+```txt
+GET /api/health
+```
+
+Then verify with an authenticated test account:
+
+1. Initiate an attachment upload.
+2. Upload a permitted test file through the signed URL.
+3. Complete the upload.
+4. List the target record’s attachments.
+5. Request a signed download URL.
+6. Download the test object.
+7. Update its category or description.
+8. Archive it.
+9. Confirm that archived attachments are excluded from normal reads.
+10. Run the pending-upload cleanup command manually.
+
+Do not test with sensitive laboratory or research files.
+
+### Cleanup scheduling
+
+Run:
+
+```bash
+npm run cleanup:attachments
+```
+
+as a scheduled one-shot job.
+
+The scheduled service must use the same database and R2 environment variables as the backend API.
+
+Monitor the exit status and logs. A failed cleanup item should cause the run to be marked unsuccessful while allowing other candidates in the batch to be processed.
+
+---
+
+## Configure Cloudflare R2 CORS
+
+Direct browser uploads use signed `PUT` requests. Cloudflare notes that browser use of presigned URLs requires a bucket CORS policy that permits the frontend’s origin and request method.
+
+For local development and the current deployed Vercel frontend, use a policy equivalent to:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "https://labflow-brown.vercel.app"
+    ],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": [
+      "Content-Type",
+      "x-amz-checksum-sha256",
+      "x-amz-content-sha256"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Only include headers that the frontend actually sends.
+
+If your generated upload request requires a different signed header, add that exact header to AllowedHeaders.
+
+Do not use:
+
+"AllowedOrigins": ["*"]
+
+for a production deployment with a known frontend domain.
+
+Presigned URLs grant temporary access to the operation encoded in the URL, and Cloudflare recommends treating them as bearer tokens.
+
+## Render Backend Configuration
+
+Add the following environment variables to the Render backend service:
+
+```text
+ATTACHMENT_STORAGE_PROVIDER=r2
+ATTACHMENT_MAX_FILE_SIZE_BYTES=26214400
+ATTACHMENT_PENDING_TTL_MINUTES=30
+ATTACHMENT_UPLOAD_URL_TTL_SECONDS=300
+ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS=60
+ATTACHMENT_CLEANUP_BATCH_SIZE=100
+R2_ACCOUNT_ID
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+R2_BUCKET_NAME
+```
+
+Enter the R2 account ID, access key, secret key, and bucket name using the real Cloudflare values.
+
+The R2 credentials must be available only to the backend and cleanup job. They must never be added to frontend environment variables.
+
+## Render Attachment Cleanup Job
+
+Create a separate Render Cron Job for expired pending uploads.
+
+Suggested name:
+
+```text
+labflow-attachment-cleanup
+```
+
+Command:
+
+```bash
+npm run cleanup:attachments
+```
+
+Suggested schedule:
+
+```cron
+*/15 * * * *
+```
+
+The cleanup job must use the same DATABASE_URL and R2 environment variables as the backend service.
+
+The cleanup command is a one-shot process. It must not be added to the normal backend startup command.
+
+The backend service should continue to use:
+
+```bash
+npm start
+```
+
+After creating the cron job, trigger one manual run.
+
+Expected output when no expired uploads exist:
+
+```text
+Starting expired attachment cleanup.
+Expired attachment cleanup completed. {
+  scanned: 0,
+  cleaned: 0,
+  skipped: 0,
+  failed: 0
+}
+```
+
+## Attachment Deployment Verification
+
+After deploying the backend:
+
+1. Verify `GET /api/health`.
+2. Initiate a test attachment upload.
+3. Upload the file through the signed URL.
+4. Complete the upload.
+5. List the target record’s attachments.
+6. Request a signed download URL.
+7. Download the object.
+8. Update its category or description.
+9. Archive the attachment.
+10. Confirm that archived attachments are excluded from normal reads.
+11. Trigger the pending-upload cleanup job.
+
+Use only non-sensitive test files.

@@ -21,11 +21,11 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application.
 
-This version includes organization-scoped workspaces, public workspace creation for first administrators, invitation-only onboarding for additional users, organization settings, role-based access control, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, review history, experiment-linked notebook entries, audit logging, archive behavior, and safely scoped demo seed data.
+This version includes authentication, organization-based workspaces, invitation-based onboarding, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, and a generic research attachment backend.
 
-The backend includes Sequelize migrations, security hardening, organization-level data isolation, transactional workspace and invitation onboarding, audit logging, archive behavior for core lab records, and 107 passing automated backend tests across 13 test suites.
+The attachment backend supports private Cloudflare R2 storage, direct signed uploads, signed downloads, organization-scoped access, target-record permissions, metadata updates, archive behaviour, audit logging, and expired pending-upload cleanup.
 
-The deployed demo uses a hosted PostgreSQL database and shared demo accounts for testing.
+The backend currently includes 21 passing automated test suites with 241 passing tests.
 
 ### Phase 20G: Researcher Review Policy
 
@@ -37,7 +37,7 @@ Completed:
 - Added an individual Review Requirement switch to the admin user management table.
 - Added bulk researcher controls for experiment permissions, protocol permissions, and review requirements.
 - Added backend authorization and review-workflow tests for the new policy.
-- Verified the full backend test suite with 107 passing tests across 13 test suites.
+- Verified the full backend test suite with 241 passing tests across 21 test suites.
 
 ### Phase 20B: Soft Delete / Archive
 
@@ -67,7 +67,7 @@ Completed:
 - Updated login, registration, and invitation acceptance wording.
 - Added workspace registration and invitation security tests.
 - Updated demo seeding so it resets only the dedicated demo organization and does not delete user-created workspaces.
-- Increased backend coverage to 107 passing tests across 13 test suites.
+- Increased backend coverage to 241 passing tests across 21 test suites.
 
 ---
 
@@ -396,7 +396,13 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Editable organization name and type
 - Invitation list management with status, expiration, invited-by, and accepted-date details
 - Pending invitation revoke action
-- Backend test coverage with 107 passing tests across 13 test suites
+- Generic research file attachments
+- Private Cloudflare R2 object storage
+- Short-lived signed upload and download URLs
+- Organization-scoped attachment access
+- Attachment audit logging
+- Expired pending-upload cleanup
+- Backend test coverage with 241 passing tests across 21 test suites
 
 ### Dashboard
 
@@ -829,6 +835,13 @@ LabFlow demonstrates several full-stack development concepts:
 - Restricted CORS configuration for local and deployed frontend origins
 - Organization-based data ownership and backend query scoping
 - Cross-organization isolation tests for projects, tasks, and audit logs
+- Generic attachment backend for multiple LabFlow entity types
+- Private Cloudflare R2 object storage
+- Direct-to-storage uploads using short-lived signed URLs
+- Signed download URLs with storage-object verification
+- Organization-scoped and target-aware attachment authorization
+- Attachment metadata updates and soft archive behaviour
+- Expired pending-upload cleanup with row locking
 
 ---
 
@@ -856,6 +869,8 @@ LabFlow demonstrates several full-stack development concepts:
 - cors
 - Helmet
 - express-rate-limit
+- Cloudflare R2 through the S3-compatible API
+- AWS SDK for JavaScript S3 client and URL presigning
 
 ### Testing
 
@@ -879,12 +894,15 @@ labflow/
   labflow-backend/
     src/
       config/
+        attachmentConfig.js
         database.js
         sequelize-cli.js
       constants/
+        attachments.js
         roles.js
         statusCodes.js
       controllers/
+        attachmentController.js
         auditLogController.js
         authController.js
         dashboardController.js
@@ -914,7 +932,9 @@ labflow/
         20260711125439-add-requires-review-to-users.js
         20260711160206-add-not-required-experiment-review-status.js
         20260711225539-add-review-status-to-protocols.js
+        20260724101117-create-attachments.js
       models/
+        Attachment.js
         AuditLog.js
         Equipment.js
         EquipmentBooking.js
@@ -930,6 +950,7 @@ labflow/
         Task.js
         User.js
       routes/
+        attachmentRoutes.js
         auditLogRoutes.js
         authRoutes.js
         dashboardRoutes.js
@@ -946,13 +967,32 @@ labflow/
         taskRoutes.js
         userRoutes.js
       scripts/
+        cleanupPendingAttachments.js
         seedDemoData.js
         setupDatabase.js
       seeders/
+      services/
+        attachmentCleanupService.js
+      storage/
+        providers/
+          r2AttachmentStorage.js
+        utils/
+          contentDisposition.js
+          storageKey.js
+        attachmentStorage.js
+        createAttachmentStorage.js
       tests/
         helpers/
           dbHelpers.js
           testHelpers.js
+        attachmentAccess.test.js
+        attachmentCleanup.test.js
+        attachmentDownloads.test.js
+        attachmentMutations.test.js
+        attachmentReads.test.js
+        attachmentStorage.test.js
+        attachmentUploads.test.js
+        attachmentValidation.test.js
         auditLogs.test.js
         auth.test.js
         authorization.test.js
@@ -968,6 +1008,9 @@ labflow/
         taskCompletionReview.test.js
         workspaceRegistration.test.js
       utils/
+        attachmentAccess.js
+        attachmentResponse.js
+        attachmentValidation.js
         auditLogger.js
         dateUtils.js
         formatUserResponse.js
@@ -1175,6 +1218,38 @@ Relationships:
 - Notebook entry belongs to one project
 - Notebook entry belongs to one author
 
+### Attachment
+
+Represents a file associated with a supported LabFlow record.
+
+Attachment metadata is stored in PostgreSQL, while file content is stored in private Cloudflare R2 storage.
+
+Attachment records include:
+
+- Organization
+- Uploader
+- Original filename
+- Sanitized filename
+- MIME type
+- Expected and verified file size
+- Storage provider
+- Private storage key
+- Target entity type and ID
+- Category
+- Description
+- Upload status
+- Upload expiration
+- Archive status and archive actor
+- Checksum and ETag metadata
+
+Attachment upload statuses include:
+
+- Pending
+- Available
+- Failed
+
+Attachment access follows access to the linked LabFlow record.
+
 ---
 
 ## API Overview
@@ -1292,6 +1367,22 @@ POST   /api/invitations/accept/:token
 PATCH  /api/invitations/:id/revoke
 ```
 
+### Attachments
+
+```txt
+GET    /api/attachments
+POST   /api/attachments/uploads
+POST   /api/attachments/:id/complete
+GET    /api/attachments/:id/download
+POST   /api/attachments/:id/archive
+PATCH  /api/attachments/:id
+GET    /api/attachments/:id
+```
+
+Attachment metadata is stored in PostgreSQL, while file content is stored in private Cloudflare R2 storage. Access follows access to the linked LabFlow record.
+
+See [docs/attachments.md](docs/attachments.md) for the complete attachment architecture, security model, API workflow, and cleanup process.
+
 ---
 
 ## Security and Deployment Notes
@@ -1362,7 +1453,24 @@ PORT=5000
 DATABASE_URL=postgres://postgres:your_password@localhost:5432/labflow_db
 JWT_SECRET=replace_this_with_a_long_random_secret
 NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+
+ATTACHMENT_STORAGE_PROVIDER=r2
+ATTACHMENT_MAX_FILE_SIZE_BYTES=26214400
+ATTACHMENT_PENDING_TTL_MINUTES=30
+ATTACHMENT_UPLOAD_URL_TTL_SECONDS=300
+ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS=60
+ATTACHMENT_CLEANUP_BATCH_SIZE=100
+
+R2_ACCOUNT_ID=your_cloudflare_account_id
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET_NAME=your_private_r2_bucket_name
 ```
+
+The R2 values are required when `ATTACHMENT_STORAGE_PROVIDER=r2`.
+
+Never commit real `.env` files or R2 credentials. Use `.env.example` only as a variable-name reference.
 
 Create the PostgreSQL database:
 
@@ -1743,9 +1851,9 @@ LabFlow MVP Version 1.2 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 13 passing test suites and 107 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
+The backend test suite currently includes 21 passing test suites and 241 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
 
-Current backend test status: 13 test suites, 107 tests passing.
+Current backend test status: 21 test suites, 241 tests passing.
 
 Covered backend areas include:
 
@@ -1838,7 +1946,6 @@ Current limitations include:
 
 - Organization-level ownership, backend isolation, public workspace creation, invitation-based onboarding, and basic organization settings are included, but LabFlow does not yet support multi-organization memberships, organization switching, billing, custom domains, or full institutional tenant administration.
 - Dashboard project-linked metrics are role-aware for researchers, but equipment inventory metrics are still global because equipment is not project-owned yet.
-- No file uploads
 - No email notifications
 - Audit logging exists for important admin and review workflow actions, but it is not yet immutable and does not yet include export, retention policies, or signed review controls.
 - Archive behavior exists for core lab records, but equipment, bookings, notebook entries, and project memberships still use their existing delete/remove workflows.
@@ -1846,7 +1953,6 @@ Current limitations include:
 - Portfolio/demo deployment is live, but LabFlow does not yet include full production-grade deployment automation.
 - Backend automated tests now cover core API workflows, but frontend automated tests are not yet included.
 - Notebook entries currently use plain text, not rich text
-- No file attachments or image uploads for notebook entries
 - No PDF export for experiment notebooks
 - Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
 - Researcher workflow permissions and review requirements are still global per user, while project membership controls project access separately
@@ -1857,6 +1963,11 @@ Current limitations include:
 - Basic security headers, authentication rate limiting, and organization-level backend isolation are included, but production-grade monitoring, account lockout, email verification, immutable audit controls, and advanced tenant administration controls are not yet implemented.
 - Demo accounts use shared demo credentials and are not suitable for real production use.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
+- The generic attachment backend is complete, but frontend upload and attachment-management components are not yet included.
+- Attachment malware scanning and file-content inspection are not yet included.
+- Large multipart uploads and organization-level storage quotas are not yet included.
+- Archived attachment objects remain in private storage until a future retention and physical-deletion workflow is added.
+- Notebook entries can be used as attachment targets after the corresponding frontend attachment interface is implemented.
 
 ---
 
@@ -1893,9 +2004,7 @@ Recommended Version 2 improvements:
 - Immutable audit controls for research history
 - Stronger review/audit controls for signed or locked review history
 - Rich text notebook entries
-- File attachments and image uploads for notebook entries
 - PDF export for experiment notebooks
-- File uploads for experiment data and protocols
 - Equipment maintenance logs
 - Calendar view for equipment bookings
 - Notifications for overdue tasks and upcoming bookings
@@ -1910,6 +2019,14 @@ Recommended Version 2 improvements:
 - Equipment access model for lab-wide, project-specific, or restricted instruments
 - Task completion notes or admin feedback when reopening tasks
 - Expanded tenant administration workflows, including organization settings, invitations, and organization-level roles
+- Frontend attachment upload and management components
+- Attachment integration on experiment, protocol, project, task, equipment, and notebook pages
+- Drag-and-drop uploads and upload progress
+- Attachment previews for supported image and document formats
+- Malware scanning and file-content inspection
+- Physical deletion and retention policies for archived attachments
+- Organization-level storage quotas
+- Multipart uploads for large instrument datasets
 
 ---
 
