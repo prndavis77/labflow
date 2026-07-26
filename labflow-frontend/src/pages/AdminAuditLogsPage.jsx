@@ -180,7 +180,7 @@ const AdminAuditLogsPage = () => {
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <div>
         <Title level={2}>Audit Logs</Title>
         <Text type="secondary">

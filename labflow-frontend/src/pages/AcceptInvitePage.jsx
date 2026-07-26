@@ -122,7 +122,7 @@ const AcceptInvitePage = () => {
   return (
     <div style={{ maxWidth: 520, margin: "80px auto", padding: "0 16px" }}>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
             <Title level={2} style={{ marginBottom: 8 }}>
               Accept Your LabFlow Invitation
@@ -138,7 +138,7 @@ const AcceptInvitePage = () => {
             showIcon
             message="Invitation details"
             description={
-              <Space direction="vertical">
+              <Space orientation="vertical">
                 <Text>
                   <strong>Name:</strong> {invitation.name}
                 </Text>

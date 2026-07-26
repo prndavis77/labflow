@@ -417,7 +417,7 @@ const AdminUsersPage = () => {
           }
 
           return (
-            <Space direction="vertical" size="small">
+            <Space orientation="vertical" size="small">
               {renderPermissionSwitch(
                 record,
                 "canCreateExperiments",
@@ -442,7 +442,7 @@ const AdminUsersPage = () => {
           }
 
           return (
-            <Space direction="vertical" size="small">
+            <Space orientation="vertical" size="small">
               {renderPermissionSwitch(
                 record,
                 "canCreateProtocols",
@@ -584,7 +584,7 @@ const AdminUsersPage = () => {
   );
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       <Card>
         <div
           style={{
@@ -640,7 +640,7 @@ const AdminUsersPage = () => {
             settings.
           </Paragraph>
 
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <div>
               <Text strong>Experiment permissions</Text>
 
@@ -728,7 +728,7 @@ const AdminUsersPage = () => {
           danger: true,
         }}
       >
-        <Space direction="vertical" style={{ width: "100%" }}>
+        <Space orientation="vertical" style={{ width: "100%" }}>
           <Text type="secondary">
             Enter a temporary password for this user. The password will be
             active immediately after reset.
