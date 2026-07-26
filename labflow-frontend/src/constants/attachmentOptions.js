@@ -1,3 +1,7 @@
+export const ATTACHMENT_MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+
+export const ATTACHMENT_MAX_FILE_COUNT = 1;
+
 export const ATTACHMENT_ENTITY_TYPES = {
   PROJECT: "project",
   TASK: "task",

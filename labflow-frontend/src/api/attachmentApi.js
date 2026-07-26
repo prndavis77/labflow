@@ -30,6 +30,7 @@ export const initiateAttachmentUpload = async ({
   file,
   category,
   description,
+  signal,
 }) => {
   requireTarget({
     entityType,
@@ -53,16 +54,26 @@ export const initiateAttachmentUpload = async ({
   const response = await axiosClient.post(
     `${ATTACHMENT_BASE_PATH}/uploads`,
     payload,
+    {
+      signal,
+    },
   );
 
   return response.data;
 };
 
-export const completeAttachmentUpload = async (attachmentId) => {
+export const completeAttachmentUpload = async (
+  attachmentId,
+  { signal } = {},
+) => {
   const normalizedAttachmentId = requireAttachmentId(attachmentId);
 
   const response = await axiosClient.post(
     `${ATTACHMENT_BASE_PATH}/${normalizedAttachmentId}/complete`,
+    undefined,
+    {
+      signal,
+    },
   );
 
   return response.data;

@@ -81,16 +81,22 @@ export const uploadAttachment = async ({
   category,
   description,
   signal,
+  onStepChange,
 }) => {
+  onStepChange?.("initiating");
+
   const initiationResponse = await initiateAttachmentUpload({
     entityType,
     entityId,
     file,
     category,
     description,
+    signal,
   });
 
   const { attachment, upload } = getUploadInstructions(initiationResponse);
+
+  onStepChange?.("uploading");
 
   await uploadFileToSignedUrl({
     uploadUrl: upload.url,
@@ -100,7 +106,11 @@ export const uploadAttachment = async ({
     signal,
   });
 
-  const completionResponse = await completeAttachmentUpload(attachment.id);
+  onStepChange?.("completing");
+
+  const completionResponse = await completeAttachmentUpload(attachment.id, {
+    signal,
+  });
 
   return {
     initiationResponse,
