@@ -172,30 +172,12 @@ const authorizeExperimentTarget = async ({
     });
   }
 
-  const canContribute = await canContributeToProject({
-    user,
-    project,
-    transaction,
-  });
-
-  if (!canContribute) {
-    return false;
-  }
-
-  if (action === "upload" || action === "update") {
-    if (isSupervisor(user)) {
-      return true;
-    }
-
-    return Boolean(user.canEditExperiments);
-  }
-
-  if (action === "archive") {
-    if (isSupervisor(user)) {
-      return true;
-    }
-
-    return Boolean(user.canEditExperiments);
+  if (["upload", "update", "archive"].includes(action)) {
+    return canContributeToProject({
+      user,
+      project,
+      transaction,
+    });
   }
 
   return false;

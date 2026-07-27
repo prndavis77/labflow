@@ -21,14 +21,11 @@ import {
   EditOutlined,
   PlusOutlined,
   ReloadOutlined,
-  UploadOutlined,
 } from "@ant-design/icons";
 import { Link, useNavigate, useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchExperimentById, updateExperiment } from "../api/experimentApi";
-
-import { fetchAttachmentsForTarget } from "../api/attachmentApi";
 
 import {
   createNotebookEntry,
@@ -44,9 +41,7 @@ import { fetchTasks } from "../api/taskApi";
 import { fetchProtocols } from "../api/protocolApi";
 import { useAuth } from "../context/useAuth";
 import ExperimentFormModal from "../components/experiments/ExperimentFormModal";
-
-import AttachmentUploadModal from "../components/attachments/AttachmentUploadModal";
-
+import AttachmentSection from "../components/attachments/AttachmentSection";
 import { NOTEBOOK_ENTRY_TYPE_OPTIONS } from "../constants/statusOptions";
 import {
   getCurrentUserProjectRole,
@@ -107,13 +102,6 @@ const ExperimentDetailPage = () => {
   const [isReviewCommentModalOpen, setIsReviewCommentModalOpen] =
     useState(false);
 
-  const [isAttachmentUploadOpen, setIsAttachmentUploadOpen] = useState(false);
-  const [attachments, setAttachments] = useState([]);
-
-  const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
-
-  const [attachmentErrorMessage, setAttachmentErrorMessage] = useState("");
-
   const [notebookForm] = Form.useForm();
   const [reviewCommentForm] = Form.useForm();
 
@@ -135,6 +123,16 @@ const ExperimentDetailPage = () => {
     !canReviewExperiment &&
     canEditExperiment &&
     ["not_submitted", "changes_requested"].includes(experiment?.reviewStatus);
+
+  const canUploadExperimentAttachments =
+    currentUser?.role === "admin" ||
+    currentUser?.role === "supervisor" ||
+    ["lead", "member"].includes(currentUserProjectRole);
+
+  const canManageExperimentAttachments =
+    currentUser?.role === "admin" ||
+    currentUser?.role === "supervisor" ||
+    ["lead", "member"].includes(currentUserProjectRole);
 
   // Admins and supervisors can modify all notebook entries
   // Researchers can modify only entries they authored
@@ -275,32 +273,6 @@ const ExperimentDetailPage = () => {
     }
   }, [id]);
 
-  const loadAttachments = useCallback(async () => {
-    if (!id) {
-      setAttachments([]);
-      return;
-    }
-
-    try {
-      setIsLoadingAttachments(true);
-      setAttachmentErrorMessage("");
-
-      const result = await fetchAttachmentsForTarget({
-        entityType: "experiment",
-        entityId: id,
-      });
-
-      setAttachments(result.data.attachments || []);
-    } catch (error) {
-      const messageText =
-        error.response?.data?.message || "Failed to load attachments.";
-
-      setAttachmentErrorMessage(messageText);
-    } finally {
-      setIsLoadingAttachments(false);
-    }
-  }, [id]);
-
   // Loads review history for the current experiment
   const loadReviewEvents = useCallback(async () => {
     try {
@@ -330,14 +302,12 @@ const ExperimentDetailPage = () => {
       loadNotebookEntries();
       loadReviewEvents();
       loadFormOptions();
-      loadAttachments();
     });
   }, [
     loadExperimentDetail,
     loadNotebookEntries,
     loadReviewEvents,
     loadFormOptions,
-    loadAttachments,
   ]);
 
   const handleExperimentSaved = async () => {
@@ -676,25 +646,14 @@ const ExperimentDetailPage = () => {
               loadExperimentDetail();
               loadNotebookEntries();
               loadReviewEvents();
-              loadAttachments();
             }}
             loading={
               isLoadingExperiment ||
               isLoadingNotebookEntries ||
-              isLoadingReviewEvents ||
-              isLoadingAttachments
+              isLoadingReviewEvents
             }
           >
             Refresh
-          </Button>
-
-          <Button
-            type="primary"
-            icon={<UploadOutlined />}
-            disabled={!experiment}
-            onClick={() => setIsAttachmentUploadOpen(true)}
-          >
-            Upload Attachment
           </Button>
 
           {canEditExperiment && experiment && !isLoadingProjectMembers && (
@@ -809,38 +768,18 @@ const ExperimentDetailPage = () => {
         )}
       </Card>
 
-      <Card title={`Attachments (${attachments.length})`}>
-        {attachmentErrorMessage && (
-          <Alert
-            type="error"
-            showIcon
-            message={attachmentErrorMessage}
-            style={{
-              marginBottom: 16,
-            }}
-          />
-        )}
+      {experiment && (
+        <AttachmentSection
+          entityType="experiment"
+          entityId={experiment.id}
+          currentUser={currentUser}
+          title="Experiment Files"
+          canUpload={canUploadExperimentAttachments}
+          canManage={canManageExperimentAttachments}
+        />
+      )}
 
-        {isLoadingAttachments ? (
-          <Card loading />
-        ) : attachments.length === 0 ? (
-          <Empty description="No attachments uploaded yet." />
-        ) : (
-          <Space orientation="vertical" style={{ width: "100%" }}>
-            {attachments.map((attachment) => (
-              <Card key={attachment.id} size="small">
-                <Text strong>{attachment.originalFileName}</Text>
-
-                <br />
-
-                <Text type="secondary">
-                  {attachment.category || "Uncategorised"}
-                </Text>
-              </Card>
-            ))}
-          </Space>
-        )}
-      </Card>
+      <Card title={`Review History (${reviewEvents.length})`}></Card>
 
       <Card title={`Review History (${reviewEvents.length})`}>
         {reviewHistoryErrorMessage && (
@@ -1131,14 +1070,6 @@ const ExperimentDetailPage = () => {
         isLoadingProtocols={isLoadingProtocols}
         onCancel={closeEditModal}
         onSuccess={handleExperimentSaved}
-      />
-
-      <AttachmentUploadModal
-        open={isAttachmentUploadOpen}
-        entityType="experiment"
-        entityId={experiment?.id}
-        onCancel={() => setIsAttachmentUploadOpen(false)}
-        onUploaded={loadAttachments}
       />
     </Space>
   );

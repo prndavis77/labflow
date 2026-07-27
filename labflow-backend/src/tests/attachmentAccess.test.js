@@ -34,7 +34,7 @@ const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
 
 describe("attachment target access", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   const admin = {
@@ -58,6 +58,32 @@ describe("attachment target access", () => {
     isActive: true,
     canEditExperiments: true,
     canEditProtocols: true,
+  };
+  const mockExperimentProject = ({
+    experimentId = 5,
+    projectId = 20,
+    organizationId = 10,
+    supervisorId = 2,
+  } = {}) => {
+    const experiment = {
+      id: experimentId,
+      organizationId,
+      projectId,
+    };
+
+    const project = {
+      id: projectId,
+      organizationId,
+      supervisorId,
+    };
+
+    Experiment.findOne.mockResolvedValue(experiment);
+    Project.findOne.mockResolvedValue(project);
+
+    return {
+      experiment,
+      project,
+    };
   };
 
   test("rejects unauthenticated users", async () => {
@@ -181,7 +207,7 @@ describe("attachment target access", () => {
     expect(result.allowed).toBe(true);
   });
 
-  test("rejects researcher upload when experiment editing is disabled", async () => {
+  test("allows a project member to upload when experiment editing is disabled", async () => {
     const experiment = {
       id: 5,
       organizationId: 10,
@@ -209,13 +235,13 @@ describe("attachment target access", () => {
         canEditExperiments: false,
       },
       entityType: "experiment",
-      entityId: 5,
+      entityId: experiment.id,
       action: "upload",
     });
 
     expect(result).toEqual({
-      allowed: false,
-      reason: "forbidden",
+      allowed: true,
+      target: experiment,
     });
   });
 
@@ -366,6 +392,118 @@ describe("attachment target access", () => {
       user: supervisor,
       entityType: "project",
       entityId: 20,
+      action: "view",
+    });
+
+    expect(result).toEqual({
+      allowed: false,
+      reason: "forbidden",
+    });
+  });
+
+  test("allows a project lead researcher to upload to an experiment", async () => {
+    const { experiment, project } = mockExperimentProject();
+
+    ProjectMember.findOne.mockResolvedValue({
+      userId: researcher.id,
+      projectId: project.id,
+      projectRole: "lead",
+    });
+
+    const result = await authorizeAttachmentTarget({
+      user: {
+        ...researcher,
+        canEditExperiments: false,
+      },
+      entityType: "experiment",
+      entityId: experiment.id,
+      action: "upload",
+    });
+
+    expect(result).toEqual({
+      allowed: true,
+      target: experiment,
+    });
+  });
+
+  test("allows a project member researcher to upload to an experiment", async () => {
+    const { experiment, project } = mockExperimentProject();
+
+    ProjectMember.findOne.mockResolvedValue({
+      userId: researcher.id,
+      projectId: project.id,
+      projectRole: "member",
+    });
+
+    const result = await authorizeAttachmentTarget({
+      user: {
+        ...researcher,
+        canEditExperiments: false,
+      },
+      entityType: "experiment",
+      entityId: experiment.id,
+      action: "upload",
+    });
+
+    expect(result).toEqual({
+      allowed: true,
+      target: experiment,
+    });
+  });
+
+  test("allows a project viewer to view experiment attachments", async () => {
+    const { experiment, project } = mockExperimentProject();
+
+    ProjectMember.findOne.mockResolvedValue({
+      userId: researcher.id,
+      projectId: project.id,
+      projectRole: "viewer",
+    });
+
+    const result = await authorizeAttachmentTarget({
+      user: researcher,
+      entityType: "experiment",
+      entityId: experiment.id,
+      action: "view",
+    });
+
+    expect(result).toEqual({
+      allowed: true,
+      target: experiment,
+    });
+  });
+
+  test("prevents a project viewer from uploading experiment attachments", async () => {
+    const { experiment, project } = mockExperimentProject();
+
+    ProjectMember.findOne.mockResolvedValue({
+      userId: researcher.id,
+      projectId: project.id,
+      projectRole: "viewer",
+    });
+
+    const result = await authorizeAttachmentTarget({
+      user: researcher,
+      entityType: "experiment",
+      entityId: experiment.id,
+      action: "upload",
+    });
+
+    expect(result).toEqual({
+      allowed: false,
+      reason: "forbidden",
+    });
+  });
+
+  test("prevents a researcher without project membership from viewing attachments", async () => {
+    const { experiment } = mockExperimentProject();
+
+    ProjectMember.findOne.mockResolvedValue(null);
+
+    const result = await authorizeAttachmentTarget({
+      user: researcher,
+      entityType: "experiment",
+      entityId: experiment.id,
       action: "view",
     });
 
