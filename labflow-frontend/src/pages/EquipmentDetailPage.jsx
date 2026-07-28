@@ -17,6 +17,8 @@ import dayjs from "dayjs";
 import { fetchEquipmentById } from "../api/equipmentApi";
 import { fetchEquipmentBookings } from "../api/equipmentBookingApi";
 import { fetchProtocols } from "../api/protocolApi";
+import AttachmentSection from "../components/attachments/AttachmentSection";
+import { useAuth } from "../context/useAuth";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
   APPROVAL_STATUS_COLORS,
@@ -29,6 +31,7 @@ const { Title, Paragraph } = Typography;
 const EquipmentDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
 
   const [equipment, setEquipment] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -36,6 +39,10 @@ const EquipmentDetailPage = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const canManageEquipmentAttachments = ["admin", "supervisor"].includes(
+    currentUser?.role,
+  );
 
   // Loads the selected equipment item, its bookings, and linked equipment SOPs
   const loadEquipmentDetail = useCallback(async () => {
@@ -318,6 +325,19 @@ const EquipmentDetailPage = () => {
           <Empty description="Equipment not found" />
         )}
       </Card>
+
+      {equipment && (
+        <AttachmentSection
+          entityType="equipment"
+          entityId={equipment.id}
+          currentUser={currentUser}
+          title="Equipment Documents"
+          canUpload={canManageEquipmentAttachments}
+          canManage={canManageEquipmentAttachments}
+        />
+      )}
+
+      <Card title="Upcoming and Active Bookings"></Card>
 
       <Card title="Upcoming and Active Bookings">
         {upcomingBookings.length === 0 ? (
