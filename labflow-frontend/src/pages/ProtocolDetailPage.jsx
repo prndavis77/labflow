@@ -31,6 +31,7 @@ import {
 } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
+import AttachmentSection from "../components/attachments/AttachmentSection";
 import { useAuth } from "../context/useAuth";
 import {
   APPROVAL_STATUS_COLORS,
@@ -100,6 +101,17 @@ const ProtocolDetailPage = () => {
     ["draft", "changes_requested"].includes(protocol?.approvalStatus);
 
   const isProjectViewer = currentUserProjectRole === "viewer";
+
+  const canUploadProtocolAttachments = Boolean(
+    protocol &&
+    (currentUser?.role === "admin" ||
+      currentUser?.role === "supervisor" ||
+      (isProjectLinkedProtocol &&
+        ["lead", "member"].includes(currentUserProjectRole) &&
+        currentUser?.canEditProtocols)),
+  );
+
+  const canManageProtocolAttachments = canUploadProtocolAttachments;
 
   const loadProjectMembersForProtocol = useCallback(async (projectId) => {
     if (!projectId) {
@@ -449,6 +461,17 @@ const ProtocolDetailPage = () => {
               {formatDateTime(protocol.updatedAt)}
             </Descriptions.Item>
           </Descriptions>
+
+          <div style={{ marginTop: 24 }}>
+            <AttachmentSection
+              entityType="protocol"
+              entityId={protocol.id}
+              currentUser={currentUser}
+              title="Protocol Attachments"
+              canUpload={canUploadProtocolAttachments}
+              canManage={canManageProtocolAttachments}
+            />
+          </div>
 
           <Card
             title={`Review History (${reviewEvents.length})`}
