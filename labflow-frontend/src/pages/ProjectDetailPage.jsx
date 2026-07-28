@@ -34,6 +34,7 @@ import { fetchEquipmentBookings } from "../api/equipmentBookingApi";
 import { fetchNotebookEntries } from "../api/notebookEntryApi";
 import { fetchUsers } from "../api/userApi";
 import ProjectFormModal from "../components/projects/ProjectFormModal";
+import AttachmentSection from "../components/attachments/AttachmentSection";
 import {
   createProjectMember,
   deleteProjectMember,
@@ -98,6 +99,15 @@ const ProjectDetailPage = () => {
   const canManageMembersForThisProject = canManageProjectMembers(currentUser);
 
   const isProjectViewer = currentUserProjectRole === "viewer";
+
+  const canUploadProjectAttachments = Boolean(
+    project &&
+    (currentUser?.role === "admin" ||
+      currentUser?.role === "supervisor" ||
+      ["lead", "member"].includes(currentUserProjectRole)),
+  );
+
+  const canManageProjectAttachments = canUploadProjectAttachments;
 
   const loadProjectMembers = useCallback(async () => {
     try {
@@ -756,6 +766,17 @@ const ProjectDetailPage = () => {
           <Empty description="Project not found" />
         )}
       </Card>
+
+      {project && (
+        <AttachmentSection
+          entityType="project"
+          entityId={project.id}
+          currentUser={currentUser}
+          title="Project Files"
+          canUpload={canUploadProjectAttachments}
+          canManage={canManageProjectAttachments}
+        />
+      )}
 
       <Card
         title={`Project Members (${projectMembers.length})`}

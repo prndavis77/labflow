@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../context/useAuth";
 import TaskFormModal from "../components/tasks/TaskFormModal";
+import AttachmentSection from "../components/attachments/AttachmentSection";
 import { fetchProjects } from "../api/projectApi";
 import { fetchUsers } from "../api/userApi";
 import { fetchProjectMembers } from "../api/projectMemberApi";
@@ -97,6 +98,10 @@ const TaskDetailPage = () => {
       task,
     });
   }, [task, isAdminOrSupervisor, currentUser, projectRoleByProjectId]);
+
+  const canUploadTaskAttachments = Boolean(task && canEditTaskRecord);
+
+  const canManageTaskAttachments = canUploadTaskAttachments;
 
   const loadProjects = useCallback(async () => {
     try {
@@ -515,6 +520,17 @@ const TaskDetailPage = () => {
           <Empty description="Task not found" />
         )}
       </Card>
+
+      {task && (
+        <AttachmentSection
+          entityType="task"
+          entityId={task.id}
+          currentUser={currentUser}
+          title="Task Files"
+          canUpload={canUploadTaskAttachments}
+          canManage={canManageTaskAttachments}
+        />
+      )}
 
       {task?.projectId && (
         <Card title="Related Experiments">
