@@ -779,8 +779,6 @@ const ExperimentDetailPage = () => {
         />
       )}
 
-      <Card title={`Review History (${reviewEvents.length})`}></Card>
-
       <Card title={`Review History (${reviewEvents.length})`}>
         {reviewHistoryErrorMessage && (
           <Alert

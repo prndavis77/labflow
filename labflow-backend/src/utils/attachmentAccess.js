@@ -1,7 +1,6 @@
 const {
   Equipment,
   Experiment,
-  NotebookEntry,
   Project,
   ProjectMember,
   Protocol,
@@ -242,52 +241,6 @@ const authorizeProtocolTarget = async ({
   return Boolean(user.canEditProtocols);
 };
 
-const authorizeNotebookEntryTarget = async ({
-  user,
-  target,
-  action,
-  transaction,
-}) => {
-  if (!hasSameOrganization(user, target)) {
-    return false;
-  }
-
-  if (isAdministrator(user)) {
-    return true;
-  }
-
-  const experiment = await Experiment.findOne({
-    where: {
-      id: target.experimentId,
-      organizationId: user.organizationId,
-    },
-    transaction,
-  });
-
-  if (!experiment) {
-    return false;
-  }
-
-  if (action === "view") {
-    return authorizeExperimentTarget({
-      user,
-      target: experiment,
-      action: "view",
-      transaction,
-    });
-  }
-
-  if (isSupervisor(user)) {
-    return true;
-  }
-
-  if (Number(target.userId) === Number(user.id)) {
-    return Boolean(user.canEditExperiments);
-  }
-
-  return false;
-};
-
 const authorizeEquipmentTarget = ({ user, target, action }) => {
   if (!hasSameOrganization(user, target)) {
     return false;
@@ -309,12 +262,16 @@ const authorizeTaskTarget = async ({ user, target, action, transaction }) => {
     return true;
   }
 
-  if (Number(target.assignedToId) === Number(user.id)) {
-    return true;
+  if (!target.projectId) {
+    if (isSupervisor(user)) {
+      return Number(target.createdById) === Number(user.id);
+    }
+
+    return Number(target.assignedToId) === Number(user.id);
   }
 
-  if (!target.projectId) {
-    return isSupervisor(user);
+  if (Number(target.assignedToId) === Number(user.id)) {
+    return true;
   }
 
   const project = await Project.findOne({
@@ -348,7 +305,6 @@ const TARGET_MODELS = {
   experiment: Experiment,
   protocol: Protocol,
   project: Project,
-  notebook_entry: NotebookEntry,
   equipment: Equipment,
   task: Task,
 };
@@ -357,7 +313,6 @@ const TARGET_AUTHORIZERS = {
   experiment: authorizeExperimentTarget,
   protocol: authorizeProtocolTarget,
   project: authorizeProjectTarget,
-  notebook_entry: authorizeNotebookEntryTarget,
   equipment: authorizeEquipmentTarget,
   task: authorizeTaskTarget,
 };

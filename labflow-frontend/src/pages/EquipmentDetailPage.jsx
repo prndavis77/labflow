@@ -337,8 +337,6 @@ const EquipmentDetailPage = () => {
         />
       )}
 
-      <Card title="Upcoming and Active Bookings"></Card>
-
       <Card title="Upcoming and Active Bookings">
         {upcomingBookings.length === 0 ? (
           <Empty description="No upcoming or active bookings for this equipment." />

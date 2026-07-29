@@ -4,7 +4,6 @@ const ATTACHMENT_ENTITY_TYPES = [
   "experiment",
   "protocol",
   "project",
-  "notebook_entry",
   "equipment",
   "task",
 ];
