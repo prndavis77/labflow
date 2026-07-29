@@ -63,6 +63,7 @@ LabFlow centralizes core research lab workflows into one system:
 - Protocol and SOP management
 - Equipment inventory
 - Equipment booking with conflict prevention
+- Secure research file attachments for projects, tasks, experiments, protocols, and equipment
 - Review queue for supervisor/admin workflows
 - Required review notes for change requests
 - Review history tracking
@@ -108,6 +109,9 @@ I designed and built the full-stack MVP, including:
 - Unique organization slug generation
 - Transactional registration and invitation acceptance
 - Multi-organization-safe demo seed behavior
+- Private Cloudflare R2 attachment architecture
+- Direct signed upload and download workflow
+- Cross-entity attachment authorization and reusable frontend components
 
 ## Tech Stack
 
@@ -133,6 +137,8 @@ I designed and built the full-stack MVP, including:
 - express-rate-limit
 - cors
 - dotenv
+- Cloudflare R2
+- AWS SDK for JavaScript S3 client and URL presigning
 
 ### Testing and Deployment
 
@@ -147,7 +153,7 @@ I designed and built the full-stack MVP, including:
 
 ### Relational Database Design
 
-LabFlow uses a relational PostgreSQL schema modeled with Sequelize. The main entities include users, projects, project members, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, and review events.
+LabFlow uses a relational PostgreSQL schema modeled with Sequelize. The main entities include users, projects, project members, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, review events, and attachments.
 
 The data model is designed around connected lab workflows. Projects can have tasks, experiments, protocols, bookings, notebook entries, and project members. Experiments can link to projects, researchers, tasks, protocols, bookings, and notebook entries. Equipment can link to bookings and instrument-specific SOPs.
 
@@ -262,6 +268,30 @@ Experiments include notebook entries for procedures, observations, results, issu
 
 Notebook entries are linked to experiments and projects, allowing experiment detail pages, project detail pages, and the dashboard to show recent research activity.
 
+### Secure Research File Attachments
+
+LabFlow includes a generic attachment system for projects, tasks, experiments, protocols, and equipment.
+
+File metadata is stored in PostgreSQL, while file content is stored in a private Cloudflare R2 bucket. The backend creates short-lived signed upload URLs so files can be uploaded directly from the browser without passing the file body through the Express server.
+
+The upload workflow has three stages:
+
+1. LabFlow validates the target record, user permissions, filename, MIME type, extension, and file size.
+2. The frontend uploads the file directly to private object storage using a signed URL.
+3. LabFlow verifies the stored object before marking the attachment as available.
+
+Downloads also use short-lived signed URLs. The backend verifies that the user can access the linked record before creating a download URL.
+
+Attachment permissions follow the parent record:
+
+- Admins have organization-wide attachment access.
+- Supervisors are restricted by project, task, protocol, or equipment rules.
+- Researchers can upload only where the linked workflow allows contribution.
+- Researchers can edit or archive only files they uploaded.
+- Read-only users can view and download but cannot upload or manage files.
+
+The same reusable frontend components are used across project, task, experiment, protocol, and equipment detail pages. Cross-entity tests verify consistent behavior for view, upload, metadata update, archive, and download access.
+
 ### Role-Aware Dashboard
 
 The dashboard uses a backend summary endpoint to calculate key metrics such as:
@@ -297,7 +327,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The backend test suite currently includes 13 passing test suites and 107 passing tests.
+The backend test suite currently includes 21 passing test suites and 318 passing tests.
 
 The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, researcher review policy, workspace registration, organization slug generation, invitation onboarding, transactional rollback behavior, and organization settings.
 
@@ -477,9 +507,23 @@ All cleanup and demo data creation run within one database transaction. If the s
 
 This allows demo data to be safely refreshed without deleting organizations or records created through public workspace registration.
 
+### 13. Designing Attachments Without Duplicating Notebook Files
+
+A design question arose around whether notebook entries should have their own attachments.
+
+Notebook entries already belong to experiments, and experiments belong to projects. Adding separate notebook-entry uploads would create several possible locations for the same file and make it harder for users to know where experiment data should be stored.
+
+I decided to keep files at the experiment or project level:
+
+- Project attachments store files relevant to the broader project.
+- Experiment attachments store raw data, exports, images, calculations, and result files for a specific experiment.
+- Notebook entries remain the chronological narrative of what was done and observed.
+
+A future enhancement could allow notebook entries to reference existing experiment attachments without creating duplicate files.
+
 ## Result
 
-LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.3 is complete and deployed as a portfolio/demo application.
 
 The project includes:
 
@@ -493,12 +537,18 @@ The project includes:
 - Sequelize migrations
 - Backend security hardening
 - Archive behavior for projects, tasks, experiments, and protocols, with audit log coverage
-- 107 passing automated backend tests across 13 test suites
 - Seeded demo data and demo accounts
 - Public workspace creation with first-administrator onboarding
 - Invitation-only onboarding for additional users
 - Transactional registration and invitation acceptance
 - Multi-organization-safe demo seed behavior
+- Secure research attachments for projects, tasks, experiments, protocols, and equipment
+- Private Cloudflare R2 object storage
+- Direct signed uploads and signed downloads
+- Organization-scoped and parent-record-aware attachment authorization
+- Metadata editing and soft archive behavior
+- Cross-entity attachment permission coverage
+- 318 passing automated backend tests across 21 test suites
 - GitHub README and portfolio case study
 
 ## Current Limitations
@@ -507,9 +557,7 @@ LabFlow is intentionally focused on MVP workflows.
 
 Current limitations include:
 
-- No file uploads
 - No rich text editor for notebook entries
-- No image attachments for experiment notebooks
 - No PDF export for experiment notebooks
 - No email notifications
 - Account deactivation/reactivation, admin password reset, and invitation-based onboarding exist, but email verification and self-service password reset are not yet included.
@@ -520,6 +568,7 @@ Current limitations include:
 - Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
 - Invitation links are generated by the application, but automated invitation email delivery is not yet implemented.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
+- Notebook entries do not have separate file uploads. Experiment-related files are stored as experiment attachments, while project-wide files are stored as project attachments.
 
 ## Future Improvements
 
@@ -530,7 +579,7 @@ Recommended future improvements include:
 - Organization-level roles and tenant administration workflows
 - Additional production-grade tenant controls
 - Rich text notebook entries
-- File attachments and image uploads
+- Notebook references to existing experiment attachments
 - Experiment notebook PDF export
 - Equipment maintenance history
 - Calendar view for equipment bookings

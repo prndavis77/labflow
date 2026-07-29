@@ -19,13 +19,15 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 ## Project Status
 
-LabFlow MVP Version 1.2 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.3 is complete and deployed as a portfolio/demo application.
 
-This version includes authentication, organization-based workspaces, invitation-based onboarding, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, and a generic research attachment backend.
+This version includes authentication, organization-based workspaces, invitation-based onboarding, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, and end-to-end research file attachments.
 
-The attachment backend supports private Cloudflare R2 storage, direct signed uploads, signed downloads, organization-scoped access, target-record permissions, metadata updates, archive behaviour, audit logging, and expired pending-upload cleanup.
+LabFlow now includes end-to-end research file attachments for projects, tasks, experiments, protocols, and equipment. Files are stored privately in Cloudflare R2 and uploaded directly using short-lived signed URLs.
 
-The backend currently includes 21 passing automated test suites with 241 passing tests.
+Attachment access follows the linked record's permissions. Admins and authorized supervisors can manage all attachments within their scope. Researchers can upload where the parent workflow allows contribution and can edit or archive only files they uploaded. Read-only users can view and download attachments without seeing upload or management actions.
+
+The backend currently includes 21 passing test suites with 318 passing tests.
 
 ### Phase 20G: Researcher Review Policy
 
@@ -37,7 +39,7 @@ Completed:
 - Added an individual Review Requirement switch to the admin user management table.
 - Added bulk researcher controls for experiment permissions, protocol permissions, and review requirements.
 - Added backend authorization and review-workflow tests for the new policy.
-- Verified the full backend test suite with 241 passing tests across 21 test suites.
+- Verified the full backend test suite.
 
 ### Phase 20B: Soft Delete / Archive
 
@@ -67,7 +69,7 @@ Completed:
 - Updated login, registration, and invitation acceptance wording.
 - Added workspace registration and invitation security tests.
 - Updated demo seeding so it resets only the dedicated demo organization and does not delete user-created workspaces.
-- Increased backend coverage to 241 passing tests across 21 test suites.
+- Expanded backend automated test coverage.
 
 ---
 
@@ -272,6 +274,32 @@ Workspace registration and invitation acceptance use database transactions so pa
 
 User email addresses are globally unique in the current architecture. Each account therefore belongs to one organization.
 
+### Research File Attachments
+
+LabFlow supports attachments for:
+
+- Projects
+- Tasks
+- Experiments
+- Protocols
+- Equipment
+
+The attachment workflow includes:
+
+- Private Cloudflare R2 storage
+- Direct browser-to-storage uploads
+- Short-lived signed upload and download URLs
+- Organization-scoped storage keys
+- Parent-record permission enforcement
+- Attachment categories and descriptions
+- Metadata editing
+- Soft archive behavior
+- Upload verification
+- Expired pending-upload cleanup
+- Audit logging
+- Shared frontend attachment components
+- Researcher ownership restrictions for edit and archive actions
+
 ---
 
 ## Researcher Workflow Permissions and Review Policy
@@ -337,7 +365,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 
 ---
 
-## MVP Version 1.2 Features
+## MVP Version 1.3 Features
 
 - Experiment-linked notebook entries
 - Review Queue for supervisor/admin review workflows
@@ -396,13 +424,19 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Editable organization name and type
 - Invitation list management with status, expiration, invited-by, and accepted-date details
 - Pending invitation revoke action
-- Generic research file attachments
 - Private Cloudflare R2 object storage
 - Short-lived signed upload and download URLs
 - Organization-scoped attachment access
 - Attachment audit logging
 - Expired pending-upload cleanup
-- Backend test coverage with 241 passing tests across 21 test suites
+- Research attachments for projects, tasks, experiments, protocols, and equipment
+- Reusable attachment list, upload, metadata-edit, download, and archive UI
+- Role-aware attachment controls
+- Researcher uploader-ownership enforcement
+- Direct signed uploads to private Cloudflare R2 storage
+- Signed downloads with storage-object verification
+- Cross-entity attachment permission tests
+- Backend test coverage with 318 passing tests across 21 test suites
 
 ### Dashboard
 
@@ -835,7 +869,7 @@ LabFlow demonstrates several full-stack development concepts:
 - Restricted CORS configuration for local and deployed frontend origins
 - Organization-based data ownership and backend query scoping
 - Cross-organization isolation tests for projects, tasks, and audit logs
-- Generic attachment backend for multiple LabFlow entity types
+- Generic attachment system for multiple LabFlow entity types
 - Private Cloudflare R2 object storage
 - Direct-to-storage uploads using short-lived signed URLs
 - Signed download URLs with storage-object verification
@@ -1042,6 +1076,12 @@ labflow/
         userApi.js
       assets/
       components/
+        attachments/
+          AttachmentList.jsx
+          AttachmentListItem.jsx
+          AttachmentMetadataModal.jsx
+          AttachmentSection.jsx
+          AttachmentUploadModal.jsx
         experiments/
           ExperimentFormModal.jsx
         projects/
@@ -1106,7 +1146,7 @@ labflow/
 
 ## Database Models
 
-LabFlow MVP Version 1.2 includes the following main models.
+LabFlow MVP Version 1.3 includes the following main models.
 
 ### User
 
@@ -1662,7 +1702,7 @@ The seeded workspace includes admins, supervisors, researchers with different wo
 
 ## Manual Regression Test Coverage
 
-LabFlow MVP Version 1.2 was manually tested across the following workflows:
+LabFlow MVP Version 1.3 was manually tested across the following workflows:
 
 ### Authentication
 
@@ -1850,15 +1890,31 @@ LabFlow MVP Version 1.2 was manually tested across the following workflows:
 - Keep approve/request changes actions restricted to admins and supervisors
 - Confirm backend rejects unauthorized experiment/protocol create and edit requests
 
+### Attachments
+
+- Upload project attachments as admin, assigned supervisor, project lead, and project member
+- Restrict project viewers to view and download only
+- Upload experiment attachments according to project contribution permissions
+- Upload project-linked and standalone task attachments according to task access
+- Allow assigned researchers to manage only their own task attachments
+- Allow admins and supervisors to manage equipment documents
+- Restrict researchers to view and download equipment documents
+- Support project-linked and general protocol attachment permissions
+- Edit attachment category and description
+- Download files using signed URLs
+- Archive files and remove them from normal attachment lists
+- Filter attachment lists by category
+- Confirm cross-organization and unauthorized target access is rejected
+
 ---
 
 ## Automated Backend Test Coverage
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 21 passing test suites and 241 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
+The backend test suite currently includes 21 passing test suites and 318 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
 
-Current backend test status: 21 test suites, 241 tests passing.
+Current backend test status: 21 test suites, 318 tests passing.
 
 Covered backend areas include:
 
@@ -1945,7 +2001,7 @@ Admins can confirm or reopen any task completion request, including standalone t
 
 ## Current Limitations
 
-LabFlow MVP Version 1.2 is intentionally focused on core workflows.
+LabFlow MVP Version 1.3 is intentionally focused on core workflows.
 
 Current limitations include:
 
