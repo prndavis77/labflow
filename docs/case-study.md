@@ -292,6 +292,32 @@ Attachment permissions follow the parent record:
 
 The same reusable frontend components are used across project, task, experiment, protocol, and equipment detail pages. Cross-entity tests verify consistent behavior for view, upload, metadata update, archive, and download access.
 
+### Admin-Controlled Archived Item Recovery
+
+LabFlow supports controlled recovery of archived projects, tasks, experiments, protocols, and attachments.
+
+Rather than adding separate recovery pages for each workflow, I created one admin-only Archived Items page with tabs for each supported entity type. The page provides search, archive-date filters, pagination, archive metadata, and restore actions.
+
+Recovery is organization-scoped. An administrator can only list or restore records belonging to the administrator's current organization.
+
+Restoration uses parent-first validation:
+
+- A project must be active before restoring one of its project-linked children.
+- A task, experiment, or protocol must be active before restoring an attachment linked to that record.
+- Where a child belongs to a project, that project must also be active.
+- Standalone tasks and general protocols can be restored without a project.
+- Restoring one record does not automatically restore related children, siblings, or attachments.
+
+This non-cascading behavior makes restoration explicit and prevents an administrator from unintentionally reactivating an entire record hierarchy.
+
+The restore operation preserves the record's existing business status. It clears only archive metadata such as `isArchived`, `archivedAt`, and `archivedById`.
+
+Each successful restore creates an audit event in the same PostgreSQL transaction. If audit creation fails, the database restoration is rolled back. Repeated requests for an already-active record are idempotent and do not create duplicate audit events.
+
+Attachment recovery includes an additional storage check. Before the database record is restored, LabFlow performs a metadata request against private Cloudflare R2 storage. If the object does not exist, the attachment remains archived. If storage is temporarily unavailable, the operation fails safely and can be retried later.
+
+Because PostgreSQL and Cloudflare R2 do not participate in one distributed transaction, the R2 existence check and database update cannot be fully atomic. The implementation minimizes that limitation by verifying storage immediately before the transactional database restore and by never changing the R2 object during recovery.
+
 ### Role-Aware Dashboard
 
 The dashboard uses a backend summary endpoint to calculate key metrics such as:
@@ -327,7 +353,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The backend test suite currently includes 21 passing test suites and 318 passing tests.
+The backend test suite currently includes 22 passing test suites and 390 passing tests.
 
 The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, researcher review policy, workspace registration, organization slug generation, invitation onboarding, transactional rollback behavior, and organization settings.
 
@@ -521,9 +547,27 @@ I decided to keep files at the experiment or project level:
 
 A future enhancement could allow notebook entries to reference existing experiment attachments without creating duplicate files.
 
+### 14. Recovering Archived Records Without Accidental Cascades
+
+Once LabFlow used soft archive behavior, administrators needed a safe way to recover records that had been archived accidentally or temporarily.
+
+A simple recursive restore would have been risky. Restoring a project could unexpectedly reactivate tasks, experiments, protocols, and attachments that were intentionally archived for separate reasons.
+
+I chose explicit, non-cascading recovery:
+
+- Restore the project first.
+- Restore each required child independently.
+- Restore attachments only after their linked records are active.
+
+This gives administrators control over exactly which records return to active workflows.
+
+The backend checks organization ownership, direct-parent state, project state, upload status, and attachment storage availability. Successful restoration and audit creation share a database transaction.
+
+For attachment restoration, Cloudflare R2 and PostgreSQL cannot share a transaction. I addressed this by verifying the object immediately before opening the database restoration transaction. A storage failure therefore leaves the attachment archived rather than creating an active database record that points to a missing file.
+
 ## Result
 
-LabFlow MVP Version 1.3 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.4 is complete and deployed as a portfolio/demo application.
 
 The project includes:
 
@@ -548,8 +592,13 @@ The project includes:
 - Organization-scoped and parent-record-aware attachment authorization
 - Metadata editing and soft archive behavior
 - Cross-entity attachment permission coverage
-- 318 passing automated backend tests across 21 test suites
+- 390 passing automated backend tests across 22 test suites
 - GitHub README and portfolio case study
+- Admin-controlled recovery for archived projects, tasks, experiments, protocols, and attachments
+- Parent-first and non-cascading restoration rules
+- Cloudflare R2 verification before attachment restoration
+- Transactional restore audit logging
+- Admin Archived Items page with search, date filters, tabs, and pagination
 
 ## Current Limitations
 
@@ -569,6 +618,10 @@ Current limitations include:
 - Invitation links are generated by the application, but automated invitation email delivery is not yet implemented.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 - Notebook entries do not have separate file uploads. Experiment-related files are stored as experiment attachments, while project-wide files are stored as project attachments.
+- Archived-item recovery is admin-only. Delegated recovery permissions for supervisors are not currently supported.
+- Restoration is intentionally non-cascading, so related records must be restored individually.
+- PostgreSQL restoration and Cloudflare R2 verification cannot be combined into one distributed transaction.
+- The Archived Items page does not provide a read-only detail view of an archived record before restoration.
 
 ## Future Improvements
 

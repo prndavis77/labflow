@@ -19,15 +19,33 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 ## Project Status
 
-LabFlow MVP Version 1.3 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.4 is complete and deployed as a portfolio/demo application.
 
-This version includes authentication, organization-based workspaces, invitation-based onboarding, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, and end-to-end research file attachments.
+This version includes authentication, organization-based workspaces, invitation-based onboarding, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
 
 LabFlow now includes end-to-end research file attachments for projects, tasks, experiments, protocols, and equipment. Files are stored privately in Cloudflare R2 and uploaded directly using short-lived signed URLs.
 
 Attachment access follows the linked record's permissions. Admins and authorized supervisors can manage all attachments within their scope. Researchers can upload where the parent workflow allows contribution and can edit or archive only files they uploaded. Read-only users can view and download attachments without seeing upload or management actions.
 
-The backend currently includes 21 passing test suites with 318 passing tests.
+The backend currently includes 22 passing test suites with 390 passing tests.
+
+### Phase 22A: Archived Item Recovery
+
+Completed:
+
+- Added an admin-only Archived Items page.
+- Added organization-scoped archived-item listing for projects, tasks, experiments, protocols, and attachments.
+- Added search, archive-date filtering, and server-side pagination.
+- Added restoration for projects, tasks, experiments, and protocols.
+- Added attachment restoration with Cloudflare R2 object verification.
+- Enforced parent-first restoration for project-linked records.
+- Required the linked record and its project to be active before restoring a child attachment.
+- Preserved each restored record's existing business and workflow status.
+- Prevented restoration from cascading automatically to children, siblings, or attachments.
+- Added idempotent handling for already-active records.
+- Added transactional restore audit events.
+- Added organization-isolation and cross-entity restoration tests.
+- Verified the complete backend suite with 22 passing suites and 390 passing tests.
 
 ### Phase 20G: Researcher Review Policy
 
@@ -195,6 +213,7 @@ LabFlow supports three user roles:
 - Can change user roles
 - Can configure researcher workflow permissions
 - Can view and manage all project memberships
+- Can view and restore archived projects, tasks, experiments, protocols, and attachments
 
 #### Supervisor
 
@@ -226,11 +245,55 @@ Researcher workflow permissions allow admins to support different lab supervisio
 
 Public registration is reserved for creating a new organization workspace and its first administrator. Additional admins, supervisors, and researchers must be invited by an administrator from within the organization.
 
-### Archive / Soft Delete
+### Archive and Recovery
 
-LabFlow now uses archive behavior for core lab records instead of permanent deletion. Projects, tasks, experiments, and protocols can be archived by authorized users. Archived records are hidden from normal lists but remain in the database for traceability and audit purposes.
+LabFlow uses soft archive behavior for core lab records instead of permanent deletion.
 
-Archive actions are recorded in the audit log, including the actor, target record, timestamp, and relevant metadata.
+Supported archived record types include:
+
+- Projects
+- Tasks
+- Experiments
+- Protocols
+- Attachments
+
+Archived records are hidden from normal application lists but remain in PostgreSQL for traceability, auditability, and controlled recovery.
+
+Admins can review archived records through the admin-only Archived Items page:
+
+```txt
+/admin/archived-items
+```
+
+The page provides:
+
+- Separate tabs for each supported entity type
+- Search by record title or attachment filename
+- Archive-date filtering
+- Server-side pagination
+- Archive actor and timestamp information
+- Restore confirmation
+- Automatic list refresh after successful restoration
+
+Restoration follows parent-first rules:
+
+- A project must be restored before its archived project-linked task, experiment, or protocol.
+- A child record must be restored before an attachment linked to that child.
+- Project restoration does not automatically restore children.
+- Child restoration does not automatically restore siblings or attachments.
+- Restoring a record preserves its previous business and workflow status.
+
+Attachment restoration also requires:
+
+- An available upload status
+- An existing linked target record
+- An active linked target
+- An active parent project where applicable
+- Confirmation that the corresponding object still exists in private Cloudflare R2 storage
+
+If the R2 object is missing, the attachment remains archived. Temporary storage failures also leave the database record unchanged.
+
+Successful restoration writes an audit event in the same PostgreSQL transaction as the restore operation. Repeated restore requests for an already-active record return an idempotent response without creating duplicate audit events.
 
 ### Organization-Based Data Isolation
 
@@ -365,7 +428,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 
 ---
 
-## MVP Version 1.3 Features
+## MVP Version 1.4 Features
 
 - Experiment-linked notebook entries
 - Review Queue for supervisor/admin review workflows
@@ -407,7 +470,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Admin/supervisor-only management for general SOPs
 - Audit logging for sensitive admin and review workflow actions, including role changes, workflow permission changes, account activation/deactivation, admin password resets, experiment reviews, protocol reviews, and task completion review decisions.
 - Admin-only Audit Logs page with filtering by action, entity type, actor name, and target user name.
-- Archive behavior for projects, tasks, experiments, and protocols, replacing permanent deletion for core lab records.
+- Archive and recovery behavior for projects, tasks, experiments, protocols, and attachments, replacing permanent deletion for supported records.
 - Role-based access control for admins, supervisors, and researchers
 - Organization-scoped lab workspaces
 - Admin-created invitations
@@ -428,6 +491,16 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Short-lived signed upload and download URLs
 - Organization-scoped attachment access
 - Attachment audit logging
+- Admin-only Archived Items page
+- Organization-scoped archived-item recovery
+- Archived project, task, experiment, protocol, and attachment tabs
+- Archived-item search, date filtering, and pagination
+- Parent-first restoration rules
+- Non-cascading restoration behavior
+- Attachment recovery with Cloudflare R2 object verification
+- Transactional restoration audit events
+- Idempotent restore handling
+- Cross-entity restoration workflow tests
 - Expired pending-upload cleanup
 - Research attachments for projects, tasks, experiments, protocols, and equipment
 - Reusable attachment list, upload, metadata-edit, download, and archive UI
@@ -436,7 +509,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Direct signed uploads to private Cloudflare R2 storage
 - Signed downloads with storage-object verification
 - Cross-entity attachment permission tests
-- Backend test coverage with 318 passing tests across 21 test suites
+- Backend test coverage with 390 passing tests across 22 test suites
 
 ### Dashboard
 
@@ -816,6 +889,10 @@ Admins can view an invitation list showing invitee name, email, role, department
 
 ![LabFlow equipment detail page showing linked instrument SOPs and bookings](docs/screenshots/equipment-detail-sops.png)
 
+### Archived Items
+
+![LabFlow admin Archived Items page for restoring archived projects, tasks, experiments, protocols, and attachments](docs/screenshots/archived-items.png)
+
 Additional screenshots for CRUD list pages are available in `docs/screenshots/`.
 
 ---
@@ -874,8 +951,14 @@ LabFlow demonstrates several full-stack development concepts:
 - Direct-to-storage uploads using short-lived signed URLs
 - Signed download URLs with storage-object verification
 - Organization-scoped and target-aware attachment authorization
-- Attachment metadata updates and soft archive behaviour
+- Attachment metadata updates, soft archive behavior, and storage-verified restoration
 - Expired pending-upload cleanup with row locking
+- Admin-only cross-entity archived-item recovery
+- Parent-first restoration validation
+- Transactional restore and audit-log creation
+- Cloudflare R2 object verification before attachment restoration
+- Idempotent restore operations
+- Cross-entity restoration regression tests
 
 ---
 
@@ -932,10 +1015,13 @@ labflow/
         database.js
         sequelize-cli.js
       constants/
+        archivedItems.js
         attachments.js
+        auditActions.js
         roles.js
         statusCodes.js
       controllers/
+        archivedItemController.js
         attachmentController.js
         auditLogController.js
         authController.js
@@ -984,6 +1070,7 @@ labflow/
         Task.js
         User.js
       routes/
+        archivedItemRoutes.js
         attachmentRoutes.js
         auditLogRoutes.js
         authRoutes.js
@@ -1019,6 +1106,7 @@ labflow/
         helpers/
           dbHelpers.js
           testHelpers.js
+        archivedItems.test.js
         attachmentAccess.test.js
         attachmentCleanup.test.js
         attachmentDownloads.test.js
@@ -1108,6 +1196,7 @@ labflow/
       layouts/
       pages/
         AcceptInvitePage.jsx
+        AdminArchivedItemsPage.jsx
         AdminAuditLogsPage.jsx
         AdminUsersPage.jsx
         DashboardPage.jsx
@@ -1131,6 +1220,7 @@ labflow/
         ProtectedRoute.jsx
         PublicOnlyRoute.jsx
       services/
+        archivedItemService.js
         attachmentUploadService.js
         auditLogService.js
       utils/
@@ -1146,7 +1236,7 @@ labflow/
 
 ## Database Models
 
-LabFlow MVP Version 1.3 includes the following main models.
+LabFlow MVP Version 1.4 includes the following main models.
 
 ### User
 
@@ -1428,6 +1518,38 @@ Attachment metadata is stored in PostgreSQL, while file content is stored in pri
 
 See [docs/attachments.md](docs/attachments.md) for the complete attachment architecture, security model, API workflow, and cleanup process.
 
+### Archived Items
+
+```txt
+GET  /api/admin/archived-items
+POST /api/admin/archived-items/:entityType/:id/restore
+```
+
+Supported entityType values:
+
+- project
+- task
+- experiment
+- protocol
+- attachment
+
+The listing endpoint is admin-only and organization-scoped. It supports:
+
+- entityType
+- search
+- page
+- limit
+- archivedById
+- archivedFrom
+- archivedTo
+- projectId for supported project-linked entity types
+
+Restoration is admin-only and organization-scoped.
+
+Projects, tasks, experiments, and protocols use integer record IDs. Attachments use UUIDs.
+
+Attachment restoration verifies that the stored object exists in Cloudflare R2 before clearing archive metadata.
+
 ---
 
 ## Security and Deployment Notes
@@ -1702,7 +1824,7 @@ The seeded workspace includes admins, supervisors, researchers with different wo
 
 ## Manual Regression Test Coverage
 
-LabFlow MVP Version 1.3 was manually tested across the following workflows:
+LabFlow MVP Version 1.4 was manually tested across the following workflows:
 
 ### Authentication
 
@@ -1912,9 +2034,9 @@ LabFlow MVP Version 1.3 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 21 passing test suites and 318 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
+The backend test suite currently includes 22 passing test suites and 390 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
 
-Current backend test status: 21 test suites, 318 tests passing.
+Current backend test status: 22 test suites, 390 tests passing.
 
 Covered backend areas include:
 
@@ -1952,6 +2074,16 @@ Covered backend areas include:
 - Global email uniqueness
 - Invitation acceptance rollback
 - Invitation token reuse protection
+- Admin-only archived-item listing
+- Archived-item search, date filtering, and pagination
+- Project, task, experiment, and protocol restoration
+- Attachment restoration with R2 verification
+- Parent-first restoration constraints
+- Non-cascading restoration behavior
+- Idempotent restoration
+- Transactional restoration audit logging
+- Cross-organization restoration isolation
+- Cross-entity restoration workflows
 
 Run backend tests from the backend folder:
 
@@ -2001,7 +2133,7 @@ Admins can confirm or reopen any task completion request, including standalone t
 
 ## Current Limitations
 
-LabFlow MVP Version 1.3 is intentionally focused on core workflows.
+LabFlow MVP Version 1.4 is intentionally focused on core workflows.
 
 Current limitations include:
 
