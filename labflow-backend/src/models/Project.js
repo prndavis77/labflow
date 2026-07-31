@@ -117,4 +117,14 @@ User.hasMany(Project, {
   as: "supervisedProjects",
 });
 
+Project.belongsTo(User, {
+  foreignKey: "archivedById",
+  as: "archivedBy",
+});
+
+User.hasMany(Project, {
+  foreignKey: "archivedById",
+  as: "archivedProjects",
+});
+
 module.exports = Project;

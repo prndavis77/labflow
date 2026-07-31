@@ -7,6 +7,7 @@ import {
   ExperimentOutlined,
   FileTextOutlined,
   HistoryOutlined,
+  InboxOutlined,
   LogoutOutlined,
   ProjectOutlined,
   SettingOutlined,
@@ -76,6 +77,11 @@ const App = () => {
             label: "Organization",
           },
           {
+            key: "/admin/archived-items",
+            icon: <InboxOutlined />,
+            label: "Archived Items",
+          },
+          {
             key: "/admin/audit-logs",
             icon: <HistoryOutlined />,
             label: "Audit Logs",
@@ -122,7 +128,11 @@ const App = () => {
 
   // Finds the best sidebar key based on the current route
   const selectedMenuKey =
-    menuItems.find((item) => location.pathname.startsWith(item.key))?.key ||
+    [...menuItems]
+      .sort((firstItem, secondItem) => {
+        return secondItem.key.length - firstItem.key.length;
+      })
+      .find((item) => location.pathname.startsWith(item.key))?.key ||
     "/dashboard";
 
   return (

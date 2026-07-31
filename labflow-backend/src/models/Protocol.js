@@ -222,4 +222,14 @@ User.hasMany(Protocol, {
   as: "approvedProtocols",
 });
 
+Protocol.belongsTo(User, {
+  foreignKey: "archivedById",
+  as: "archivedBy",
+});
+
+User.hasMany(Protocol, {
+  foreignKey: "archivedById",
+  as: "archivedProtocols",
+});
+
 module.exports = Protocol;

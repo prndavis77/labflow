@@ -236,4 +236,14 @@ Protocol.hasMany(Experiment, {
   as: "experiments",
 });
 
+Experiment.belongsTo(User, {
+  foreignKey: "archivedById",
+  as: "archivedBy",
+});
+
+User.hasMany(Experiment, {
+  foreignKey: "archivedById",
+  as: "archivedExperiments",
+});
+
 module.exports = Experiment;

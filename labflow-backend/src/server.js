@@ -23,6 +23,7 @@ const auditLogRoutes = require("./routes/auditLogRoutes");
 const invitationRoutes = require("./routes/invitationRoutes");
 const organizationRoutes = require("./routes/organizationRoutes");
 const attachmentRoutes = require("./routes/attachmentRoutes");
+const archivedItemRoutes = require("./routes/archivedItemRoutes");
 
 const app = express();
 
@@ -119,6 +120,9 @@ app.use("/api/organization", organizationRoutes);
 
 // Attachment routes
 app.use("/api/attachments", attachmentRoutes);
+
+// Admin archived-item routes
+app.use("/api/admin/archived-items", archivedItemRoutes);
 
 // Handles unknown API routes with a clear JSON response
 app.use((req, res) => {

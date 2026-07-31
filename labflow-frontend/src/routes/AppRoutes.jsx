@@ -19,6 +19,7 @@ import PublicOnlyRoute from "./PublicOnlyRoute";
 import AdminAuditLogsPage from "../pages/AdminAuditLogsPage";
 import AcceptInvitePage from "../pages/AcceptInvitePage";
 import OrganizationSettingsPage from "../pages/OrganizationSettingsPage";
+import AdminArchivedItemsPage from "../pages/AdminArchivedItemsPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
 const AppRoutes = () => {
@@ -154,6 +155,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <AdminUsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/archived-items"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AdminArchivedItemsPage />
           </ProtectedRoute>
         }
       />
