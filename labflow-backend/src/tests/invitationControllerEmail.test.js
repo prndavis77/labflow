@@ -1,6 +1,7 @@
 const {
   shouldIncludeInviteLink,
   getEmailDeliveryMessage,
+  getResendEmailDeliveryMessage,
 } = require("../controllers/invitationController");
 
 describe("Invitation controller email helpers", () => {
@@ -51,5 +52,32 @@ describe("Invitation controller email helpers", () => {
         skipped: false,
       }),
     ).toBe("Invitation created, but the email could not be sent.");
+  });
+
+  it("formats a successful resend message", () => {
+    expect(
+      getResendEmailDeliveryMessage({
+        accepted: true,
+        skipped: false,
+      }),
+    ).toBe("Invitation resent and email sent.");
+  });
+
+  it("formats a disabled resend message", () => {
+    expect(
+      getResendEmailDeliveryMessage({
+        accepted: false,
+        skipped: true,
+      }),
+    ).toBe("Invitation renewed. Email delivery is disabled.");
+  });
+
+  it("formats a failed resend message", () => {
+    expect(
+      getResendEmailDeliveryMessage({
+        accepted: false,
+        skipped: false,
+      }),
+    ).toBe("Invitation renewed, but the email could not be sent.");
   });
 });

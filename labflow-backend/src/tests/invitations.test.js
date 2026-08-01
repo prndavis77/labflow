@@ -8,7 +8,7 @@ const { sendInvitationEmail } = require("../services/invitationEmailService");
 
 const app = require("../server");
 const { sequelize } = require("../config/database");
-const { Invitation, User } = require("../models");
+const { Invitation, User, AuditLog } = require("../models");
 const {
   TEST_PASSWORD,
   createTestUser,
@@ -179,6 +179,123 @@ describe("Invitations API", () => {
 
       expiresAt: expect.anything(),
     });
+  });
+
+  it("allows an admin to resend a pending invitation", async () => {
+    const createResponse = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(
+        createInvitationPayload({
+          email: "resend@test.com",
+        }),
+      );
+
+    expect(createResponse.statusCode).toBe(201);
+
+    const originalInviteLink = createResponse.body.data.inviteLink;
+
+    const originalToken = originalInviteLink.split("/accept-invite/")[1];
+
+    const originalInvitation = await Invitation.findOne({
+      where: {
+        email: "resend@test.com",
+      },
+    });
+
+    const originalTokenHash = originalInvitation.tokenHash;
+
+    const originalExpiresAt = originalInvitation.expiresAt;
+
+    sendInvitationEmail.mockResolvedValue({
+      provider: "mailgun",
+      accepted: true,
+      skipped: false,
+      messageId: "<resend-message-id>",
+    });
+
+    const response = await request(app)
+      .post(`/api/invitations/` + `${originalInvitation.id}` + `/resend`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.body.message).toBe("Invitation resent and email sent.");
+
+    expect(response.body.data.emailDelivery).toEqual({
+      provider: "mailgun",
+      accepted: true,
+      skipped: false,
+    });
+
+    expect(response.body.data.emailDelivery.messageId).toBeUndefined();
+
+    expect(
+      response.body.data.invitation.emailProviderMessageId,
+    ).toBeUndefined();
+
+    expect(response.body.data.inviteLink).toContain("/accept-invite/");
+
+    const newToken = response.body.data.inviteLink.split("/accept-invite/")[1];
+
+    expect(newToken).not.toBe(originalToken);
+
+    await originalInvitation.reload();
+
+    expect(originalInvitation.tokenHash).not.toBe(originalTokenHash);
+
+    expect(originalInvitation.expiresAt.getTime()).toBeGreaterThanOrEqual(
+      originalExpiresAt.getTime(),
+    );
+
+    expect(originalInvitation.status).toBe("pending");
+
+    expect(originalInvitation.emailDeliveryStatus).toBe("sent");
+
+    expect(originalInvitation.emailProvider).toBe("mailgun");
+
+    expect(originalInvitation.emailProviderMessageId).toBe(
+      "<resend-message-id>",
+    );
+
+    expect(originalInvitation.emailLastAttemptedAt).toBeInstanceOf(Date);
+
+    expect(originalInvitation.emailSentAt).toBeInstanceOf(Date);
+
+    const oldTokenResponse = await request(app).get(
+      `/api/invitations/accept/` + `${originalToken}`,
+    );
+
+    expect(oldTokenResponse.statusCode).toBe(404);
+
+    const newTokenResponse = await request(app).get(
+      `/api/invitations/accept/` + `${newToken}`,
+    );
+
+    expect(newTokenResponse.statusCode).toBe(200);
+
+    const auditLog = await AuditLog.findOne({
+      where: {
+        action: "invitation.resent",
+
+        entityType: "invitation",
+
+        entityId: originalInvitation.id,
+      },
+    });
+
+    expect(auditLog).toBeTruthy();
+
+    expect(auditLog.organizationId).toBe(organization.id);
+
+    expect(auditLog.actorUserId).toBe(admin.id);
+
+    expect(auditLog.metadata).toEqual(
+      expect.objectContaining({
+        email: "resend@test.com",
+        role: "researcher",
+      }),
+    );
   });
 
   it("reports successful invitation email delivery", async () => {
@@ -698,5 +815,220 @@ describe("Invitations API", () => {
     expect(invitation.status).toBe("pending");
     expect(invitation.acceptedAt).toBeNull();
     expect(invitation.acceptedUserId).toBeNull();
+  });
+
+  it("renews an expired invitation", async () => {
+    const rawToken = "expired-resend-token";
+
+    const invitation = await Invitation.create({
+      organizationId: organization.id,
+
+      email: "expired-resend@test.com",
+
+      name: "Expired Resend User",
+
+      role: "researcher",
+
+      tokenHash: hashInvitationToken(rawToken),
+
+      status: "expired",
+
+      expiresAt: new Date(Date.now() - 60 * 60 * 1000),
+
+      invitedById: admin.id,
+    });
+
+    const response = await request(app)
+      .post(`/api/invitations/` + `${invitation.id}` + `/resend`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(200);
+
+    await invitation.reload();
+
+    expect(invitation.status).toBe("pending");
+
+    expect(invitation.expiresAt.getTime()).toBeGreaterThan(Date.now());
+
+    expect(invitation.emailDeliveryStatus).toBe("skipped");
+
+    expect(invitation.emailProvider).toBe("disabled");
+  });
+
+  it("keeps a renewed invitation when resend delivery fails", async () => {
+    const createResponse = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(
+        createInvitationPayload({
+          email: "resend-failed@test.com",
+        }),
+      );
+
+    const invitationId = createResponse.body.data.invitation.id;
+
+    sendInvitationEmail.mockRejectedValue(new Error("Mailgun unavailable."));
+
+    const response = await request(app)
+      .post(`/api/invitations/` + `${invitationId}` + `/resend`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(200);
+
+    expect(response.body.message).toBe(
+      "Invitation renewed, but the email could not be sent.",
+    );
+
+    expect(response.body.data.emailDelivery).toEqual({
+      provider: "disabled",
+      accepted: false,
+      skipped: false,
+    });
+
+    const invitation = await Invitation.findByPk(invitationId);
+
+    expect(invitation.status).toBe("pending");
+
+    expect(invitation.emailDeliveryStatus).toBe("failed");
+
+    expect(invitation.emailProviderMessageId).toBeNull();
+
+    expect(invitation.emailLastAttemptedAt).toBeInstanceOf(Date);
+
+    expect(invitation.emailSentAt).toBeNull();
+  });
+
+  it("does not resend an accepted invitation", async () => {
+    const invitation = await Invitation.create({
+      organizationId: organization.id,
+
+      email: "accepted-resend@test.com",
+
+      name: "Accepted User",
+
+      role: "researcher",
+
+      tokenHash: hashInvitationToken("accepted-resend-token"),
+
+      status: "accepted",
+
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+
+      acceptedAt: new Date(),
+      invitedById: admin.id,
+      acceptedUserId: researcher.id,
+    });
+
+    const response = await request(app)
+      .post(`/api/invitations/` + `${invitation.id}` + `/resend`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(400);
+
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not resend a revoked invitation", async () => {
+    const invitation = await Invitation.create({
+      organizationId: organization.id,
+
+      email: "revoked-resend@test.com",
+
+      name: "Revoked User",
+
+      role: "researcher",
+
+      tokenHash: hashInvitationToken("revoked-resend-token"),
+
+      status: "revoked",
+
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+
+      invitedById: admin.id,
+    });
+
+    const response = await request(app)
+      .post(`/api/invitations/` + `${invitation.id}` + `/resend`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(400);
+
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not resend another organization's invitation", async () => {
+    const invitation = await Invitation.create({
+      organizationId: secondOrganization.id,
+
+      email: "other-org-resend@test.com",
+
+      name: "Other Organization User",
+
+      role: "researcher",
+
+      tokenHash: hashInvitationToken("other-org-resend-token"),
+
+      status: "pending",
+
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+
+      invitedById: secondAdmin.id,
+    });
+
+    const response = await request(app)
+      .post(`/api/invitations/` + `${invitation.id}` + `/resend`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(404);
+
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
+  });
+
+  it("prevents a researcher from resending an invitation", async () => {
+    const invitation = await Invitation.create({
+      organizationId: organization.id,
+
+      email: "blocked-resend@test.com",
+
+      name: "Blocked Resend User",
+
+      role: "researcher",
+
+      tokenHash: hashInvitationToken("blocked-resend-token"),
+
+      status: "pending",
+
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+
+      invitedById: admin.id,
+    });
+
+    const response = await request(app)
+      .post(`/api/invitations/` + `${invitation.id}` + `/resend`)
+      .set("Authorization", `Bearer ${researcherToken}`);
+
+    expect(response.statusCode).toBe(403);
+
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for an unknown invitation during resend", async () => {
+    const response = await request(app)
+      .post("/api/invitations/999999/resend")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(404);
+
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid resend invitation ID", async () => {
+    const response = await request(app)
+      .post("/api/invitations/not-an-id/resend")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(400);
+
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
   });
 });

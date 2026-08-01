@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const { Op } = require("sequelize");
+const { sequelize } = require("../config/database");
 const { Invitation, User, Organization } = require("../models");
 const {
   generateInvitationToken,
@@ -12,6 +13,7 @@ const { emailConfig } = require("../config/emailConfig");
 const {
   INVITATION_EMAIL_DELIVERY_STATUSES,
 } = require("../constants/invitationEmail");
+const { AUDIT_ACTIONS } = require("../constants/auditActions");
 
 const normalizeEmail = (email) => {
   return String(email || "")
@@ -37,6 +39,18 @@ const getEmailDeliveryMessage = ({ accepted, skipped }) => {
   }
 
   return "Invitation created, but the email could not be sent.";
+};
+
+const getResendEmailDeliveryMessage = ({ accepted, skipped }) => {
+  if (accepted) {
+    return "Invitation resent and email sent.";
+  }
+
+  if (skipped) {
+    return "Invitation renewed. Email delivery is disabled.";
+  }
+
+  return "Invitation renewed, but the email could not be sent.";
 };
 
 const formatInvitationResponse = (invitation) => {
@@ -398,6 +412,200 @@ const createInvitation = async (req, res) => {
   });
 };
 
+const resendInvitation = async (req, res) => {
+  const invitationId = Number.parseInt(req.params.id, 10);
+
+  if (!Number.isInteger(invitationId)) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invalid invitation ID.",
+    });
+  }
+
+  let invitation;
+  let organization;
+  let rawToken;
+  let expiresAt;
+
+  const transaction = await sequelize.transaction();
+
+  try {
+    invitation = await Invitation.findOne({
+      where: {
+        id: invitationId,
+        organizationId: req.user.organizationId,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!invitation) {
+      await transaction.rollback();
+
+      return res.status(404).json({
+        status: "error",
+        message: "Invitation not found.",
+      });
+    }
+
+    if (invitation.status !== "pending" && invitation.status !== "expired") {
+      await transaction.rollback();
+
+      return res.status(400).json({
+        status: "error",
+        message: "Only pending or expired invitations can be resent.",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      where: {
+        email: invitation.email,
+      },
+      transaction,
+    });
+
+    if (existingUser) {
+      await transaction.rollback();
+
+      return res.status(409).json({
+        status: "error",
+        message: "An account with this email already exists.",
+      });
+    }
+
+    organization = await Organization.findOne({
+      where: {
+        id: req.user.organizationId,
+        isActive: true,
+      },
+      attributes: ["id", "name", "slug"],
+      transaction,
+    });
+
+    if (!organization) {
+      await transaction.rollback();
+
+      return res.status(404).json({
+        status: "error",
+        message: "Organization not found or inactive.",
+      });
+    }
+
+    rawToken = generateInvitationToken();
+
+    const tokenHash = hashInvitationToken(rawToken);
+
+    expiresAt = getInvitationExpiryDate();
+
+    await invitation.update(
+      {
+        tokenHash,
+        status: "pending",
+        expiresAt,
+        acceptedAt: null,
+        acceptedUserId: null,
+
+        emailDeliveryStatus: INVITATION_EMAIL_DELIVERY_STATUSES.NOT_ATTEMPTED,
+
+        emailProvider: null,
+        emailProviderMessageId: null,
+        emailLastAttemptedAt: null,
+        emailSentAt: null,
+      },
+      {
+        transaction,
+      },
+    );
+
+    await writeAuditLog({
+      req,
+      action: AUDIT_ACTIONS.INVITATION_RESENT,
+      entityType: "invitation",
+      entityId: invitation.id,
+
+      summary: `Renewed invitation for ` + `${invitation.email}.`,
+
+      metadata: {
+        email: invitation.email,
+        role: invitation.role,
+        expiresAt,
+      },
+
+      transaction,
+    });
+
+    await transaction.commit();
+  } catch (error) {
+    if (!transaction.finished) {
+      await transaction.rollback();
+    }
+
+    console.error("Error renewing invitation", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "An error occurred while renewing the invitation.",
+    });
+  }
+
+  const inviteLink = `${getFrontendBaseUrl()}` + `/accept-invite/${rawToken}`;
+
+  const emailAttemptedAt = new Date();
+
+  let emailDelivery;
+
+  try {
+    emailDelivery = await sendInvitationEmail({
+      to: invitation.email,
+      inviteeName: invitation.name,
+      organizationName: organization.name,
+
+      inviterName: req.user.name || req.user.email || "A LabFlow administrator",
+
+      role: invitation.role,
+      inviteLink,
+      expiresAt: invitation.expiresAt,
+    });
+  } catch {
+    emailDelivery = {
+      provider: emailConfig.provider || null,
+      accepted: false,
+      skipped: false,
+      messageId: null,
+    };
+  }
+
+  await persistInvitationEmailTracking({
+    invitation,
+    emailDelivery,
+    attemptedAt: emailAttemptedAt,
+  });
+
+  const responseData = {
+    invitation: formatInvitationResponse(invitation),
+
+    emailDelivery: {
+      provider: emailDelivery.provider,
+
+      accepted: Boolean(emailDelivery.accepted),
+
+      skipped: Boolean(emailDelivery.skipped),
+    },
+  };
+
+  if (shouldIncludeInviteLink()) {
+    responseData.inviteLink = inviteLink;
+  }
+
+  return res.status(200).json({
+    status: "success",
+
+    message: getResendEmailDeliveryMessage(emailDelivery),
+
+    data: responseData,
+  });
+};
+
 const revokeInvitation = async (req, res) => {
   const invitation = await Invitation.findOne({
     where: {
@@ -638,11 +846,13 @@ const acceptInvitation = async (req, res) => {
 module.exports = {
   listInvitations,
   createInvitation,
+  resendInvitation,
   revokeInvitation,
   getInvitationForAcceptance,
   acceptInvitation,
   shouldIncludeInviteLink,
   getEmailDeliveryMessage,
+  getResendEmailDeliveryMessage,
   buildInvitationEmailTracking,
   persistInvitationEmailTracking,
 };

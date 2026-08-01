@@ -4,6 +4,7 @@ const AUDIT_ACTIONS = Object.freeze({
   EXPERIMENT_RESTORED: "experiment.restored",
   PROTOCOL_RESTORED: "protocol.restored",
   ATTACHMENT_RESTORED: "attachment.restored",
+  INVITATION_RESENT: "invitation.resent",
 });
 
 module.exports = {
