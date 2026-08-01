@@ -7,6 +7,7 @@ const {
   getInvitationExpiryDate,
 } = require("../utils/invitationTokens");
 const { writeAuditLog } = require("../utils/auditLogger");
+const { sendInvitationEmail } = require("../services/invitationEmailService");
 
 const normalizeEmail = (email) => {
   return String(email || "")
@@ -16,6 +17,22 @@ const normalizeEmail = (email) => {
 
 const getFrontendBaseUrl = () => {
   return process.env.FRONTEND_URL || "http://localhost:5173";
+};
+
+const shouldIncludeInviteLink = () => {
+  return process.env.NODE_ENV !== "production";
+};
+
+const getEmailDeliveryMessage = ({ accepted, skipped }) => {
+  if (accepted) {
+    return "Invitation created and email sent.";
+  }
+
+  if (skipped) {
+    return "Invitation created. Email delivery is disabled.";
+  }
+
+  return "Invitation created, but the email could not be sent.";
 };
 
 const formatInvitationResponse = (invitation) => {
@@ -197,8 +214,25 @@ const createInvitation = async (req, res) => {
     });
   }
 
+  const organization = await Organization.findOne({
+    where: {
+      id: req.user.organizationId,
+      isActive: true,
+    },
+    attributes: ["id", "name", "slug"],
+  });
+
+  if (!organization) {
+    return res.status(404).json({
+      status: "error",
+      message: "Organization not found or inactive.",
+    });
+  }
+
   const rawToken = generateInvitationToken();
+
   const tokenHash = hashInvitationToken(rawToken);
+
   const expiresAt = getInvitationExpiryDate();
 
   const isResearcher = role === "researcher";
@@ -213,15 +247,19 @@ const createInvitation = async (req, res) => {
     status: "pending",
     expiresAt,
     invitedById: req.user.id,
+
     canCreateExperiments: isResearcher
       ? Boolean(req.body.canCreateExperiments)
       : false,
+
     canEditExperiments: isResearcher
       ? Boolean(req.body.canEditExperiments)
       : false,
+
     canCreateProtocols: isResearcher
       ? Boolean(req.body.canCreateProtocols)
       : false,
+
     canEditProtocols: isResearcher ? Boolean(req.body.canEditProtocols) : false,
   });
 
@@ -238,15 +276,56 @@ const createInvitation = async (req, res) => {
     },
   });
 
-  const inviteLink = `${getFrontendBaseUrl()}/accept-invite/${rawToken}`;
+  const inviteLink = `${getFrontendBaseUrl()}` + `/accept-invite/${rawToken}`;
+
+  let emailDelivery;
+
+  try {
+    emailDelivery = await sendInvitationEmail({
+      to: invitation.email,
+      inviteeName: invitation.name,
+      organizationName: organization.name,
+      inviterName: req.user.name || req.user.email || "A LabFlow administrator",
+      role: invitation.role,
+      inviteLink,
+      expiresAt: invitation.expiresAt,
+    });
+  } catch {
+    /*
+     * The invitation is already valid and persisted.
+     * Email failure must not invalidate it.
+     *
+     * Do not log the raw provider error here because
+     * provider errors may include request details.
+     */
+    emailDelivery = {
+      provider: null,
+      accepted: false,
+      skipped: false,
+      messageId: null,
+    };
+  }
+
+  const responseData = {
+    invitation: formatInvitationResponse(invitation),
+
+    emailDelivery: {
+      provider: emailDelivery.provider,
+      accepted: Boolean(emailDelivery.accepted),
+      skipped: Boolean(emailDelivery.skipped),
+    },
+  };
+
+  if (shouldIncludeInviteLink()) {
+    responseData.inviteLink = inviteLink;
+  }
 
   return res.status(201).json({
     status: "success",
-    message: "Invitation created.",
-    data: {
-      invitation: formatInvitationResponse(invitation),
-      inviteLink,
-    },
+
+    message: getEmailDeliveryMessage(emailDelivery),
+
+    data: responseData,
   });
 };
 
@@ -493,4 +572,6 @@ module.exports = {
   revokeInvitation,
   getInvitationForAcceptance,
   acceptInvitation,
+  shouldIncludeInviteLink,
+  getEmailDeliveryMessage,
 };

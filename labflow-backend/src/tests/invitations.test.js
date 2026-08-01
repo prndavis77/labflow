@@ -1,5 +1,11 @@
 const request = require("supertest");
 
+jest.mock("../services/invitationEmailService", () => ({
+  sendInvitationEmail: jest.fn(),
+}));
+
+const { sendInvitationEmail } = require("../services/invitationEmailService");
+
 const app = require("../server");
 const { sequelize } = require("../config/database");
 const { Invitation, User } = require("../models");
@@ -47,6 +53,15 @@ describe("Invitations API", () => {
   });
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
+    sendInvitationEmail.mockResolvedValue({
+      provider: "disabled",
+      accepted: false,
+      skipped: true,
+      messageId: null,
+    });
+
     await sequelize.query(`
       TRUNCATE TABLE
         audit_logs,
@@ -124,6 +139,124 @@ describe("Invitations API", () => {
     expect(invitation.status).toBe("pending");
     expect(invitation.tokenHash).toBeTruthy();
     expect(response.body.data.inviteLink).not.toContain(invitation.tokenHash);
+
+    expect(response.body.message).toBe(
+      "Invitation created. Email delivery is disabled.",
+    );
+
+    expect(response.body.data.emailDelivery).toEqual({
+      provider: "disabled",
+      accepted: false,
+      skipped: true,
+    });
+
+    expect(sendInvitationEmail).toHaveBeenCalledTimes(1);
+
+    expect(sendInvitationEmail).toHaveBeenCalledWith({
+      to: "invited.researcher@test.com",
+      inviteeName: "Invited Researcher",
+      organizationName: organization.name,
+      inviterName: "Admin User",
+      role: "researcher",
+
+      inviteLink: expect.stringContaining("/accept-invite/"),
+
+      expiresAt: expect.anything(),
+    });
+  });
+
+  it("reports successful invitation email delivery", async () => {
+    sendInvitationEmail.mockResolvedValue({
+      provider: "mailgun",
+      accepted: true,
+      skipped: false,
+      messageId: "<mailgun-message-id>",
+    });
+
+    const response = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(
+        createInvitationPayload({
+          email: "email-sent@test.com",
+        }),
+      );
+
+    expect(response.statusCode).toBe(201);
+
+    expect(response.body.message).toBe("Invitation created and email sent.");
+
+    expect(response.body.data.emailDelivery).toEqual({
+      provider: "mailgun",
+      accepted: true,
+      skipped: false,
+    });
+
+    expect(response.body.data.emailDelivery.messageId).toBeUndefined();
+
+    const invitation = await Invitation.findOne({
+      where: {
+        email: "email-sent@test.com",
+      },
+    });
+
+    expect(invitation).toBeTruthy();
+    expect(invitation.status).toBe("pending");
+  });
+
+  it("keeps the invitation when email delivery fails", async () => {
+    sendInvitationEmail.mockRejectedValue(
+      new Error("Mailgun temporarily unavailable."),
+    );
+
+    const response = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(
+        createInvitationPayload({
+          email: "email-failed@test.com",
+        }),
+      );
+
+    expect(response.statusCode).toBe(201);
+
+    expect(response.body.status).toBe("success");
+
+    expect(response.body.message).toBe(
+      "Invitation created, but the email could not be sent.",
+    );
+
+    expect(response.body.data.emailDelivery).toEqual({
+      provider: null,
+      accepted: false,
+      skipped: false,
+    });
+
+    const invitation = await Invitation.findOne({
+      where: {
+        email: "email-failed@test.com",
+      },
+    });
+
+    expect(invitation).toBeTruthy();
+    expect(invitation.status).toBe("pending");
+    expect(invitation.tokenHash).toBeTruthy();
+  });
+
+  it("does not send email when invitation validation fails", async () => {
+    const response = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(
+        createInvitationPayload({
+          name: "",
+          email: "invalid-invite@test.com",
+        }),
+      );
+
+    expect(response.statusCode).toBe(400);
+
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
   });
 
   it("prevents a researcher from creating an invitation", async () => {
@@ -150,6 +283,8 @@ describe("Invitations API", () => {
     expect(response.body.message).toBe(
       "A pending invitation already exists for this email.",
     );
+
+    expect(sendInvitationEmail).toHaveBeenCalledTimes(1);
   });
 
   it("prevents inviting an existing user in the same organization", async () => {
