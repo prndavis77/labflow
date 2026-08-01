@@ -8,6 +8,10 @@ const {
 } = require("../utils/invitationTokens");
 const { writeAuditLog } = require("../utils/auditLogger");
 const { sendInvitationEmail } = require("../services/invitationEmailService");
+const { emailConfig } = require("../config/emailConfig");
+const {
+  INVITATION_EMAIL_DELIVERY_STATUSES,
+} = require("../constants/invitationEmail");
 
 const normalizeEmail = (email) => {
   return String(email || "")
@@ -62,6 +66,14 @@ const formatInvitationResponse = (invitation) => {
           role: invitation.invitedBy.role,
         }
       : null,
+
+    emailDeliveryStatus: invitation.emailDeliveryStatus,
+
+    emailProvider: invitation.emailProvider,
+
+    emailLastAttemptedAt: invitation.emailLastAttemptedAt,
+
+    emailSentAt: invitation.emailSentAt,
     organization: invitation.organization
       ? {
           id: invitation.organization.id,
@@ -110,6 +122,60 @@ const findPendingInvitationByToken = async (token) => {
 
 const isInvitationExpired = (invitation) => {
   return new Date(invitation.expiresAt).getTime() < Date.now();
+};
+
+const buildInvitationEmailTracking = ({
+  emailDelivery,
+  attemptedAt = new Date(),
+}) => {
+  const accepted = Boolean(emailDelivery?.accepted);
+
+  const skipped = Boolean(emailDelivery?.skipped);
+
+  let emailDeliveryStatus = INVITATION_EMAIL_DELIVERY_STATUSES.FAILED;
+
+  if (accepted) {
+    emailDeliveryStatus = INVITATION_EMAIL_DELIVERY_STATUSES.SENT;
+  } else if (skipped) {
+    emailDeliveryStatus = INVITATION_EMAIL_DELIVERY_STATUSES.SKIPPED;
+  }
+
+  return {
+    emailDeliveryStatus,
+
+    emailProvider: emailDelivery?.provider || emailConfig.provider || null,
+
+    emailProviderMessageId: accepted ? emailDelivery?.messageId || null : null,
+
+    emailLastAttemptedAt: attemptedAt,
+
+    emailSentAt: accepted ? attemptedAt : null,
+  };
+};
+
+const persistInvitationEmailTracking = async ({
+  invitation,
+  emailDelivery,
+  attemptedAt,
+}) => {
+  const trackingValues = buildInvitationEmailTracking({
+    emailDelivery,
+    attemptedAt,
+  });
+
+  try {
+    await invitation.update(trackingValues);
+
+    return {
+      persisted: true,
+      trackingValues,
+    };
+  } catch (error) {
+    return {
+      persisted: false,
+      trackingValues,
+    };
+  }
 };
 
 const listInvitations = async (req, res) => {
@@ -278,6 +344,8 @@ const createInvitation = async (req, res) => {
 
   const inviteLink = `${getFrontendBaseUrl()}` + `/accept-invite/${rawToken}`;
 
+  const emailAttemptedAt = new Date();
+
   let emailDelivery;
 
   try {
@@ -291,27 +359,28 @@ const createInvitation = async (req, res) => {
       expiresAt: invitation.expiresAt,
     });
   } catch {
-    /*
-     * The invitation is already valid and persisted.
-     * Email failure must not invalidate it.
-     *
-     * Do not log the raw provider error here because
-     * provider errors may include request details.
-     */
     emailDelivery = {
-      provider: null,
+      provider: emailConfig.provider || null,
       accepted: false,
       skipped: false,
       messageId: null,
     };
   }
 
+  const emailTracking = await persistInvitationEmailTracking({
+    invitation,
+    emailDelivery,
+    attemptedAt: emailAttemptedAt,
+  });
+
   const responseData = {
     invitation: formatInvitationResponse(invitation),
 
     emailDelivery: {
       provider: emailDelivery.provider,
+
       accepted: Boolean(emailDelivery.accepted),
+
       skipped: Boolean(emailDelivery.skipped),
     },
   };
@@ -574,4 +643,6 @@ module.exports = {
   acceptInvitation,
   shouldIncludeInviteLink,
   getEmailDeliveryMessage,
+  buildInvitationEmailTracking,
+  persistInvitationEmailTracking,
 };

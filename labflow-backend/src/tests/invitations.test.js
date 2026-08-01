@@ -119,6 +119,22 @@ describe("Invitations API", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .send(createInvitationPayload());
 
+    const storedInvitation = await Invitation.findOne({
+      where: {
+        email: "invited.researcher@test.com",
+      },
+    });
+
+    expect(storedInvitation.emailDeliveryStatus).toBe("skipped");
+
+    expect(storedInvitation.emailProvider).toBe("disabled");
+
+    expect(storedInvitation.emailProviderMessageId).toBeNull();
+
+    expect(storedInvitation.emailLastAttemptedAt).toBeInstanceOf(Date);
+
+    expect(storedInvitation.emailSentAt).toBeNull();
+
     expect(response.statusCode).toBe(201);
     expect(response.body.status).toBe("success");
     expect(response.body.data.invitation.email).toBe(
@@ -194,6 +210,10 @@ describe("Invitations API", () => {
 
     expect(response.body.data.emailDelivery.messageId).toBeUndefined();
 
+    expect(
+      response.body.data.invitation.emailProviderMessageId,
+    ).toBeUndefined();
+
     const invitation = await Invitation.findOne({
       where: {
         email: "email-sent@test.com",
@@ -202,6 +222,16 @@ describe("Invitations API", () => {
 
     expect(invitation).toBeTruthy();
     expect(invitation.status).toBe("pending");
+
+    expect(invitation.emailDeliveryStatus).toBe("sent");
+
+    expect(invitation.emailProvider).toBe("mailgun");
+
+    expect(invitation.emailProviderMessageId).toBe("<mailgun-message-id>");
+
+    expect(invitation.emailLastAttemptedAt).toBeInstanceOf(Date);
+
+    expect(invitation.emailSentAt).toBeInstanceOf(Date);
   });
 
   it("keeps the invitation when email delivery fails", async () => {
@@ -218,20 +248,6 @@ describe("Invitations API", () => {
         }),
       );
 
-    expect(response.statusCode).toBe(201);
-
-    expect(response.body.status).toBe("success");
-
-    expect(response.body.message).toBe(
-      "Invitation created, but the email could not be sent.",
-    );
-
-    expect(response.body.data.emailDelivery).toEqual({
-      provider: null,
-      accepted: false,
-      skipped: false,
-    });
-
     const invitation = await Invitation.findOne({
       where: {
         email: "email-failed@test.com",
@@ -241,6 +257,30 @@ describe("Invitations API", () => {
     expect(invitation).toBeTruthy();
     expect(invitation.status).toBe("pending");
     expect(invitation.tokenHash).toBeTruthy();
+
+    expect(invitation.emailDeliveryStatus).toBe("failed");
+
+    expect(invitation.emailProvider).toBeDefined();
+
+    expect(invitation.emailProviderMessageId).toBeNull();
+
+    expect(invitation.emailLastAttemptedAt).toBeInstanceOf(Date);
+
+    expect(invitation.emailSentAt).toBeNull();
+
+    expect(response.statusCode).toBe(201);
+
+    expect(response.body.status).toBe("success");
+
+    expect(response.body.message).toBe(
+      "Invitation created, but the email could not be sent.",
+    );
+
+    expect(response.body.data.emailDelivery).toEqual({
+      provider: "disabled",
+      accepted: false,
+      skipped: false,
+    });
   });
 
   it("does not send email when invitation validation fails", async () => {
@@ -257,6 +297,14 @@ describe("Invitations API", () => {
     expect(response.statusCode).toBe(400);
 
     expect(sendInvitationEmail).not.toHaveBeenCalled();
+
+    const invitation = await Invitation.findOne({
+      where: {
+        email: "invalid-invite@test.com",
+      },
+    });
+
+    expect(invitation).toBeNull();
   });
 
   it("prevents a researcher from creating an invitation", async () => {
@@ -497,6 +545,24 @@ describe("Invitations API", () => {
 
     expect(emails).toContain("own-org@test.com");
     expect(emails).not.toContain("second-org@test.com");
+
+    const listedInvitation = response.body.data.invitations[0];
+
+    expect(listedInvitation).toHaveProperty("emailDeliveryStatus");
+
+    expect(listedInvitation).toHaveProperty("emailProvider");
+
+    expect(listedInvitation).toHaveProperty("emailLastAttemptedAt");
+
+    expect(listedInvitation).toHaveProperty("emailSentAt");
+
+    expect(listedInvitation).not.toHaveProperty("emailProviderMessageId");
+
+    expect(response.body.data.invitations[0]).toEqual(
+      expect.objectContaining({
+        emailDeliveryStatus: expect.any(String),
+      }),
+    );
   });
 
   it("rejects inviting an email that already belongs to a user", async () => {

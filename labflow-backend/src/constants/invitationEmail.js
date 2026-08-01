@@ -1,0 +1,15 @@
+const INVITATION_EMAIL_DELIVERY_STATUSES = Object.freeze({
+  NOT_ATTEMPTED: "not_attempted",
+  SENT: "sent",
+  FAILED: "failed",
+  SKIPPED: "skipped",
+});
+
+const INVITATION_EMAIL_DELIVERY_STATUS_VALUES = Object.freeze(
+  Object.values(INVITATION_EMAIL_DELIVERY_STATUSES),
+);
+
+module.exports = {
+  INVITATION_EMAIL_DELIVERY_STATUSES,
+  INVITATION_EMAIL_DELIVERY_STATUS_VALUES,
+};

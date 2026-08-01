@@ -1,5 +1,8 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
+const {
+  INVITATION_EMAIL_DELIVERY_STATUS_VALUES,
+} = require("../constants/invitationEmail");
 
 const Invitation = sequelize.define(
   "Invitation",
@@ -54,6 +57,40 @@ const Invitation = sequelize.define(
       type: DataTypes.ENUM("pending", "accepted", "revoked", "expired"),
       allowNull: false,
       defaultValue: "pending",
+    },
+
+    emailDeliveryStatus: {
+      type: DataTypes.STRING(32),
+      allowNull: false,
+      defaultValue: "not_attempted",
+      field: "email_delivery_status",
+      validate: {
+        isIn: [INVITATION_EMAIL_DELIVERY_STATUS_VALUES],
+      },
+    },
+
+    emailProvider: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: "email_provider",
+    },
+
+    emailProviderMessageId: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: "email_provider_message_id",
+    },
+
+    emailLastAttemptedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "email_last_attempted_at",
+    },
+
+    emailSentAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "email_sent_at",
     },
 
     expiresAt: {
