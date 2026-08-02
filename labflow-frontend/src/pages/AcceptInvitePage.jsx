@@ -12,11 +12,11 @@ import {
   Typography,
   message,
 } from "antd";
-
 import {
   acceptInvitation,
   getInvitationForAcceptance,
 } from "../api/invitationApi";
+import { useAuth } from "../context/useAuth";
 
 const { Title, Text } = Typography;
 
@@ -31,6 +31,7 @@ const formatRole = (role) => {
 const AcceptInvitePage = () => {
   const { token } = useParams();
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const [form] = Form.useForm();
   const [invitation, setInvitation] = useState(null);
@@ -83,8 +84,15 @@ const AcceptInvitePage = () => {
         password: values.password,
       });
 
-      message.success("Invitation accepted. You can now log in.");
-      navigate("/login");
+      logout();
+
+      navigate("/login", {
+        replace: true,
+        state: {
+          email: invitation.email,
+          message: "Invitation accepted. Log in with your new LabFlow account.",
+        },
+      });
     } catch (error) {
       message.error(
         error.response?.data?.message || "Failed to accept invitation.",
@@ -93,7 +101,6 @@ const AcceptInvitePage = () => {
       setSubmitting(false);
     }
   };
-
   if (loading) {
     return (
       <div style={{ maxWidth: 520, margin: "80px auto", textAlign: "center" }}>

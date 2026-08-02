@@ -1,16 +1,42 @@
-import { Button, Card, Form, Input, Typography, Alert } from "antd";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Button, Card, Form, Input, Typography, Alert, message } from "antd";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../context/useAuth";
 
 const { Title, Paragraph } = Typography;
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
+  const [form] = Form.useForm();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const invitedEmail = location.state?.email;
+
+    if (invitedEmail) {
+      form.setFieldsValue({
+        email: invitedEmail,
+      });
+    }
+
+    const successMessage = location.state?.message;
+
+    if (successMessage) {
+      message.success({
+        key: "invitation-accepted",
+        content: successMessage,
+      });
+
+      navigate("/login", {
+        replace: true,
+        state: null,
+      });
+    }
+  }, [form, location.state, navigate]);
 
   const handleLogin = async (values) => {
     try {
@@ -21,10 +47,10 @@ const LoginPage = () => {
 
       navigate("/dashboard");
     } catch (error) {
-      const message =
+      const loginErrorMessage =
         error.response?.data?.message || "Login failed. Please try again.";
 
-      setErrorMessage(message);
+      setErrorMessage(loginErrorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -56,7 +82,7 @@ const LoginPage = () => {
           />
         )}
 
-        <Form layout="vertical" onFinish={handleLogin}>
+        <Form form={form} layout="vertical" onFinish={handleLogin}>
           <Form.Item
             label="Email"
             name="email"
