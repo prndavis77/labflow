@@ -75,6 +75,11 @@ LabFlow centralizes core research lab workflows into one system:
 - Public organization workspace creation
 - First-administrator onboarding
 - Invitation-only onboarding for additional users
+- Mailgun-backed invitation email delivery implemented and verified locally
+- Delivery status tracking and provider diagnostics
+- Admin-only backend invitation resend with token rotation and renewed expiration
+- Safe partial-failure behavior when email delivery is unavailable
+- Session clearing and login handoff after invitation acceptance
 - Secure invitation token hashing and one-time acceptance
 - Organization-scoped demo seed behavior
 
@@ -137,6 +142,8 @@ I designed and built the full-stack MVP, including:
 - express-rate-limit
 - cors
 - dotenv
+- mailgun.js
+- form-data
 - Cloudflare R2
 - AWS SDK for JavaScript S3 client and URL presigning
 
@@ -167,7 +174,7 @@ LabFlow supports three main user roles:
 - Supervisor
 - Researcher
 
-Admins have global access across the demo workspace. Supervisors are scoped to projects where they are assigned as the project supervisor. Researchers access project-linked work through project membership and assignment-aware task rules.
+Admins have global access across the demo workspace. Supervisors are scoped to projects where they are assigned as the project supervisor. Researchers access project-linked work through project membership and assignment-aware task rules. Researchers can also view organization-wide equipment and general protocols that are not linked to a project. Access to project-linked protocols remains membership-aware.
 
 The backend enforces authorization rules so users cannot bypass access restrictions by calling API endpoints directly.
 
@@ -221,6 +228,36 @@ Admins can confirm or reopen any task completion request. Supervisors can confir
 
 This workflow better reflects supervised lab work, where task completion may need review before it is accepted as final.
 
+### Invitation Email Delivery and Resend
+
+LabFlow includes a provider-neutral email service with a Mailgun implementation. Mailgun delivery has been verified locally.
+
+The invitation creation workflow intentionally separates database persistence from the external provider call:
+
+1. Validate the invitation request.
+2. Create the invitation and audit event.
+3. Commit the database transaction.
+4. Attempt email delivery.
+5. Persist the delivery result.
+
+This ordering prevents a temporary Mailgun failure from deleting or rolling back a valid invitation. The API can return a successful invitation-creation response with a partial-delivery warning, and the backend provides an admin-only resend operation.
+
+Delivery tracking records:
+
+- Delivery status: not attempted, sent, failed, or skipped
+- Provider
+- Provider message ID
+- Last delivery-attempt time
+- Sent time
+
+Provider message IDs are stored for diagnostics but are not exposed in API responses.
+
+Resend is admin-only and organization-scoped. It creates a new raw token, stores only the new hash, renews the expiration date, invalidates the previous link, resets delivery tracking, writes an audit event, and attempts the replacement email. Pending and expired invitations can be resent. Accepted and revoked invitations cannot.
+
+Production responses do not expose raw invitation links. Development and test responses can include them for local verification.
+
+After invitation acceptance, the frontend clears any existing browser session before redirecting to login. This prevents a previously logged-in administrator session from remaining active when the invited researcher finishes onboarding. The invited email is prefilled on the login page.
+
 ### Equipment Booking Conflict Prevention
 
 LabFlow prevents overlapping confirmed bookings for the same equipment at the backend level.
@@ -252,7 +289,7 @@ This allows LabFlow to support:
 - Equipment-specific procedures
 - Instrument startup, shutdown, tuning, and maintenance instructions
 
-Researchers can view available protocols, but general SOP management is restricted to admins and supervisors.
+Researchers can view general non-project-linked protocols and project-linked protocols they are authorized to access. Creation, editing, review, and archive actions for general SOPs remain restricted to admins and supervisors.
 
 ### Review Queue, Review Notes, and Review History
 
@@ -353,7 +390,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The backend test suite currently includes 22 passing test suites and 390 passing tests.
+The backend test suite includes comprehensive coverage for authentication, authorization, organization isolation, invitation email configuration, templates, provider behavior, delivery tracking, resend, token invalidation, archive recovery, attachments, review workflows, and transactional rollback.
 
 The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, researcher review policy, workspace registration, organization slug generation, invitation onboarding, transactional rollback behavior, and organization settings.
 
@@ -380,6 +417,14 @@ The tests cover authentication, role-based access, organization-scoped data isol
 - Global duplicate-email protection
 - Invitation token reuse prevention
 - Transaction rollback during failed invitation acceptance
+- Invitation email configuration and provider selection
+- HTML and plain-text invitation template generation
+- Successful, failed, and skipped delivery tracking
+- Provider failure without invitation loss
+- Invitation resend authorization and organization isolation
+- Old-token invalidation and new-token acceptance
+- Accepted and revoked invitation resend restrictions
+- Production-safe invite-link behavior
 
 A test database safety guard prevents destructive test cleanup from running unless `NODE_ENV` is set to `test` and the configured database name contains `test`.
 
@@ -402,7 +447,7 @@ The project is still a portfolio/demo application and would need additional prod
 
 LabFlow includes an admin-only audit logging system for sensitive actions and review workflow events. The audit log records who performed the action, what entity was affected, the target user when relevant, a readable summary, request metadata, and timestamps.
 
-Audit logging currently covers user role changes, workflow permission updates, account deactivation and reactivation, admin password resets, experiment review submissions and decisions, protocol review submissions and decisions, and task completion review requests and decisions.
+Audit logging currently covers user role changes, workflow permission updates, account deactivation and reactivation, admin password resets, experiment and protocol review actions, task completion review decisions, organization setting changes, attachment actions, archived-item restoration, and invitation resend.
 
 Admins can review these events in a dedicated Audit Logs page with filters for action, entity type, actor name, and target user name.
 
@@ -431,6 +476,8 @@ Organization setting changes are written to the audit log, including previous an
 Admins can view invitations for their organization, including invitee details, role, department, status, expiration date, invited-by information, and accepted date.
 
 Pending invitations can be revoked from the admin interface. Accepted, revoked, and expired invitations remain visible for traceability.
+
+The backend also provides organization-scoped resend support for pending and expired invitations.
 
 ## Challenges and Decisions
 
@@ -515,7 +562,7 @@ An invitation stores the intended user’s:
 - Review requirement
 - Expiration date
 
-The invitation token is returned in the invitation link, but only its SHA-256 hash is stored in the database.
+The raw invitation token is embedded in the invitation link, but only its SHA-256 hash is stored in the database. Raw invitation links may be returned in development and test environments, while production sends the link by email without exposing it in the API response.
 
 When the invited user opens the link, LabFlow shows the organization and invitation details. The user sets a password, and the backend creates the account using the organization, role, email address, and permissions stored on the invitation rather than accepting those fields from the client.
 
@@ -565,9 +612,17 @@ The backend checks organization ownership, direct-parent state, project state, u
 
 For attachment restoration, Cloudflare R2 and PostgreSQL cannot share a transaction. I addressed this by verifying the object immediately before opening the database restoration transaction. A storage failure therefore leaves the attachment archived rather than creating an active database record that points to a missing file.
 
+### 15. Separating Application Security From Third-Party Reputation Classification
+
+The deployed Vercel hostname was classified as phishing by Kaspersky's reputation database. Kaspersky then blocked the frontend JavaScript and CSS assets. Even after a user chose to continue, the application remained blank because the JavaScript request was replaced or interrupted and returned HTML instead of the expected module MIME type.
+
+The console showed blocked or interrupted asset requests, HTTP 499 responses, `NS_ERROR_CORRUPTED_CONTENT`, and a disallowed `text/html` MIME type for the JavaScript bundle. These were symptoms of the antivirus classification rather than defects in the React application.
+
+The appropriate response is to submit the hostname for Kaspersky reanalysis and avoid asking users to disable protection. A stable custom domain is also planned, although it may still require reputation review.
+
 ## Result
 
-LabFlow MVP Version 1.4 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.5 is complete and deployed as a portfolio/demo application.
 
 The project includes:
 
@@ -584,6 +639,11 @@ The project includes:
 - Seeded demo data and demo accounts
 - Public workspace creation with first-administrator onboarding
 - Invitation-only onboarding for additional users
+- Provider-neutral invitation email delivery with Mailgun support, verified locally
+- HTML and plain-text invitation templates
+- Invitation delivery tracking and partial-failure handling
+- Admin-only backend invitation resend with token rotation, renewed expiration, and audit logging
+- Existing-session clearing and login handoff after invitation acceptance
 - Transactional registration and invitation acceptance
 - Multi-organization-safe demo seed behavior
 - Secure research attachments for projects, tasks, experiments, protocols, and equipment
@@ -592,7 +652,7 @@ The project includes:
 - Organization-scoped and parent-record-aware attachment authorization
 - Metadata editing and soft archive behavior
 - Cross-entity attachment permission coverage
-- 390 passing automated backend tests across 22 test suites
+- Comprehensive automated backend test coverage
 - GitHub README and portfolio case study
 - Admin-controlled recovery for archived projects, tasks, experiments, protocols, and attachments
 - Parent-first and non-cascading restoration rules
@@ -606,51 +666,45 @@ LabFlow is intentionally focused on MVP workflows.
 
 Current limitations include:
 
-- No rich text editor for notebook entries
-- No PDF export for experiment notebooks
-- No email notifications
-- Account deactivation/reactivation, admin password reset, and invitation-based onboarding exist, but email verification and self-service password reset are not yet included.
+- The generated Vercel demo hostname is currently classified as phishing by Kaspersky's reputation database. A reanalysis request is needed, and a stable custom domain is planned.
+- No rich-text editor or PDF export for experiment notebooks
+- Invitation email delivery is implemented and verified locally, but production Mailgun delivery still requires deployment configuration and verification. Email verification, self-service password reset, task reminders, booking reminders, and broader notification preferences are not yet included.
+- Local Mailgun keys should currently be injected into the backend process or stored in an operating-system secret store rather than saved in the local `.env` file, because repeated automated key disabling was observed when stored there.
 - No frontend automated tests yet
 - No production-grade monitoring or centralized logging
-- Organization-level ownership, backend isolation, public workspace creation, first-administrator onboarding, invitation-based user onboarding, and basic organization settings exist, but LabFlow does not yet include multi-organization user memberships, custom domains, subscription management, billing, or full institutional tenant administration.
-- Equipment inventory metrics are still global because equipment is not project-owned yet
-- Review history exists, but it is not yet a locked audit trail with signatures or immutable event controls
-- Invitation links are generated by the application, but automated invitation email delivery is not yet implemented.
+- Organization isolation, workspace creation, first-administrator onboarding, invitation-based user onboarding, and basic settings exist, but multi-organization memberships, custom domains, subscriptions, billing, and full institutional tenant administration are not yet included.
+- Equipment inventory metrics are organization-wide because equipment is not project-owned.
+- Review history and audit logs are not yet immutable or signature-backed.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 - Notebook entries do not have separate file uploads. Experiment-related files are stored as experiment attachments, while project-wide files are stored as project attachments.
-- Archived-item recovery is admin-only. Delegated recovery permissions for supervisors are not currently supported.
-- Restoration is intentionally non-cascading, so related records must be restored individually.
-- PostgreSQL restoration and Cloudflare R2 verification cannot be combined into one distributed transaction.
-- The Archived Items page does not provide a read-only detail view of an archived record before restoration.
+- Archived-item recovery is admin-only and intentionally non-cascading.
+- PostgreSQL restoration and Cloudflare R2 verification cannot participate in one distributed transaction.
+- The Archived Items page does not yet provide a read-only archived-record detail view.
+- Attachment malware scanning, content inspection, storage quotas, multipart uploads, and physical deletion policies are not yet included.
 
 ## Future Improvements
 
 Recommended future improvements include:
 
-- Expanded organization administration, including logos, contact details, organization admins, and tenant-level policies
-- Invitation resend support and improved expiration handling
-- Organization-level roles and tenant administration workflows
-- Additional production-grade tenant controls
-- Rich text notebook entries
-- Notebook references to existing experiment attachments
-- Experiment notebook PDF export
-- Equipment maintenance history
-- Calendar view for equipment bookings
-- Email notifications
-- Frontend component and workflow tests
-- Immutable audit controls and audit export
-- Email verification and self-service password reset
-- Project invitation workflow
-- Project-specific workflow permissions
-- Equipment access model for lab-wide, project-specific, or restricted instruments
-- Production deployment automation and monitoring
-- Multi-organization membership model for users
-- Organization switching for users with access to multiple workspaces
-- Custom organization domains or subdomains
+- Stable custom frontend and API domains
+- Kaspersky and other reputation-service reclassification
+- Expanded organization administration and tenant policies
+- Multi-organization membership and organization switching
 - Subscription and billing support
-- Automated invitation email delivery
-- Workspace ownership transfer
-- Additional organization administrator management
+- Email verification and self-service password reset
+- Task, review, and booking notification preferences
+- Secure local secret storage through Windows Credential Manager or PowerShell SecretManagement
+- Production monitoring, centralized logging, alerting, and automated deployment/migration workflows
+- Rich-text notebook entries and experiment notebook PDF export
+- Equipment maintenance history and calendar-based bookings
+- Frontend component and workflow tests
+- Immutable audit controls, signatures, and export
+- Project invitation and membership approval workflows
+- Project-specific workflow permissions
+- Equipment access rules for organization-wide, project-specific, or restricted instruments
+- Attachment previews, malware scanning, retention policies, storage quotas, and multipart uploads
+- Read-only archived-record detail views
+- Workspace ownership transfer and additional organization-administrator management
 
 ## Portfolio Summary
 

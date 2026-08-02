@@ -19,15 +19,33 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 ## Project Status
 
-LabFlow MVP Version 1.4 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.5 is complete and deployed as a portfolio/demo application.
 
-This version includes authentication, organization-based workspaces, invitation-based onboarding, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
+This version includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral invitation email delivery with Mailgun support verified locally, invitation delivery tracking, an admin-only backend resend workflow, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
 
 LabFlow now includes end-to-end research file attachments for projects, tasks, experiments, protocols, and equipment. Files are stored privately in Cloudflare R2 and uploaded directly using short-lived signed URLs.
 
 Attachment access follows the linked record's permissions. Admins and authorized supervisors can manage all attachments within their scope. Researchers can upload where the parent workflow allows contribution and can edit or archive only files they uploaded. Read-only users can view and download attachments without seeing upload or management actions.
 
-The backend currently includes 22 passing test suites with 390 passing tests.
+The backend includes a comprehensive Jest and Supertest suite covering authentication, authorization, organization isolation, invitations, email delivery, archive recovery, attachments, review workflows, and transactional rollback behavior.
+
+### Phase 23A: Invitation Email Delivery
+
+Completed:
+
+- Added a provider-neutral email architecture with disabled and Mailgun providers.
+- Added branded HTML and plain-text invitation email templates.
+- Added Mailgun delivery after invitation creation without making invitation persistence depend on the external provider, and verified delivery locally.
+- Added delivery tracking fields for status, provider, provider message ID, last attempt time, and sent time.
+- Kept provider message IDs out of API responses.
+- Added partial-failure behavior so an invitation remains valid when email delivery fails.
+- Added an admin-only backend invitation resend endpoint with a new token, renewed expiration, and old-token invalidation.
+- Added resend support for pending and expired invitations while blocking accepted and revoked invitations.
+- Added transactional audit logging for invitation resend.
+- Added production-safe invite-link behavior so raw links are not exposed in production responses.
+- Updated invitation acceptance so any existing browser session is cleared before redirecting to login.
+- Prefilled the invited email address on the login page after acceptance.
+- Added focused and integration tests for configuration, templates, providers, delivery tracking, failure handling, resend, token invalidation, and organization isolation.
 
 ### Phase 22A: Archived Item Recovery
 
@@ -45,7 +63,7 @@ Completed:
 - Added idempotent handling for already-active records.
 - Added transactional restore audit events.
 - Added organization-isolation and cross-entity restoration tests.
-- Verified the complete backend suite with 22 passing suites and 390 passing tests.
+- Verified the complete backend regression suite for archived-item recovery.
 
 ### Phase 20G: Researcher Review Policy
 
@@ -137,6 +155,12 @@ This deployment uses:
 
 This is a portfolio/demo deployment with seeded test data. It should not be used with real laboratory, research, customer, or institutional data.
 
+### Known Demo Access Issue
+
+Kaspersky currently classifies the generated Vercel hostname `labflow-brown.vercel.app` as phishing. This is a third-party reputation/database classification and can cause Kaspersky to block the frontend JavaScript and CSS assets, leaving a blank page even after choosing to continue.
+
+A reanalysis request should be submitted through the Kaspersky Threat Intelligence Portal. Users should not be instructed to disable antivirus protection. A stable custom production domain is also planned, although it may still require reputation review.
+
 ---
 
 ## Demo Login Credentials
@@ -191,6 +215,9 @@ LabFlow provides a structured system for managing these workflows in one place.
 
 - Public workspace creation for a new organization and its first administrator
 - Invitation-only account creation for additional admins, supervisors, and researchers
+- Invitation emails through a provider-neutral email service with Mailgun support
+- Invitation delivery tracking and an admin-only backend resend workflow
+- Existing-session clearing after invitation acceptance before login
 - User login
 - JWT-based authentication
 - Persistent login using stored token
@@ -234,7 +261,9 @@ LabFlow supports three user roles:
 - Can create standalone tasks assigned to themselves
 - Can create project-linked tasks when project membership allows it
 - Can create and update experiments when workflow permissions and project membership allow it
-- Can view available protocols
+- Can view organization-wide equipment
+- Can view general non-project-linked protocols
+- Can view project-linked protocols when project membership permits access
 - Can create and update protocols when workflow permissions and project membership allow it
 - Cannot approve experiments or protocols
 - Cannot request review changes
@@ -428,7 +457,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 
 ---
 
-## MVP Version 1.4 Features
+## MVP Version 1.5 Features
 
 - Experiment-linked notebook entries
 - Review Queue for supervisor/admin review workflows
@@ -474,6 +503,13 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Role-based access control for admins, supervisors, and researchers
 - Organization-scoped lab workspaces
 - Admin-created invitations
+- Provider-neutral invitation email service with Mailgun support verified locally
+- HTML and plain-text invitation templates
+- Invitation email delivery tracking
+- Admin-only backend invitation resend with token rotation and renewed expiration
+- Partial-failure handling when the email provider is unavailable
+- Production-safe invite-link and provider-message-ID handling
+- Session clearing and login handoff after invitation acceptance
 - Secure invitation acceptance flow
 - Public creation of a new organization workspace and first administrator
 - Unique normalized organization slug generation
@@ -509,7 +545,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Direct signed uploads to private Cloudflare R2 storage
 - Signed downloads with storage-object verification
 - Cross-entity attachment permission tests
-- Backend test coverage with 390 passing tests across 22 test suites
+- Backend test coverage for authentication, authorization, organization isolation, invitations, email delivery, resend, attachments, archive recovery, review workflows, and rollback behavior
 
 ### Dashboard
 
@@ -830,16 +866,22 @@ Admins can invite users into their organization instead of relying only on publi
 
 The invitation flow includes:
 
-1. Admin creates an invitation with name, email, role, optional department, and researcher permissions.
-2. LabFlow generates a secure invitation link.
-3. The invitation token is hashed before storage.
-4. The invited user opens the link and sets a password.
-5. LabFlow creates the user inside the correct organization.
-6. The invitation is marked as accepted and cannot be reused.
+1. An admin creates an invitation with name, email, role, optional department, and researcher permissions.
+2. LabFlow generates a cryptographically secure token and stores only its SHA-256 hash.
+3. LabFlow commits the invitation and audit event before attempting external email delivery.
+4. The email service sends branded HTML and plain-text invitation messages through Mailgun when enabled.
+5. Delivery status, provider, provider message ID, last attempt time, and sent time are recorded.
+6. The invited user opens the link and sets a password.
+7. LabFlow creates the user inside the invitation's organization and marks the invitation as accepted.
+8. Any existing browser session is cleared, and the user is redirected to login with the invited email prefilled.
 
-For the MVP, invitation links are shown directly in the admin UI instead of being sent by email.
+Email delivery does not control whether the invitation is valid. If the provider fails, the invitation remains pending and the API reports a partial-delivery failure.
 
-Admins can view an invitation list showing invitee name, email, role, department, status, expiration date, invited date, invited-by information, and accepted date. Pending invitations can be revoked from the admin interface.
+The backend provides an admin-only resend operation for pending and expired invitations. Resend generates a new token, invalidates the old link, renews the expiration date, resets delivery tracking, writes an audit event, and attempts to send the replacement email. Accepted and revoked invitations cannot be resent.
+
+Raw invitation links may be returned in development and test environments for local testing. Production responses do not expose raw invitation links or provider message IDs.
+
+Admins can view an invitation list showing invitee name, email, role, department, status, expiration date, invited date, invited-by information, accepted date, and email delivery state. Pending invitations can be revoked from the interface. The backend also supports organization-scoped resend for pending and expired invitations.
 
 ---
 
@@ -944,6 +986,11 @@ LabFlow demonstrates several full-stack development concepts:
 - Security headers with Helmet
 - Authentication route rate limiting
 - Restricted CORS configuration for local and deployed frontend origins
+- Provider-neutral email delivery architecture
+- Mailgun Domain Sending Key support through the Mailgun HTTP API
+- HTML and plain-text invitation email templates
+- Invitation delivery tracking and resend with token rotation
+- External-provider failure isolation so invitation persistence is preserved
 - Organization-based data ownership and backend query scoping
 - Cross-organization isolation tests for projects, tasks, and audit logs
 - Generic attachment system for multiple LabFlow entity types
@@ -986,6 +1033,8 @@ LabFlow demonstrates several full-stack development concepts:
 - cors
 - Helmet
 - express-rate-limit
+- mailgun.js
+- form-data
 - Cloudflare R2 through the S3-compatible API
 - AWS SDK for JavaScript S3 client and URL presigning
 
@@ -1013,11 +1062,13 @@ labflow/
       config/
         attachmentConfig.js
         database.js
+        emailConfig.js
         sequelize-cli.js
       constants/
         archivedItems.js
         attachments.js
         auditActions.js
+        invitationEmail.js
         roles.js
         statusCodes.js
       controllers/
@@ -1038,6 +1089,13 @@ labflow/
         reviewEventController.js
         taskController.js
         userController.js
+      email/
+        providers/
+          disabledEmailProvider.js
+          mailgunEmailProvider.js
+        templates/
+          invitationEmail.js
+        createEmailProvider.js
       middleware/
         authMiddleware.js
       migrations/
@@ -1053,6 +1111,7 @@ labflow/
         20260711160206-add-not-required-experiment-review-status.js
         20260711225539-add-review-status-to-protocols.js
         20260724101117-create-attachments.js
+        20260801183056-add-invitation-email-delivery-tracking.js
       models/
         Attachment.js
         AuditLog.js
@@ -1094,6 +1153,8 @@ labflow/
       seeders/
       services/
         attachmentCleanupService.js
+        emailService.js
+        invitationEmailService.js
       storage/
         providers/
           r2AttachmentStorage.js
@@ -1118,8 +1179,14 @@ labflow/
         auditLogs.test.js
         auth.test.js
         authorization.test.js
+        emailConfig.test.js
+        emailService.test.js
         equipmentBookingConflict.test.js
         health.test.js
+        invitationControllerEmail.test.js
+        invitationEmail.test.js
+        invitationEmailService.test.js
+        invitationEmailTracking.test.js
         invitations.test.js
         organizationIsolation.test.js
         organizationSettings.test.js
@@ -1236,7 +1303,7 @@ labflow/
 
 ## Database Models
 
-LabFlow MVP Version 1.4 includes the following main models.
+LabFlow MVP Version 1.5 includes the following main models.
 
 ### User
 
@@ -1499,6 +1566,7 @@ POST   /api/invitations
 GET    /api/invitations
 GET    /api/invitations/accept/:token
 POST   /api/invitations/accept/:token
+POST   /api/invitations/:id/resend
 PATCH  /api/invitations/:id/revoke
 ```
 
@@ -1558,6 +1626,10 @@ LabFlow is currently prepared for portfolio/demo deployment. It should not be us
 
 Production environment variables should be stored only in the hosting provider's environment variable settings. Do not commit real `.env` files, database URLs, JWT secrets, or production credentials to Git.
 
+Mailgun production credentials should be stored only in the Render backend service environment. Use a separate Mailgun Domain Sending Key for each environment. Do not expose the key to the Vite frontend, prefix it with `VITE_`, print it in logs, or store it in committed configuration.
+
+In the current local development environment, Mailgun repeatedly disabled keys stored in the local `.env` file. A key injected only into the PowerShell process remained usable during testing. Local Mailgun keys should therefore be supplied through a temporary process environment variable or an operating-system secret store until the local `.env` exposure source is identified.
+
 LabFlow includes basic backend hardening for the demo API, including security headers with Helmet, authentication rate limiting, restricted CORS origins, JWT authentication, password hashing, protected routes, role-based authorization, and project-scoped backend access checks.
 
 Public registration creates a new organization workspace and its first administrator. Additional admins, supervisors, and researchers must be invited by an administrator from within the organization.
@@ -1570,7 +1642,7 @@ LabFlow now includes a Sequelize migration baseline for the current MVP schema. 
 
 The `npm run setup:db` command is kept only as a legacy/demo fallback from the original MVP deployment path. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
 
-Before LabFlow is used as real production software, additional hardening would still be required, including email verification, centralized logging, monitoring, stricter secrets management, account lockout rules, organization-level tenant isolation, immutable audit controls, and a more complete production deployment process.
+Before LabFlow is used as real production software, additional hardening would still be required, including email verification, centralized logging, monitoring, stricter secrets management, account lockout rules, expanded tenant administration, immutable audit controls, and a more complete production deployment process.
 
 ### Production Deployment Safety
 
@@ -1622,6 +1694,14 @@ JWT_SECRET=replace_this_with_a_long_random_secret
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 
+EMAIL_PROVIDER=disabled
+EMAIL_FROM_NAME=LabFlow
+EMAIL_FROM_ADDRESS=labflow@example.com
+
+MAILGUN_API_KEY=
+MAILGUN_DOMAIN=mg.example.com
+MAILGUN_API_BASE_URL=https://api.mailgun.net
+
 ATTACHMENT_STORAGE_PROVIDER=r2
 ATTACHMENT_MAX_FILE_SIZE_BYTES=26214400
 ATTACHMENT_PENDING_TTL_MINUTES=30
@@ -1634,6 +1714,10 @@ R2_ACCESS_KEY_ID=your_r2_access_key_id
 R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
 R2_BUCKET_NAME=your_private_r2_bucket_name
 ```
+
+Use `EMAIL_PROVIDER=disabled` when local email delivery is not needed.
+
+In the current development environment, do not store a working Mailgun key in `.env`. Supply it through a temporary process environment variable or an operating-system secret store.
 
 The R2 values are required when `ATTACHMENT_STORAGE_PROVIDER=r2`.
 
@@ -1824,7 +1908,7 @@ The seeded workspace includes admins, supervisors, researchers with different wo
 
 ## Manual Regression Test Coverage
 
-LabFlow MVP Version 1.4 was manually tested across the following workflows:
+LabFlow MVP Version 1.5 was manually tested across the following workflows:
 
 ### Authentication
 
@@ -2034,9 +2118,7 @@ LabFlow MVP Version 1.4 was manually tested across the following workflows:
 
 LabFlow includes an automated backend test suite using Jest and Supertest.
 
-The backend test suite currently includes 22 passing test suites and 390 passing tests, including authorization, researcher review-policy behavior, review workflows, audit logs, soft archive behavior, equipment booking conflicts, organization isolation, invitation onboarding, and organization settings.
-
-Current backend test status: 22 test suites, 390 tests passing.
+The backend test suite includes comprehensive Jest and Supertest coverage for authentication, authorization, researcher review-policy behavior, review workflows, audit logs, archive and recovery behavior, attachments, equipment booking conflicts, organization isolation, workspace registration, invitation onboarding, email delivery, delivery tracking, resend, token invalidation, and transactional rollback.
 
 Covered backend areas include:
 
@@ -2084,6 +2166,14 @@ Covered backend areas include:
 - Transactional restoration audit logging
 - Cross-organization restoration isolation
 - Cross-entity restoration workflows
+- Invitation email configuration and provider selection
+- HTML and plain-text invitation template generation
+- Successful, failed, and skipped email delivery tracking
+- Provider failure without invitation loss
+- Invitation resend authorization and organization isolation
+- Old-token invalidation and new-token acceptance
+- Accepted and revoked invitation resend restrictions
+- Production-safe raw-link behavior
 
 Run backend tests from the backend folder:
 
@@ -2133,34 +2223,25 @@ Admins can confirm or reopen any task completion request, including standalone t
 
 ## Current Limitations
 
-LabFlow MVP Version 1.4 is intentionally focused on core workflows.
+LabFlow MVP Version 1.5 is intentionally focused on core workflows.
 
 Current limitations include:
 
-- Organization-level ownership, backend isolation, public workspace creation, invitation-based onboarding, and basic organization settings are included, but LabFlow does not yet support multi-organization memberships, organization switching, billing, custom domains, or full institutional tenant administration.
-- Dashboard project-linked metrics are role-aware for researchers, but equipment inventory metrics are still global because equipment is not project-owned yet.
-- No email notifications
-- Audit logging exists for important admin and review workflow actions, but it is not yet immutable and does not yet include export, retention policies, or signed review controls.
-- Archive behavior exists for core lab records, but equipment, bookings, notebook entries, and project memberships still use their existing delete/remove workflows.
-- No drag-and-drop calendar
-- Portfolio/demo deployment is live, but LabFlow does not yet include full production-grade deployment automation.
-- Backend automated tests now cover core API workflows, but frontend automated tests are not yet included.
-- Notebook entries currently use plain text, not rich text
-- No PDF export for experiment notebooks
-- Review history exists, but it currently stores review events only. It does not yet include file attachments, signed approvals, or immutable audit controls.
-- Researcher workflow permissions and review requirements are still global per user, while project membership controls project access separately
-- User management supports account deactivation/reactivation, admin password reset, and invitation-based onboarding, but does not yet include email verification or self-service password reset.
-- Project member roles now control core project-linked contribution behavior, but more granular project-specific permissions are still planned for future versions.
-- Project membership is not yet connected to notifications or invitations
-- Sequelize migrations are now available for the current MVP schema, but automated production deployment and migration workflows still need further hardening.
-- Basic security headers, authentication rate limiting, and organization-level backend isolation are included, but production-grade monitoring, account lockout, email verification, immutable audit controls, and advanced tenant administration controls are not yet implemented.
-- Demo accounts use shared demo credentials and are not suitable for real production use.
+- The generated Vercel demo hostname is currently classified as phishing by Kaspersky's reputation database. A Kaspersky reanalysis request is needed, and a stable custom domain is planned.
+- Organization ownership, backend isolation, public workspace creation, invitation onboarding, and basic organization settings are included, but multi-organization memberships, organization switching, billing, subscription management, custom domains, and full institutional tenant administration are not yet implemented.
+- Invitation email delivery is implemented and verified locally, but production Mailgun delivery still requires deployment configuration and verification. Email verification, self-service password reset, overdue-task notifications, booking reminders, and broader notification preferences are not yet included.
+- Local Mailgun keys should not currently be stored in the local `.env` file because repeated automated key disabling was observed. Production secrets should be stored in Render, and local keys should be injected at process startup or loaded from an operating-system secret store.
+- Dashboard project-linked metrics are role-aware, but equipment inventory remains organization-wide because equipment is not project-owned.
+- Audit logging exists for important admin, review, restore, invitation, and delivery-related actions, but it is not immutable and does not yet include export, retention policies, signatures, or locked review controls.
+- Archive and recovery cover projects, tasks, experiments, protocols, and attachments. Equipment, bookings, notebook entries, and project memberships retain their existing lifecycle behavior.
+- Restoration is intentionally parent-first and non-cascading, so related records must be restored individually.
+- PostgreSQL restoration and Cloudflare R2 verification cannot participate in one distributed transaction.
+- Attachment malware scanning, content inspection, large multipart uploads, organization storage quotas, and physical deletion policies are not yet included.
+- Notebook entries use plain text and do not yet support rich text or PDF export.
+- Frontend automated tests are not yet included.
+- Production-grade monitoring, centralized logging, account lockout, and automated deployment/migration orchestration are not yet complete.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
-- The generic attachment backend is complete, but frontend upload and attachment-management components are not yet included.
-- Attachment malware scanning and file-content inspection are not yet included.
-- Large multipart uploads and organization-level storage quotas are not yet included.
-- Archived attachment objects remain in private storage until a future retention and physical-deletion workflow is added.
-- Notebook entries can be used as attachment targets after the corresponding frontend attachment interface is implemented.
+- Demo accounts use shared credentials and are not suitable for real production use.
 
 ---
 
@@ -2188,38 +2269,26 @@ LabFlow was built as a portfolio project to demonstrate applied software develop
 
 Recommended Version 2 improvements:
 
-- Expanded organization administration, including logo, address, contact details, organization admins, and tenant-level policies
-- Email delivery for invitation links
-- Invitation management improvements, such as resend and expiration controls
-- Role-specific dashboards
-- More granular project membership permissions with project-specific workflow controls
-- Archive restore workflows and admin views for archived records
-- Immutable audit controls for research history
-- Stronger review/audit controls for signed or locked review history
-- Rich text notebook entries
-- PDF export for experiment notebooks
-- Equipment maintenance logs
-- Calendar view for equipment bookings
-- Notifications for overdue tasks and upcoming bookings
-- PDF or CSV export
-- Additional backend test coverage for remaining edge cases
+- Stable custom frontend and API domains
+- Kaspersky and other reputation-service reclassification for the production hostname
+- Expanded organization administration, including logos, addresses, contacts, organization administrators, and tenant policies
+- Multi-organization memberships and organization switching
+- Subscription and billing support
+- Email verification and self-service password reset
+- Notification preferences, overdue-task alerts, booking reminders, and review notifications
+- Secure local secret storage through Windows Credential Manager or PowerShell SecretManagement
+- Production monitoring, centralized logging, alerting, and automated migration/deployment workflows
+- More granular project-specific permissions and supervisor assignment rules
+- Project invitation and membership approval workflows
+- Equipment access rules for organization-wide, project-specific, or restricted instruments
+- Immutable audit controls, audit export, signatures, and locked review history
+- Rich-text notebook entries and experiment notebook PDF export
+- Equipment maintenance history and calendar-based booking views
 - Frontend component and workflow tests
-- Production deployment automation and migration-based database setup
-- Self-service password reset and email verification
-- More granular supervisor assignment rules beyond the current project supervisor ownership model
-- Project invitations and membership approval workflow
-- Project-specific workflow permissions
-- Equipment access model for lab-wide, project-specific, or restricted instruments
-- Task completion notes or admin feedback when reopening tasks
-- Expanded tenant administration workflows, including organization settings, invitations, and organization-level roles
-- Frontend attachment upload and management components
-- Attachment integration on experiment, protocol, project, task, equipment, and notebook pages
-- Drag-and-drop uploads and upload progress
-- Attachment previews for supported image and document formats
-- Malware scanning and file-content inspection
-- Physical deletion and retention policies for archived attachments
-- Organization-level storage quotas
-- Multipart uploads for large instrument datasets
+- Attachment previews, malware scanning, file-content inspection, retention policies, storage quotas, and multipart uploads
+- Read-only archived-record detail views before restoration
+- Delegated archive-recovery permissions where appropriate
+- Workspace ownership transfer and additional organization-administrator workflows
 
 ---
 
