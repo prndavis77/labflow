@@ -394,7 +394,7 @@ describe("Invitations API", () => {
     );
 
     expect(response.body.data.emailDelivery).toEqual({
-      provider: "disabled",
+      provider: "mailgun",
       accepted: false,
       skipped: false,
     });
@@ -880,7 +880,7 @@ describe("Invitations API", () => {
     );
 
     expect(response.body.data.emailDelivery).toEqual({
-      provider: "disabled",
+      provider: "mailgun",
       accepted: false,
       skipped: false,
     });

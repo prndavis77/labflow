@@ -3,7 +3,17 @@ const bcrypt = require("bcrypt");
 
 const app = require("../server");
 const { sequelize } = require("../config/database");
-const { User, Project, Task, AuditLog } = require("../models");
+const {
+  User,
+  Project,
+  Task,
+  Experiment,
+  Protocol,
+  Equipment,
+  EquipmentBooking,
+  NotebookEntry,
+  AuditLog,
+} = require("../models");
 
 const {
   TEST_PASSWORD,
@@ -28,6 +38,7 @@ describe("Organization isolation", () => {
   let primaryAdmin;
   let secondAdmin;
   let primaryToken;
+  let secondToken;
   let secondProject;
   let secondTask;
 
@@ -71,6 +82,7 @@ describe("Organization isolation", () => {
     });
 
     primaryToken = await loginAndGetToken("primary-admin@test.com");
+    secondToken = await loginAndGetToken("second-admin@test.com");
 
     secondProject = await Project.create({
       title: "Second Org Project",
@@ -179,5 +191,168 @@ describe("Organization isolation", () => {
     expect(
       auditLogs.some((log) => log.summary === "Second organization audit log."),
     ).toBe(false);
+  });
+
+  describe("Dashboard organization isolation", () => {
+    it("does not expose another organization's dashboard data to an admin", async () => {
+      const equipment = await Equipment.create({
+        name: "Second Org HPLC",
+        type: "HPLC",
+        location: "Second Org Lab",
+        status: "maintenance",
+        notes: "Belongs only to the second organization.",
+        organizationId: secondOrganization.id,
+      });
+
+      const protocol = await Protocol.create({
+        title: "Second Org General SOP",
+        version: "1.0",
+        purpose: "Test cross-organization protocol isolation.",
+        content: "Second organization protocol content.",
+        approvalStatus: "pending_review",
+        reviewStatus: "pending",
+        projectId: null,
+        equipmentId: null,
+        createdById: secondAdmin.id,
+        organizationId: secondOrganization.id,
+      });
+
+      const experiment = await Experiment.create({
+        title: "Second Org Experiment",
+        objective: "Test dashboard organization isolation.",
+        notes: "This experiment must not appear in the primary dashboard.",
+        status: "needs_review",
+        reviewStatus: "pending",
+        projectId: secondProject.id,
+        researcherId: secondAdmin.id,
+        createdById: secondAdmin.id,
+        organizationId: secondOrganization.id,
+      });
+
+      const now = new Date();
+      const bookingStart = new Date(now.getTime() + 60 * 60 * 1000);
+      const bookingEnd = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+      await EquipmentBooking.create({
+        title: "Second Org Booking",
+        purpose: "Test booking isolation.",
+        status: "confirmed",
+        startTime: bookingStart,
+        endTime: bookingEnd,
+        equipmentId: equipment.id,
+        userId: secondAdmin.id,
+        projectId: secondProject.id,
+        experimentId: experiment.id,
+        organizationId: secondOrganization.id,
+      });
+
+      await NotebookEntry.create({
+        title: "Second Org Notebook Entry",
+        entryType: "observation",
+        content: "This entry belongs only to the second organization.",
+        contentFormat: "plain_text",
+        experimentId: experiment.id,
+        projectId: secondProject.id,
+        authorId: secondAdmin.id,
+        organizationId: secondOrganization.id,
+      });
+
+      const response = await request(app)
+        .get("/api/dashboard/summary")
+        .set("Authorization", `Bearer ${primaryToken}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe("success");
+
+      expect(response.body.data.accessScope).toMatchObject({
+        role: "admin",
+        isProjectScoped: false,
+        accessibleProjectIds: "all_in_organization",
+      });
+
+      expect(response.body.data.metrics).toMatchObject({
+        totalProjects: 0,
+        activeProjects: 0,
+        completedProjects: 0,
+        openTasks: 0,
+        overdueTasks: 0,
+        experimentsNeedingReview: 0,
+        tasksAwaitingCompletionReview: 0,
+        protocolsNeedingReview: 0,
+        totalEquipment: 0,
+        unavailableEquipment: 0,
+        equipmentInUseNow: 0,
+        upcomingBookings: 0,
+      });
+
+      expect(response.body.data.lists).toEqual({
+        tasksDueSoon: [],
+        experimentsNeedingReview: [],
+        tasksAwaitingCompletionReview: [],
+        protocolsNeedingReview: [],
+        upcomingBookings: [],
+        recentProjects: [],
+        recentTasks: [],
+        recentExperiments: [],
+        recentNotebookEntries: [],
+      });
+
+      // Confirm the test data really is visible inside its own organization.
+      const secondResponse = await request(app)
+        .get("/api/dashboard/summary")
+        .set("Authorization", `Bearer ${secondToken}`);
+
+      expect(secondResponse.statusCode).toBe(200);
+      expect(secondResponse.body.status).toBe("success");
+
+      expect(secondResponse.body.data.metrics).toMatchObject({
+        totalProjects: 1,
+        activeProjects: 1,
+        openTasks: 1,
+        experimentsNeedingReview: 1,
+        protocolsNeedingReview: 1,
+        totalEquipment: 1,
+        unavailableEquipment: 1,
+        upcomingBookings: 1,
+      });
+
+      expect(secondResponse.body.data.lists.recentProjects).toHaveLength(1);
+      expect(secondResponse.body.data.lists.recentTasks).toHaveLength(1);
+      expect(
+        secondResponse.body.data.lists.experimentsNeedingReview,
+      ).toHaveLength(1);
+      expect(
+        secondResponse.body.data.lists.protocolsNeedingReview,
+      ).toHaveLength(1);
+      expect(secondResponse.body.data.lists.upcomingBookings).toHaveLength(1);
+      expect(secondResponse.body.data.lists.recentNotebookEntries).toHaveLength(
+        1,
+      );
+    });
+
+    it("does not expose another organization's general protocols", async () => {
+      await Protocol.create({
+        title: "Second Org Unlinked Protocol",
+        version: "1.0",
+        purpose: "Test isolation for a protocol without a project.",
+        content: "This protocol must remain inside the second organization.",
+        approvalStatus: "pending_review",
+        reviewStatus: "pending",
+        projectId: null,
+        equipmentId: null,
+        createdById: secondAdmin.id,
+        organizationId: secondOrganization.id,
+      });
+
+      const response = await request(app)
+        .get("/api/dashboard/summary")
+        .set("Authorization", `Bearer ${primaryToken}`);
+
+      expect(response.statusCode).toBe(200);
+      expect(response.body.status).toBe("success");
+
+      expect(response.body.data.metrics.protocolsNeedingReview).toBe(0);
+      expect(response.body.data.lists.protocolsNeedingReview).toEqual([]);
+    });
   });
 });

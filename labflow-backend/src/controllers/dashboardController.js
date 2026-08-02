@@ -12,16 +12,21 @@ const {
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
 
 const buildDashboardProjectScope = async (user) => {
-  if (!user || !user.id) {
+  if (!user?.id || !user?.organizationId) {
     return {
       isProjectScoped: true,
       accessibleProjectIds: [],
+      organizationWhere: {
+        organizationId: null,
+      },
       projectWhere: {
+        organizationId: null,
         id: {
           [Op.in]: [],
         },
       },
       projectLinkedWhere: {
+        organizationId: null,
         projectId: {
           [Op.in]: [],
         },
@@ -29,12 +34,21 @@ const buildDashboardProjectScope = async (user) => {
     };
   }
 
+  const organizationId = user.organizationId;
+
   if (user.role === "admin") {
     return {
       isProjectScoped: false,
       accessibleProjectIds: null,
-      projectWhere: {},
-      projectLinkedWhere: {},
+      organizationWhere: {
+        organizationId,
+      },
+      projectWhere: {
+        organizationId,
+      },
+      projectLinkedWhere: {
+        organizationId,
+      },
     };
   }
 
@@ -43,12 +57,17 @@ const buildDashboardProjectScope = async (user) => {
   return {
     isProjectScoped: true,
     accessibleProjectIds,
+    organizationWhere: {
+      organizationId,
+    },
     projectWhere: {
+      organizationId,
       id: {
         [Op.in]: accessibleProjectIds,
       },
     },
     projectLinkedWhere: {
+      organizationId,
       projectId: {
         [Op.in]: accessibleProjectIds,
       },
@@ -58,10 +77,11 @@ const buildDashboardProjectScope = async (user) => {
 
 const buildProtocolWhere = (scope) => {
   if (!scope.isProjectScoped) {
-    return {};
+    return { ...scope.organizationWhere };
   }
 
   return {
+    ...scope.organizationWhere,
     [Op.or]: [
       {
         projectId: {
@@ -77,10 +97,11 @@ const buildProtocolWhere = (scope) => {
 
 const buildDashboardTaskWhere = (scope, user) => {
   if (!scope.isProjectScoped) {
-    return {};
+    return { ...scope.organizationWhere };
   }
 
   return {
+    ...scope.organizationWhere,
     [Op.or]: [
       {
         projectId: {
@@ -430,11 +451,14 @@ const getDashboardSummary = async (req, res) => {
       }),
 
       // Count all equipment.
-      Equipment.count(),
+      Equipment.count({
+        where: scope.organizationWhere,
+      }),
 
       // Count equipment that cannot currently be booked.
       Equipment.count({
         where: {
+          ...scope.organizationWhere,
           status: {
             [Op.ne]: "available",
           },
@@ -447,6 +471,7 @@ const getDashboardSummary = async (req, res) => {
         distinct: true,
         col: "equipment_id",
         where: {
+          ...scope.organizationWhere,
           status: "confirmed",
           startTime: {
             [Op.lte]: now,
@@ -595,7 +620,7 @@ const getDashboardSummary = async (req, res) => {
           isProjectScoped: scope.isProjectScoped,
           accessibleProjectIds: scope.isProjectScoped
             ? scope.accessibleProjectIds
-            : "all",
+            : "all_in_organization",
         },
         metrics: {
           totalProjects,
