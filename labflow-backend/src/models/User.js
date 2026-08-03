@@ -118,6 +118,25 @@ const User = sequelize.define(
       allowNull: false,
       field: "organization_id",
     },
+
+    emailVerifiedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "emailVerifiedAt",
+    },
+
+    tokenVersion: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "tokenVersion",
+      validate: {
+        min: {
+          args: [0],
+          msg: "Token version cannot be negative.",
+        },
+      },
+    },
   },
   {
     tableName: "users",

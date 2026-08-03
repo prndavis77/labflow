@@ -37,19 +37,21 @@ const resetTestDatabase = async () => {
   assertSafeTestDatabase();
 
   await sequelize.query(`
-    TRUNCATE TABLE
-      equipment_bookings,
-      notebook_entries,
-      review_events,
-      project_members,
-      protocols,
-      experiments,
-      tasks,
-      equipment,
-      projects,
-      users
-    RESTART IDENTITY CASCADE;
-  `);
+  TRUNCATE TABLE
+    password_reset_tokens,
+    email_verification_tokens,
+    equipment_bookings,
+    notebook_entries,
+    review_events,
+    project_members,
+    protocols,
+    experiments,
+    tasks,
+    equipment,
+    projects,
+    users
+  RESTART IDENTITY CASCADE;
+`);
 };
 
 module.exports = {

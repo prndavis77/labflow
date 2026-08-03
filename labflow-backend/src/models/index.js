@@ -14,6 +14,8 @@ const AuditLog = require("./AuditLog");
 const Organization = require("./Organization");
 const Invitation = require("./Invitation");
 const Attachment = require("./Attachment");
+const PasswordResetToken = require("./PasswordResetToken");
+const EmailVerificationToken = require("./EmailVerificationToken");
 
 AuditLog.belongsTo(User, {
   foreignKey: "actorUserId",
@@ -205,6 +207,46 @@ Attachment.belongsTo(User, {
   as: "archivedBy",
 });
 
+Organization.hasMany(PasswordResetToken, {
+  foreignKey: "organizationId",
+  as: "passwordResetTokens",
+});
+
+PasswordResetToken.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+User.hasMany(PasswordResetToken, {
+  foreignKey: "userId",
+  as: "passwordResetTokens",
+});
+
+PasswordResetToken.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+Organization.hasMany(EmailVerificationToken, {
+  foreignKey: "organizationId",
+  as: "emailVerificationTokens",
+});
+
+EmailVerificationToken.belongsTo(Organization, {
+  foreignKey: "organizationId",
+  as: "organization",
+});
+
+User.hasMany(EmailVerificationToken, {
+  foreignKey: "userId",
+  as: "emailVerificationTokens",
+});
+
+EmailVerificationToken.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 module.exports = {
   User,
   Project,
@@ -220,4 +262,6 @@ module.exports = {
   Organization,
   Invitation,
   Attachment,
+  PasswordResetToken,
+  EmailVerificationToken,
 };
