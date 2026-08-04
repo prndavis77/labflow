@@ -110,8 +110,21 @@ const LoginPage = () => {
               },
             ]}
           >
-            <Input.Password placeholder="Enter your password" />
+            <Input.Password
+              placeholder="Enter your password"
+              autoComplete="current-password"
+            />
           </Form.Item>
+
+          <div
+            style={{
+              marginTop: -12,
+              marginBottom: 16,
+              textAlign: "right",
+            }}
+          >
+            <Link to="/forgot-password">Forgot your password?</Link>
+          </div>
 
           <Button type="primary" htmlType="submit" block loading={isSubmitting}>
             Log In

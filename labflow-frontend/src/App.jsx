@@ -28,7 +28,10 @@ const App = () => {
   const { user, logout, isAuthLoading } = useAuth();
 
   // Auth pages should not show the main app sidebar.
-  const isAuthPage = ["/login", "/register"].includes(location.pathname);
+  const isAuthPage =
+    ["/login", "/register", "/forgot-password"].includes(location.pathname) ||
+    location.pathname.startsWith("/reset-password/") ||
+    location.pathname.startsWith("/accept-invite/");
 
   const handleLogout = () => {
     logout();
