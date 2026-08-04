@@ -63,7 +63,10 @@ export const AuthProvider = ({ children }) => {
     setToken(result.data.token);
     setUser(result.data.user);
 
-    return result.data.user;
+    return {
+      user: result.data.user,
+      emailVerification: result.data.emailVerification || null,
+    };
   }, []);
 
   const logout = useCallback(() => {

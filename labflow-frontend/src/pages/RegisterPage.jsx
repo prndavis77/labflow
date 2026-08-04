@@ -45,7 +45,7 @@ const RegisterPage = () => {
       setErrorMessage("");
       setIsSubmitting(true);
 
-      await register({
+      const registrationResult = await register({
         organizationName: values.organizationName,
         organizationType: values.organizationType,
         name: values.name,
@@ -54,7 +54,12 @@ const RegisterPage = () => {
         department: values.department || null,
       });
 
-      navigate("/dashboard");
+      navigate("/dashboard", {
+        replace: true,
+        state: {
+          registrationEmailVerification: registrationResult.emailVerification,
+        },
+      });
     } catch (error) {
       const message =
         error.response?.data?.message ||

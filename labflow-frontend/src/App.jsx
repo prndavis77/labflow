@@ -1,4 +1,15 @@
-import { Layout, Menu, Typography, Button, Space, Spin, Tag } from "antd";
+import {
+  Alert,
+  Button,
+  Layout,
+  Menu,
+  Space,
+  Spin,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+
 import {
   AuditOutlined,
   CalendarOutlined,
@@ -9,14 +20,22 @@ import {
   HistoryOutlined,
   InboxOutlined,
   LogoutOutlined,
+  MailOutlined,
   ProjectOutlined,
   SettingOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
+
+import { useEffect, useState } from "react";
+
 import { useNavigate, useLocation } from "react-router";
 
 import AppRoutes from "./routes/AppRoutes";
+
 import { useAuth } from "./context/useAuth";
+
+import { requestEmailVerification } from "./api/authApi";
+
 import ScrollToTop from "./components/ScrollToTop";
 
 const { Header, Sider, Content } = Layout;
@@ -25,13 +44,76 @@ const { Title, Text } = Typography;
 const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isAuthLoading } = useAuth();
+  const { user, logout, isAuthLoading, refreshCurrentUser } = useAuth();
+
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
 
   // Auth pages should not show the main app sidebar.
   const isAuthPage =
     ["/login", "/register", "/forgot-password"].includes(location.pathname) ||
     location.pathname.startsWith("/reset-password/") ||
+    location.pathname.startsWith("/verify-email/") ||
     location.pathname.startsWith("/accept-invite/");
+
+  useEffect(() => {
+    const emailVerification = location.state?.registrationEmailVerification;
+
+    if (!emailVerification) {
+      return;
+    }
+
+    if (emailVerification.sent) {
+      message.success(
+        "Your workspace was created. Check your email for the verification link.",
+      );
+    } else if (emailVerification.deliverySkipped) {
+      message.info(
+        "Your workspace was created. Email delivery is disabled in this environment.",
+      );
+    } else {
+      message.warning(
+        "Your workspace was created, but the verification email could not be sent. Use the resend button below.",
+      );
+    }
+
+    navigate(location.pathname, {
+      replace: true,
+      state: null,
+    });
+  }, [location.pathname, location.state, navigate]);
+
+  const handleResendVerification = async () => {
+    try {
+      setIsResendingVerification(true);
+
+      const result = await requestEmailVerification();
+
+      if (result.data?.alreadyVerified) {
+        await refreshCurrentUser();
+
+        message.success("Your email address is already verified.");
+
+        return;
+      }
+
+      if (result.data?.deliverySkipped) {
+        message.info(
+          "A verification link was created, but email delivery is disabled in this environment.",
+        );
+
+        return;
+      }
+
+      message.success("A new verification email has been sent.");
+    } catch (error) {
+      message.error(
+        error.response?.data?.message ||
+          "The verification email could not be sent. Please try again.",
+      );
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -186,6 +268,12 @@ const App = () => {
                 <Text type="secondary">Lab: {user.organization.name}</Text>
               )}
 
+              {user.emailVerifiedAt ? (
+                <Tag color="green">Email Verified</Tag>
+              ) : (
+                <Tag color="orange">Email Unverified</Tag>
+              )}
+
               {user.role && <Tag color="blue">{user.role}</Tag>}
               {user.name && <Text>{user.name}</Text>}
 
@@ -196,6 +284,34 @@ const App = () => {
           </Header>
 
           <Content style={{ margin: "24px" }}>
+            {!user.emailVerifiedAt && (
+              <Alert
+                type="warning"
+                showIcon
+                icon={<MailOutlined />}
+                message="Verify your email address"
+                description={
+                  <>
+                    Your account is active, but your email address has not been
+                    verified. Check your inbox or request a new verification
+                    email.
+                  </>
+                }
+                action={
+                  <Button
+                    size="small"
+                    onClick={handleResendVerification}
+                    loading={isResendingVerification}
+                  >
+                    Resend Verification Email
+                  </Button>
+                }
+                style={{
+                  marginBottom: 24,
+                }}
+              />
+            )}
+
             <AppRoutes />
           </Content>
         </Layout>

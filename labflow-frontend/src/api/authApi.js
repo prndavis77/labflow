@@ -46,3 +46,25 @@ export const completePasswordReset = async ({
 
   return response.data;
 };
+
+export const requestEmailVerification = async () => {
+  const response = await axiosClient.post("/auth/email-verification/request");
+
+  return response.data;
+};
+
+export const getEmailVerificationStatus = async (token) => {
+  const response = await axiosClient.get(
+    `/auth/email-verification/${encodeURIComponent(token)}`,
+  );
+
+  return response.data;
+};
+
+export const completeEmailVerification = async (token) => {
+  const response = await axiosClient.post(
+    `/auth/email-verification/${encodeURIComponent(token)}`,
+  );
+
+  return response.data;
+};
