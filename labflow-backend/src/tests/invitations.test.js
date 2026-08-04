@@ -525,6 +525,7 @@ describe("Invitations API", () => {
     expect(user.canEditExperiments).toBe(true);
     expect(user.canCreateProtocols).toBe(false);
     expect(user.canEditProtocols).toBe(false);
+    expect(user.emailVerifiedAt).toBeInstanceOf(Date);
 
     const invitation = await Invitation.findOne({
       where: { email: "invited.researcher@test.com" },
@@ -533,6 +534,11 @@ describe("Invitations API", () => {
     expect(invitation.status).toBe("accepted");
     expect(invitation.acceptedUserId).toBe(user.id);
     expect(invitation.acceptedAt).toBeTruthy();
+    expect(invitation.acceptedAt).toBeInstanceOf(Date);
+
+    expect(user.emailVerifiedAt.getTime()).toBe(
+      invitation.acceptedAt.getTime(),
+    );
   });
 
   it("prevents an accepted invitation from being reused", async () => {

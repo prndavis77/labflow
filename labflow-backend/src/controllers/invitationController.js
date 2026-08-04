@@ -763,6 +763,8 @@ const acceptInvitation = async (req, res) => {
 
     transaction = await User.sequelize.transaction();
 
+    const acceptedAt = new Date();
+
     const user = await User.create(
       {
         name: invitation.name,
@@ -772,6 +774,7 @@ const acceptInvitation = async (req, res) => {
         department: invitation.department || null,
         organizationId: invitation.organizationId,
         isActive: true,
+        emailVerifiedAt: acceptedAt,
         canCreateExperiments:
           invitation.role === "researcher"
             ? invitation.canCreateExperiments
@@ -793,7 +796,7 @@ const acceptInvitation = async (req, res) => {
     await invitation.update(
       {
         status: "accepted",
-        acceptedAt: new Date(),
+        acceptedAt,
         acceptedUserId: user.id,
       },
       { transaction },

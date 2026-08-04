@@ -20,6 +20,18 @@ const {
   sendPasswordResetEmail,
 } = require("../services/passwordResetEmailService");
 
+const {
+  EmailVerificationError,
+  createEmailVerificationRequest,
+  invalidateEmailVerificationToken,
+  validateEmailVerificationToken,
+  verifyEmailWithToken,
+} = require("../services/emailVerificationService");
+
+const {
+  sendEmailVerificationEmail,
+} = require("../services/emailVerificationEmailService");
+
 const SALT_ROUNDS = 12;
 
 const ORGANIZATION_TYPES = ["lab", "department", "institution", "company"];
@@ -29,6 +41,15 @@ const PASSWORD_RESET_PUBLIC_MESSAGE =
 
 const PASSWORD_RESET_INVALID_MESSAGE =
   "The password reset link is invalid or has expired.";
+
+const EMAIL_VERIFICATION_INVALID_MESSAGE =
+  "The email verification link is invalid or has expired.";
+
+const EMAIL_VERIFICATION_SENT_MESSAGE =
+  "A verification email has been sent. Please check your inbox.";
+
+const EMAIL_ALREADY_VERIFIED_MESSAGE =
+  "Your email address is already verified.";
 
 const normalizeEmail = (email) => {
   return String(email || "")
@@ -59,6 +80,61 @@ const getFrontendBaseUrl = () => {
     /\/+$/,
     "",
   );
+};
+
+const sendRegistrationVerificationEmail = async ({ userId, requestIp }) => {
+  const verificationRequest = await createEmailVerificationRequest({
+    userId,
+    requestIp,
+  });
+
+  if (!verificationRequest.created) {
+    return {
+      created: false,
+      accepted: false,
+      skipped: false,
+      reason: verificationRequest.reason || "verification_request_not_created",
+    };
+  }
+
+  const verificationLink =
+    `${getFrontendBaseUrl()}` +
+    `/verify-email/` +
+    `${verificationRequest.rawToken}`;
+
+  let emailDelivery;
+
+  try {
+    emailDelivery = await sendEmailVerificationEmail({
+      to: verificationRequest.user.email,
+      userName: verificationRequest.user.name,
+      organizationName: verificationRequest.user.organizationName,
+      verificationLink,
+      expiresAt: verificationRequest.expiresAt,
+    });
+  } catch (deliveryError) {
+    console.error(
+      "Registration verification email delivery error",
+      deliveryError,
+    );
+
+    emailDelivery = {
+      accepted: false,
+      skipped: false,
+    };
+  }
+
+  if (!emailDelivery.accepted && !emailDelivery.skipped) {
+    await invalidateEmailVerificationToken({
+      verificationTokenId: verificationRequest.verificationTokenId,
+    });
+  }
+
+  return {
+    created: true,
+    accepted: Boolean(emailDelivery.accepted),
+    skipped: Boolean(emailDelivery.skipped),
+  };
 };
 
 const registerUser = async (req, res) => {
@@ -144,6 +220,7 @@ const registerUser = async (req, res) => {
         department,
         organizationId: organization.id,
         isActive: true,
+        emailVerifiedAt: null,
       },
       {
         transaction,
@@ -162,14 +239,44 @@ const registerUser = async (req, res) => {
       ],
     });
 
+    let emailVerification = {
+      created: false,
+      accepted: false,
+      skipped: false,
+    };
+
+    try {
+      emailVerification = await sendRegistrationVerificationEmail({
+        userId: createdUser.id,
+        requestIp: getRequestIp(req),
+      });
+    } catch (verificationError) {
+      /*
+       * The organization and administrator have already been
+       * committed. Verification-email problems must not turn a
+       * successful registration into a 500 response.
+       *
+       * The authenticated resend endpoint can issue another
+       * verification token later.
+       */
+      console.error("Registration verification setup error", verificationError);
+    }
+
     const token = generateToken(createdUser);
 
     return res.status(201).json({
       status: "success",
-      message: "Organization and administrator account created successfully.",
+      message: emailVerification.accepted
+        ? "Organization and administrator account created successfully. Check your email to verify your address."
+        : "Organization and administrator account created successfully.",
       data: {
         user: formatUserResponse(createdUser),
         token,
+        emailVerification: {
+          required: true,
+          sent: emailVerification.accepted,
+          deliverySkipped: emailVerification.skipped,
+        },
       },
     });
   } catch (error) {
@@ -425,6 +532,179 @@ const completePasswordReset = async (req, res) => {
   }
 };
 
+const requestEmailVerification = async (req, res) => {
+  try {
+    const verificationRequest = await createEmailVerificationRequest({
+      userId: req.user.id,
+      requestIp: getRequestIp(req),
+    });
+
+    if (
+      verificationRequest.alreadyVerified ||
+      verificationRequest.reason === "already_verified"
+    ) {
+      return res.status(200).json({
+        status: "success",
+        message: EMAIL_ALREADY_VERIFIED_MESSAGE,
+        data: {
+          alreadyVerified: true,
+        },
+      });
+    }
+
+    if (!verificationRequest.created) {
+      return res.status(400).json({
+        status: "error",
+        message: "A verification email could not be created for this account.",
+      });
+    }
+
+    const verificationLink =
+      `${getFrontendBaseUrl()}` +
+      `/verify-email/` +
+      `${verificationRequest.rawToken}`;
+
+    let emailDelivery;
+
+    try {
+      emailDelivery = await sendEmailVerificationEmail({
+        to: verificationRequest.user.email,
+        userName: verificationRequest.user.name,
+        organizationName: verificationRequest.user.organizationName,
+        verificationLink,
+        expiresAt: verificationRequest.expiresAt,
+      });
+    } catch (deliveryError) {
+      console.error("Email verification delivery error", deliveryError);
+
+      emailDelivery = {
+        accepted: false,
+        skipped: false,
+      };
+    }
+
+    if (!emailDelivery.accepted && !emailDelivery.skipped) {
+      await invalidateEmailVerificationToken({
+        verificationTokenId: verificationRequest.verificationTokenId,
+      });
+
+      return res.status(503).json({
+        status: "error",
+        message:
+          "The verification email could not be sent. Please try again later.",
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: emailDelivery.skipped
+        ? "Email verification was created, but email delivery is disabled in this environment."
+        : EMAIL_VERIFICATION_SENT_MESSAGE,
+      data: {
+        alreadyVerified: false,
+        deliverySkipped: Boolean(emailDelivery.skipped),
+      },
+    });
+  } catch (error) {
+    console.error("Email verification request error", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "An error occurred while requesting email verification.",
+    });
+  }
+};
+
+const getEmailVerificationStatus = async (req, res) => {
+  try {
+    const rawToken = String(req.params.token || "").trim();
+
+    const result = await validateEmailVerificationToken({
+      rawToken,
+    });
+
+    if (result.alreadyVerified) {
+      return res.status(200).json({
+        status: "success",
+        message: EMAIL_ALREADY_VERIFIED_MESSAGE,
+        data: {
+          alreadyVerified: true,
+          verifiedAt: result.verifiedAt || null,
+        },
+      });
+    }
+
+    if (!result.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: EMAIL_VERIFICATION_INVALID_MESSAGE,
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "The email verification link is valid.",
+      data: {
+        alreadyVerified: false,
+        expiresAt: result.expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error("Email verification validation error", error);
+
+    return res.status(500).json({
+      status: "error",
+      message:
+        "An error occurred while validating the email verification link.",
+    });
+  }
+};
+
+const completeEmailVerification = async (req, res) => {
+  try {
+    const rawToken = String(req.params.token || "").trim();
+
+    if (!rawToken) {
+      return res.status(400).json({
+        status: "error",
+        message: EMAIL_VERIFICATION_INVALID_MESSAGE,
+      });
+    }
+
+    const result = await verifyEmailWithToken({
+      rawToken,
+    });
+
+    return res.status(200).json({
+      status: "success",
+      message: result.alreadyVerified
+        ? EMAIL_ALREADY_VERIFIED_MESSAGE
+        : "Your email address has been verified successfully.",
+      data: {
+        alreadyVerified: result.alreadyVerified,
+        verifiedAt: result.verifiedAt,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof EmailVerificationError &&
+      error.code === "INVALID_OR_EXPIRED_TOKEN"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: EMAIL_VERIFICATION_INVALID_MESSAGE,
+      });
+    }
+
+    console.error("Email verification completion error", error);
+
+    return res.status(500).json({
+      status: "error",
+      message: "An error occurred while verifying the email address.",
+    });
+  }
+};
+
 const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
@@ -466,5 +746,8 @@ module.exports = {
   requestPasswordReset,
   getPasswordResetStatus,
   completePasswordReset,
+  requestEmailVerification,
+  getEmailVerificationStatus,
+  completeEmailVerification,
   getCurrentUser,
 };
