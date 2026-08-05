@@ -81,6 +81,11 @@ LabFlow centralizes core research lab workflows into one system:
 - Safe partial-failure behavior when email delivery is unavailable
 - Session clearing and login handoff after invitation acceptance
 - Secure invitation token hashing and one-time acceptance
+- Self-service password reset with 30-minute token expiry
+- Email verification with 24-hour token expiry and resend support
+- Restricted workspace access for unverified accounts
+- JWT `tokenVersion` invalidation after password changes
+- Automatic frontend logout and one-time notice for invalidated sessions
 - Organization-scoped demo seed behavior
 
 The result is a working MVP that models how research work, supervision, review, and shared equipment usage can fit together in a single full-stack web application.
@@ -117,6 +122,12 @@ I designed and built the full-stack MVP, including:
 - Private Cloudflare R2 attachment architecture
 - Direct signed upload and download workflow
 - Cross-entity attachment authorization and reusable frontend components
+- Self-service password-reset architecture and frontend flow
+- Email-verification workflow and unverified-account restrictions
+- JWT `tokenVersion` session invalidation
+- Frontend stale-session handling and login redirect
+- Password-reset and email-verification email templates
+- Account-security automated and manual regression testing
 
 ## Tech Stack
 
@@ -258,6 +269,18 @@ Production responses do not expose raw invitation links. Development and test re
 
 After invitation acceptance, the frontend clears any existing browser session before redirecting to login. This prevents a previously logged-in administrator session from remaining active when the invited researcher finishes onboarding. The invited email is prefilled on the login page.
 
+### Password Reset, Email Verification, and Session Invalidation
+
+LabFlow now includes self-service account recovery and verified-email enforcement.
+
+Password-reset and email-verification links use random raw tokens, while PostgreSQL stores only SHA-256 hashes. Reset links expire after 30 minutes, and verification links expire after 24 hours. Requesting another verification email replaces earlier unused verification tokens. A successful password reset consumes the reset token and invalidates existing JWT sessions through `tokenVersion`.
+
+Public workspace registration creates an unverified first administrator. The authenticated user can view the current account and request another verification email, but normal workspace APIs return `403 EMAIL_VERIFICATION_REQUIRED` until verification succeeds. Invitation-created users are marked verified during successful invitation acceptance.
+
+JWTs contain the user’s current `tokenVersion`. Self-service and administrator password resets increment the database version. Any previously issued JWT then returns `401 SESSION_INVALIDATED`. The React frontend removes the stored token, clears authentication state, redirects to login, and displays a one-time message.
+
+This design allows email verification to take effect immediately without issuing a replacement JWT, while password changes invalidate all older sessions.
+
 ### Equipment Booking Conflict Prevention
 
 LabFlow prevents overlapping confirmed bookings for the same equipment at the backend level.
@@ -390,7 +413,7 @@ This is a stronger deployment path than relying on automatic schema sync for fut
 
 The backend includes automated tests using Jest and Supertest.
 
-The backend test suite includes comprehensive coverage for authentication, authorization, organization isolation, invitation email configuration, templates, provider behavior, delivery tracking, resend, token invalidation, archive recovery, attachments, review workflows, and transactional rollback.
+The backend test suite includes comprehensive coverage for authentication, password reset, email verification, unverified-account restrictions, JWT session invalidation, authorization, organization isolation, invitation email configuration, templates, provider behavior, delivery tracking, resend, archive recovery, attachments, review workflows, and transactional rollback.
 
 The tests cover authentication, role-based access, organization-scoped data isolation, audit logs, archive behavior, researcher review policy, workspace registration, organization slug generation, invitation onboarding, transactional rollback behavior, and organization settings.
 
@@ -425,6 +448,18 @@ The tests cover authentication, role-based access, organization-scoped data isol
 - Old-token invalidation and new-token acceptance
 - Accepted and revoked invitation resend restrictions
 - Production-safe invite-link behavior
+
+Additional account-security coverage includes:
+
+- Password-reset token creation, validation, expiry, consumption, and delivery failure handling
+- Email-verification token creation, resend, expiry, consumption, and secret-leak prevention
+- Unverified-account API restrictions and allowed verification exceptions
+- Legacy JWT compatibility while `tokenVersion` remains zero
+- Stale JWT rejection after self-service and administrator password resets
+- Fresh-login acceptance after password reset
+- Exact `401 SESSION_INVALIDATED` backend responses for stale JWTs
+
+The frontend stale-session flow was manually verified by invalidating a logged-in user’s token version, confirming automatic logout, token removal, redirect to login, and a one-time session-invalidated notice.
 
 A test database safety guard prevents destructive test cleanup from running unless `NODE_ENV` is set to `test` and the configured database name contains `test`.
 
@@ -622,7 +657,7 @@ The appropriate response is to submit the hostname for Kaspersky reanalysis and 
 
 ## Result
 
-LabFlow MVP Version 1.5 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.6 is complete and deployed as a portfolio/demo application.
 
 The project includes:
 
@@ -644,6 +679,11 @@ The project includes:
 - Invitation delivery tracking and partial-failure handling
 - Admin-only backend invitation resend with token rotation, renewed expiration, and audit logging
 - Existing-session clearing and login handoff after invitation acceptance
+- Self-service password reset with 30-minute token expiry
+- Email verification with 24-hour token expiry and resend support
+- Unverified-account access restrictions
+- JWT `tokenVersion` invalidation after password resets
+- Frontend stale-session cleanup, redirect, and one-time notice
 - Transactional registration and invitation acceptance
 - Multi-organization-safe demo seed behavior
 - Secure research attachments for projects, tasks, experiments, protocols, and equipment
@@ -668,7 +708,7 @@ Current limitations include:
 
 - The generated Vercel demo hostname is currently classified as phishing by Kaspersky's reputation database. A reanalysis request is needed, and a stable custom domain is planned.
 - No rich-text editor or PDF export for experiment notebooks
-- Invitation email delivery is implemented and verified locally, but production Mailgun delivery still requires deployment configuration and verification. Email verification, self-service password reset, task reminders, booking reminders, and broader notification preferences are not yet included.
+- Password reset, email verification, invitation delivery, verification resend, and stale-session handling are implemented. Production verification covered workspace registration, verification-email delivery, resend, verification completion, and immediate post-verification access. Task reminders, booking reminders, and broader notification preferences are not yet included.
 - Local Mailgun keys should currently be injected into the backend process or stored in an operating-system secret store rather than saved in the local `.env` file, because repeated automated key disabling was observed when stored there.
 - No frontend automated tests yet
 - No production-grade monitoring or centralized logging
@@ -691,7 +731,6 @@ Recommended future improvements include:
 - Expanded organization administration and tenant policies
 - Multi-organization membership and organization switching
 - Subscription and billing support
-- Email verification and self-service password reset
 - Task, review, and booking notification preferences
 - Secure local secret storage through Windows Credential Manager or PowerShell SecretManagement
 - Production monitoring, centralized logging, alerting, and automated deployment/migration workflows

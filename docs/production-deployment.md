@@ -35,7 +35,9 @@ LabFlow uses Sequelize migrations for production schema changes. Production migr
 
 ## Commands
 
-From `labflow-backend`:
+Run these commands from `labflow-backend`, not the monorepo root. Running `npx sequelize-cli` from the root may prompt to install another copy because the dependency is installed in the backend package.
+
+When the hosting plan does not provide a backend shell, migrations may be run from a local PowerShell session that is temporarily pointed at the production database:
 
 ```powershell
 $env:DATABASE_URL="YOUR_PRODUCTION_DATABASE_URL"
@@ -45,9 +47,69 @@ npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
 npm run migrate
 npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
 
-Remove-Item Env:DATABASE_URL
-Remove-Item Env:NODE_ENV
+Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:NODE_ENV -ErrorAction SilentlyContinue
 ```
+
+Confirm the temporary production URL is gone:
+
+```powershell
+[bool]$env:DATABASE_URL
+```
+
+Expected:
+
+```text
+False
+```
+
+Do not run tests, seed commands, or ad hoc destructive scripts while the production `DATABASE_URL` is active.
+
+## Password Reset and Email Verification Deployment
+
+The production schema must include the user email-verification and token-version columns, plus the password-reset-token and email-verification-token tables created by the Phase 24B migrations.
+
+Confirm the migration is applied:
+
+```powershell
+npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
+```
+
+Mailgun must be configured on the deployed backend:
+
+```text
+EMAIL_PROVIDER=mailgun
+EMAIL_FROM_NAME=LabFlow
+EMAIL_FROM_ADDRESS=<verified sender>
+MAILGUN_API_KEY=<secret>
+MAILGUN_DOMAIN=<configured domain>
+MAILGUN_API_BASE_URL=https://api.mailgun.net
+```
+
+Use `https://api.eu.mailgun.net` for an EU-region Mailgun domain.
+
+### Completed production verification
+
+1. Register a new workspace.
+2. Confirm the administrator is authenticated but marked unverified.
+3. Confirm normal workspace API calls return `403 EMAIL_VERIFICATION_REQUIRED`.
+4. Confirm the initial verification email arrives.
+5. Use Resend Verification Email and confirm a replacement message arrives.
+6. Verify the email through the explicit confirmation button.
+7. Confirm the user returns to the dashboard without logging in again.
+8. Confirm protected workspace data loads and the unverified banner disappears.
+
+### Remaining production verification
+
+1. Request a password-reset email.
+2. Confirm the password-reset email arrives and opens the deployed frontend route.
+3. Complete the reset.
+4. Confirm an older JWT returns `401 SESSION_INVALIDATED`.
+5. Confirm the frontend removes the old token, redirects to login, and shows the notice once.
+6. Refresh the login page and confirm the notice does not repeat.
+7. Log in with the new password and confirm the fresh JWT works.
+
+Do not record raw reset or verification tokens in logs or documentation.
 
 ## Attachment Storage Deployment
 
@@ -88,36 +150,13 @@ The R2 account ID, access key, secret key, and bucket name are secrets or deploy
 
 Before enabling attachment routes in production:
 
-```bash
-npm run migrate:status
+```powershell
+npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
 npm run migrate
-npm run migrate:status
+npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
 ```
 
 Confirm that the attachment migration is listed as applied.
-
-### Deployment verification
-
-After deploying the backend:
-
-```txt
-GET /api/health
-```
-
-Then verify with an authenticated test account:
-
-1. Initiate an attachment upload.
-2. Upload a permitted test file through the signed URL.
-3. Complete the upload.
-4. List the target record’s attachments.
-5. Request a signed download URL.
-6. Download the test object.
-7. Update its category or description.
-8. Archive it.
-9. Confirm that archived attachments are excluded from normal reads.
-10. Run the pending-upload cleanup command manually.
-
-Do not test with sensitive laboratory or research files.
 
 ### Cleanup scheduling
 

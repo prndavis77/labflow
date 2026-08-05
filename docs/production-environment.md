@@ -62,3 +62,22 @@ The bucket must remain private.
 Provider: Mailgun
 
 Production credentials are stored only in the Render backend environment.
+
+## Account Security Behavior
+
+Password-reset, email-verification, and JWT expiry values are currently defined as application constants rather than environment variables.
+
+Current application constants:
+
+- Password-reset token expiry: 30 minutes
+- Email-verification token expiry: 24 hours
+- JWT expiry: 7 days
+- JWT session invalidation: database-backed `tokenVersion`
+
+Production Mailgun configuration is required for invitation, password-reset, and email-verification delivery.
+
+## Deployment Safety
+
+If migrations must be run locally against Neon because the Render plan has no shell, set `DATABASE_URL` and `NODE_ENV=production` only for the active PowerShell session. Remove both variables immediately after migration and confirm `DATABASE_URL` is no longer present.
+
+Never run `npm test` while the production database URL is active. The test helper also refuses destructive resets unless the database name contains `test`.

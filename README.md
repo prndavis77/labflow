@@ -19,7 +19,7 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 ## Project Status
 
-LabFlow MVP Version 1.5 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.6 is complete and deployed as a portfolio/demo application.
 
 This version includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral invitation email delivery with Mailgun support verified locally, invitation delivery tracking, an admin-only backend resend workflow, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
 
@@ -28,6 +28,25 @@ LabFlow now includes end-to-end research file attachments for projects, tasks, e
 Attachment access follows the linked record's permissions. Admins and authorized supervisors can manage all attachments within their scope. Researchers can upload where the parent workflow allows contribution and can edit or archive only files they uploaded. Read-only users can view and download attachments without seeing upload or management actions.
 
 The backend includes a comprehensive Jest and Supertest suite covering authentication, authorization, organization isolation, invitations, email delivery, archive recovery, attachments, review workflows, and transactional rollback behavior.
+
+### Phase 24B: Account Recovery, Email Verification, and Session Security
+
+Completed:
+
+- Added self-service forgot-password and password-reset flows.
+- Added cryptographically secure reset tokens, stored only as SHA-256 hashes.
+- Added a 30-minute password-reset expiration window.
+- Added branded HTML and plain-text password-reset emails through the provider-neutral email layer.
+- Added email verification for publicly registered workspace administrators.
+- Added cryptographically secure verification tokens, stored only as SHA-256 hashes.
+- Added a 24-hour email-verification expiration window and authenticated resend support.
+- Marked invitation-created accounts as verified when invitation acceptance completes.
+- Restricted unverified accounts from normal protected workspace APIs while keeping login, current-user lookup, verification, and resend available.
+- Added `tokenVersion` to JWTs and invalidated stale sessions after self-service or administrator password resets.
+- Added frontend handling for `SESSION_INVALIDATED`, including token removal, redirect to login, and a one-time notice.
+- Added focused and regression tests for password reset, email verification, unverified-account restrictions, and JWT invalidation.
+- Verified the complete backend suite with 32 suites and 514 tests.
+- Verified production workspace registration, verification delivery, resend, verification completion, and immediate post-verification access without another login.
 
 ### Phase 23A: Invitation Email Delivery
 
@@ -219,11 +238,47 @@ LabFlow provides a structured system for managing these workflows in one place.
 - Invitation delivery tracking and an admin-only backend resend workflow
 - Existing-session clearing after invitation acceptance before login
 - User login
-- JWT-based authentication
+- Self-service forgot-password and password-reset flow
+- 30-minute password-reset token expiration
+- Email verification for publicly registered workspace administrators
+- 24-hour email-verification token expiration
+- Authenticated verification-email resend
+- Invitation-created accounts marked verified on acceptance
+- Unverified-account restrictions on normal protected workspace APIs
+- JWT-based authentication with `tokenVersion` session invalidation
 - Persistent login using stored token
+- Automatic frontend logout and login redirect for invalidated sessions
 - Logout flow
 - Protected frontend routes
 - Protected backend API routes
+
+### Password Reset, Email Verification, and Session Invalidation
+
+Public workspace administrators must verify their email address before using normal workspace APIs. Registration still creates the workspace and authenticated session, but the frontend displays a verification banner and the backend returns:
+
+```json
+{
+  "status": "error",
+  "code": "EMAIL_VERIFICATION_REQUIRED",
+  "message": "Verify your email address before using this feature."
+}
+```
+
+Verification links expire after 24 hours. Requesting another verification email invalidates earlier unused links. Invitation-created accounts are marked verified when invitation acceptance succeeds because the invitation email already proves control of the invited address.
+
+Password-reset links expire after 30 minutes. Reset and verification tokens are generated randomly, while only SHA-256 hashes are stored in PostgreSQL.
+
+Every JWT contains the user’s current `tokenVersion`. A self-service password reset or administrator password reset increments that database value. Older JWTs then receive:
+
+```json
+{
+  "status": "error",
+  "code": "SESSION_INVALIDATED",
+  "message": "Your session is no longer valid. Please log in again."
+}
+```
+
+The frontend removes the stale token, clears authentication state, redirects to login, and displays the message once.
 
 ### Role-Based Access Control
 
@@ -457,7 +512,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 
 ---
 
-## MVP Version 1.5 Features
+## MVP Version 1.6 Features
 
 - Experiment-linked notebook entries
 - Review Queue for supervisor/admin review workflows
@@ -545,7 +600,7 @@ This layered model allows LabFlow to combine global user roles, project-specific
 - Direct signed uploads to private Cloudflare R2 storage
 - Signed downloads with storage-object verification
 - Cross-entity attachment permission tests
-- Backend test coverage for authentication, authorization, organization isolation, invitations, email delivery, resend, attachments, archive recovery, review workflows, and rollback behavior
+- Backend test coverage for authentication, password reset, email verification, JWT invalidation, authorization, organization isolation, invitations, email delivery, resend, attachments, archive recovery, review workflows, and rollback behavior
 
 ### Dashboard
 
@@ -1303,7 +1358,7 @@ labflow/
 
 ## Database Models
 
-LabFlow MVP Version 1.5 includes the following main models.
+LabFlow MVP Version 1.6 includes the following main models.
 
 ### User
 
@@ -1461,7 +1516,16 @@ Attachment access follows access to the linked LabFlow record.
 ```txt
 POST /api/auth/register
 POST /api/auth/login
-GET /api/auth/me
+POST /api/auth/forgot-password
+
+GET  /api/auth/password-reset/:token
+POST /api/auth/password-reset/:token
+
+POST /api/auth/email-verification/request
+GET  /api/auth/email-verification/:token
+POST /api/auth/email-verification/:token
+
+GET  /api/auth/me
 ```
 
 ### Users
@@ -1642,7 +1706,7 @@ LabFlow now includes a Sequelize migration baseline for the current MVP schema. 
 
 The `npm run setup:db` command is kept only as a legacy/demo fallback from the original MVP deployment path. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
 
-Before LabFlow is used as real production software, additional hardening would still be required, including email verification, centralized logging, monitoring, stricter secrets management, account lockout rules, expanded tenant administration, immutable audit controls, and a more complete production deployment process.
+Before LabFlow is used as real production software, additional hardening would still be required, including centralized logging, monitoring, stricter secrets management, account lockout rules, expanded tenant administration, immutable audit controls, and a more complete automated production deployment process.
 
 ### Production Deployment Safety
 
@@ -1908,7 +1972,7 @@ The seeded workspace includes admins, supervisors, researchers with different wo
 
 ## Manual Regression Test Coverage
 
-LabFlow MVP Version 1.5 was manually tested across the following workflows:
+LabFlow MVP Version 1.6 was manually tested across the following workflows:
 
 ### Authentication
 
@@ -1920,6 +1984,18 @@ LabFlow MVP Version 1.5 was manually tested across the following workflows:
 - Persist login after refresh
 - Logout
 - Prevent logged-in users from accessing login/register pages
+- Request a password-reset email
+- Reject expired, invalid, and reused password-reset links
+- Reset a password successfully
+- Invalidate existing sessions after a self-service password reset
+- Verify a newly registered workspace administrator email
+- Resend an email-verification link
+- Reject expired and replaced verification links
+- Restrict unverified accounts from normal workspace APIs
+- Allow immediate workspace access after verification without another login
+- Invalidate existing sessions after an administrator password reset
+- Redirect an invalidated frontend session to login
+- Display the session-invalidated notice only once
 
 ### Projects
 
@@ -2174,6 +2250,21 @@ Covered backend areas include:
 - Old-token invalidation and new-token acceptance
 - Accepted and revoked invitation resend restrictions
 - Production-safe raw-link behavior
+- Forgot-password response behavior without account enumeration
+- Password-reset token creation, hashing, expiration, and one-time use
+- Password reset with invalid and expired tokens
+- Password-reset email configuration and templates
+- Email-verification token creation, hashing, expiration, replacement, and one-time use
+- Verification-email resend behavior
+- Invitation-created account verification
+- Unverified-account restrictions
+- Allowed authentication routes for unverified accounts
+- JWT `tokenVersion` claims
+- Stale-session rejection after self-service password reset
+- Stale-session rejection after administrator password reset
+- Legacy JWT handling
+- Malformed JWT token-version rejection
+- Session invalidation before email-verification restriction handling
 
 Run backend tests from the backend folder:
 
@@ -2223,13 +2314,13 @@ Admins can confirm or reopen any task completion request, including standalone t
 
 ## Current Limitations
 
-LabFlow MVP Version 1.5 is intentionally focused on core workflows.
+LabFlow MVP Version 1.6 is intentionally focused on core workflows.
 
 Current limitations include:
 
 - The generated Vercel demo hostname is currently classified as phishing by Kaspersky's reputation database. A Kaspersky reanalysis request is needed, and a stable custom domain is planned.
 - Organization ownership, backend isolation, public workspace creation, invitation onboarding, and basic organization settings are included, but multi-organization memberships, organization switching, billing, subscription management, custom domains, and full institutional tenant administration are not yet implemented.
-- Invitation email delivery is implemented and verified locally, but production Mailgun delivery still requires deployment configuration and verification. Email verification, self-service password reset, overdue-task notifications, booking reminders, and broader notification preferences are not yet included.
+- Invitation, password-reset, and email-verification delivery are implemented through the provider-neutral email layer, with Mailgun configured for the deployed demo. Overdue-task notifications, booking reminders, and broader notification preferences are not yet included.
 - Local Mailgun keys should not currently be stored in the local `.env` file because repeated automated key disabling was observed. Production secrets should be stored in Render, and local keys should be injected at process startup or loaded from an operating-system secret store.
 - Dashboard project-linked metrics are role-aware, but equipment inventory remains organization-wide because equipment is not project-owned.
 - Audit logging exists for important admin, review, restore, invitation, and delivery-related actions, but it is not immutable and does not yet include export, retention policies, signatures, or locked review controls.
@@ -2274,7 +2365,6 @@ Recommended Version 2 improvements:
 - Expanded organization administration, including logos, addresses, contacts, organization administrators, and tenant policies
 - Multi-organization memberships and organization switching
 - Subscription and billing support
-- Email verification and self-service password reset
 - Notification preferences, overdue-task alerts, booking reminders, and review notifications
 - Secure local secret storage through Windows Credential Manager or PowerShell SecretManagement
 - Production monitoring, centralized logging, alerting, and automated migration/deployment workflows
