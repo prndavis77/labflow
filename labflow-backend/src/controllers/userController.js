@@ -419,7 +419,10 @@ const resetUserPassword = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    await user.update({ passwordHash });
+    await user.update({
+      passwordHash,
+      tokenVersion: Number(user.tokenVersion || 0) + 1,
+    });
 
     await writeAuditLog({
       req,

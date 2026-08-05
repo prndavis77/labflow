@@ -6,6 +6,11 @@ const EMAIL_VERIFICATION_REQUIRED_CODE = "EMAIL_VERIFICATION_REQUIRED";
 const EMAIL_VERIFICATION_REQUIRED_MESSAGE =
   "Verify your email address before using this feature.";
 
+const SESSION_INVALIDATED_CODE = "SESSION_INVALIDATED";
+
+const SESSION_INVALIDATED_MESSAGE =
+  "Your session is no longer valid. Please log in again.";
+
 const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -27,6 +32,21 @@ const protect = async (req, res, next) => {
       return res.status(404).json({
         status: "error",
         message: "User not found.",
+      });
+    }
+
+    const decodedTokenVersion = Number(decoded.tokenVersion ?? 0);
+
+    const currentTokenVersion = Number(user.tokenVersion || 0);
+
+    if (
+      !Number.isInteger(decodedTokenVersion) ||
+      decodedTokenVersion !== currentTokenVersion
+    ) {
+      return res.status(401).json({
+        status: "error",
+        code: SESSION_INVALIDATED_CODE,
+        message: SESSION_INVALIDATED_MESSAGE,
       });
     }
 
@@ -96,4 +116,6 @@ module.exports = {
   requireVerifiedEmail,
   EMAIL_VERIFICATION_REQUIRED_CODE,
   EMAIL_VERIFICATION_REQUIRED_MESSAGE,
+  SESSION_INVALIDATED_CODE,
+  SESSION_INVALIDATED_MESSAGE,
 };

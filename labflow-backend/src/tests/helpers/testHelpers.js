@@ -32,6 +32,7 @@ const createTestUser = async ({
   canEditProtocols = true,
   requiresReview = true,
   emailVerifiedAt = new Date("2026-01-01T00:00:00.000Z"),
+  tokenVersion = 0,
 }) => {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, TEST_BCRYPT_ROUNDS);
 
@@ -52,6 +53,7 @@ const createTestUser = async ({
     canEditProtocols,
     requiresReview,
     emailVerifiedAt,
+    tokenVersion,
   });
 };
 

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { message } from "antd";
+
 import { AuthContext } from "./AuthContext";
 import { getCurrentUser, loginUser, registerUser } from "../api/authApi";
+import {
+  SESSION_INVALIDATED_EVENT,
+  SESSION_INVALIDATED_NOTICE_KEY,
+} from "../api/axiosClient";
 
 export const AuthProvider = ({ children }) => {
   // Keep token in state so React reacts consistently when login/logout changes it
@@ -12,12 +18,51 @@ export const AuthProvider = ({ children }) => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
+    const handleSessionInvalidated = () => {
+      localStorage.removeItem("labflow_token");
+
+      setToken(null);
+      setUser(null);
+      setIsAuthLoading(false);
+    };
+
+    window.addEventListener(
+      SESSION_INVALIDATED_EVENT,
+      handleSessionInvalidated,
+    );
+
+    return () => {
+      window.removeEventListener(
+        SESSION_INVALIDATED_EVENT,
+        handleSessionInvalidated,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const sessionNotice = sessionStorage.getItem(
+      SESSION_INVALIDATED_NOTICE_KEY,
+    );
+
+    if (!sessionNotice) {
+      return;
+    }
+
+    sessionStorage.removeItem(SESSION_INVALIDATED_NOTICE_KEY);
+
+    message.warning(sessionNotice);
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     const loadCurrentUser = async () => {
       try {
         if (!token) {
-          setUser(null);
+          if (isMounted) {
+            setUser(null);
+          }
+
           return;
         }
 
@@ -27,12 +72,19 @@ export const AuthProvider = ({ children }) => {
           setUser(result.data.user);
         }
       } catch (error) {
-        console.error("Failed to load current user:", error);
-        localStorage.removeItem("labflow_token");
+        const isSessionInvalidated =
+          error.response?.status === 401 &&
+          error.response?.data?.code === "SESSION_INVALIDATED";
 
-        if (isMounted) {
-          setToken(null);
-          setUser(null);
+        if (!isSessionInvalidated) {
+          console.error("Failed to load current user:", error);
+
+          localStorage.removeItem("labflow_token");
+
+          if (isMounted) {
+            setToken(null);
+            setUser(null);
+          }
         }
       } finally {
         if (isMounted) {
@@ -41,7 +93,11 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    loadCurrentUser();
+    void loadCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
   }, [token]);
 
   const login = useCallback(async (credentials) => {
