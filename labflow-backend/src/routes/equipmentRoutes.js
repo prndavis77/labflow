@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getEquipment,
   getEquipmentById,
@@ -6,13 +7,21 @@ const {
   updateEquipment,
   deleteEquipment,
 } = require("../controllers/equipmentController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
 // Every equipment route requires a logged-in user
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // All authenticated users can view equipment
 router.get("/", getEquipment);

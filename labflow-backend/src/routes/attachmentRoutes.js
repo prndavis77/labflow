@@ -10,9 +10,16 @@ const {
   updateAttachmentMetadata,
 } = require("../controllers/attachmentController");
 
-const { protect } = require("../middleware/authMiddleware");
+const {
+  protect,
+  requireVerifiedEmail,
+} = require("../middleware/authMiddleware");
 
 const router = express.Router();
+
+router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 router.use(protect);
 

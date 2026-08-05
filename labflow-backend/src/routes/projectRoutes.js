@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getProjects,
   getProjectById,
@@ -6,13 +7,21 @@ const {
   updateProject,
   deleteProject,
 } = require("../controllers/projectController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLE_GROUPS, ROLES } = require("../constants/roles");
 
 const router = express.Router();
 
 // Every project route requires a valid logged-in user.
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // All authenticated users can view projects for now.
 router.get("/", protect, getProjects);

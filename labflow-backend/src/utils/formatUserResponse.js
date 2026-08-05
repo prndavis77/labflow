@@ -5,23 +5,25 @@ const formatUserResponse = (user) => ({
   role: user.role,
   department: user.department,
   organizationId: user.organizationId,
-  organization: user.organization,
+
+  organization: user.organization
+    ? {
+        id: user.organization.id,
+        name: user.organization.name,
+        slug: user.organization.slug,
+        type: user.organization.type,
+      }
+    : null,
+
   isActive: user.isActive,
-  emailVerifiedAt:
-    user.emailVerifiedAt || null
-      ? {
-          id: user.organization.id,
-          name: user.organization.name,
-          slug: user.organization.slug,
-          type: user.organization.type,
-        }
-      : null,
-  isActive: user.isActive,
+  emailVerifiedAt: user.emailVerifiedAt || null,
+
   canCreateExperiments: user.canCreateExperiments,
   canEditExperiments: user.canEditExperiments,
   canCreateProtocols: user.canCreateProtocols,
   canEditProtocols: user.canEditProtocols,
   requiresReview: user.requiresReview,
+
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });

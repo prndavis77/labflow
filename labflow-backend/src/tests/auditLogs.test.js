@@ -22,6 +22,7 @@ const createUser = async ({ name, email, role }) => {
     canEditExperiments: true,
     canCreateProtocols: true,
     canEditProtocols: true,
+    emailVerifiedAt: new Date("2026-01-01T00:00:00.000Z"),
   });
 };
 
@@ -45,8 +46,9 @@ describe("Audit Log API", () => {
   });
 
   beforeEach(async () => {
-    const organization = await getOrCreateTestOrganization();
     await resetTestDatabase();
+
+    const organization = await getOrCreateTestOrganization();
 
     admin = await createUser({
       name: "Admin User",

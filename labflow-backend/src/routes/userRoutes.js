@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getUsers,
   getUserById,
@@ -7,13 +8,21 @@ const {
   updateUserAccountStatus,
   resetUserPassword,
 } = require("../controllers/userController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
 // Every user route requires authentication
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // All authenticated lab users can view basic user summaries
 // This supports assignment dropdowns for tasks, experiments, and project workflows

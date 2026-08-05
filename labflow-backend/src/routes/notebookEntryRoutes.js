@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getNotebookEntries,
   getNotebookEntryById,
@@ -6,13 +7,21 @@ const {
   updateNotebookEntry,
   deleteNotebookEntry,
 } = require("../controllers/notebookEntryController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
 // Every notebook entry route requires a logged-in user
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // All authenticated users can view notebook entries for now
 router.get("/", getNotebookEntries);

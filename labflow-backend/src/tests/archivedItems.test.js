@@ -48,6 +48,7 @@ const createUser = async ({ name, email, role, organizationId }) => {
     canCreateProtocols: true,
     canEditProtocols: true,
     requiresReview: true,
+    emailVerifiedAt: new Date("2026-01-01T00:00:00.000Z"),
   });
 };
 

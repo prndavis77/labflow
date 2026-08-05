@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getEquipmentBookings,
   getEquipmentBookingById,
@@ -6,13 +7,21 @@ const {
   updateEquipmentBooking,
   deleteEquipmentBooking,
 } = require("../controllers/equipmentBookingController");
+
 const { ROLE_GROUPS } = require("../constants/roles");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 // Every booking route requires a logged-in user
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // All authenticated users can view equipment bookings
 router.get("/", getEquipmentBookings);

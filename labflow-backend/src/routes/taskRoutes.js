@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getTasks,
   getTaskById,
@@ -6,13 +7,21 @@ const {
   updateTask,
   deleteTask,
 } = require("../controllers/taskController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
 // Every task route requires a logged-in user
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // All authenticated users can view tasks for now
 router.get("/", getTasks);

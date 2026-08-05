@@ -1,17 +1,26 @@
 const express = require("express");
+
 const {
   getReviewEvents,
   getReviewEventById,
   createReviewEvent,
   deleteReviewEvent,
 } = require("../controllers/reviewEventController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
 // Every review event route requires a logged-in user
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // Authenticated users can view review history
 // This lets researchers see feedback history on their experiments/protocols

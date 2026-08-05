@@ -1,6 +1,11 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
+const EMAIL_VERIFICATION_REQUIRED_CODE = "EMAIL_VERIFICATION_REQUIRED";
+
+const EMAIL_VERIFICATION_REQUIRED_MESSAGE =
+  "Verify your email address before using this feature.";
+
 const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -43,6 +48,25 @@ const protect = async (req, res, next) => {
   }
 };
 
+const requireVerifiedEmail = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      status: "error",
+      message: "Not authorized.",
+    });
+  }
+
+  if (!req.user.emailVerifiedAt) {
+    return res.status(403).json({
+      status: "error",
+      code: EMAIL_VERIFICATION_REQUIRED_CODE,
+      message: EMAIL_VERIFICATION_REQUIRED_MESSAGE,
+    });
+  }
+
+  next();
+};
+
 const authorizeRoles = (...allowedRoles) => {
   const roleMiddleware = (req, res, next) => {
     if (!req.user) {
@@ -69,4 +93,7 @@ const authorizeRoles = (...allowedRoles) => {
 module.exports = {
   protect,
   authorizeRoles,
+  requireVerifiedEmail,
+  EMAIL_VERIFICATION_REQUIRED_CODE,
+  EMAIL_VERIFICATION_REQUIRED_MESSAGE,
 };

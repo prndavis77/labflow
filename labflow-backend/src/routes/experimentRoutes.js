@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getExperiments,
   getExperimentById,
@@ -6,13 +7,21 @@ const {
   updateExperiment,
   deleteExperiment,
 } = require("../controllers/experimentController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
 // Every experiment route requires a logged-in user
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // All authenticated users can view experiments for now
 router.get("/", getExperiments);

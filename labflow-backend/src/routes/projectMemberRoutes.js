@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   getProjectMembers,
   getProjectMemberById,
@@ -6,12 +7,20 @@ const {
   updateProjectMember,
   deleteProjectMember,
 } = require("../controllers/projectMemberController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+
+const {
+  protect,
+  requireVerifiedEmail,
+  authorizeRoles,
+} = require("../middleware/authMiddleware");
+
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
 
 router.use(protect);
+
+router.use(requireVerifiedEmail);
 
 // For now, all authenticated users can read project memberships
 // Later we can restrict this based on project membership and role
