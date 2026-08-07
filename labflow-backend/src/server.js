@@ -6,6 +6,10 @@ require("dotenv").config();
 
 const { connectDatabase, sequelize } = require("./config/database");
 
+const logger = require("./config/logger");
+const requestContext = require("./middleware/requestContext");
+const requestLogger = require("./middleware/requestLogger");
+
 // Import routes
 const authRoutes = require("./routes/authRoutes");
 const projectRoutes = require("./routes/projectRoutes");
@@ -26,6 +30,9 @@ const attachmentRoutes = require("./routes/attachmentRoutes");
 const archivedItemRoutes = require("./routes/archivedItemRoutes");
 
 const app = express();
+
+app.use(requestContext);
+app.use(requestLogger);
 
 // Enable cross-origin requests from the frontend
 const allowedOrigins = [
@@ -140,10 +147,20 @@ async function startServer() {
     await connectDatabase();
 
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      logger.info(
+        {
+          port: Number(PORT),
+        },
+        "LabFlow API server started",
+      );
     });
   } catch (error) {
-    console.error("Failed to start server", error);
+    logger.fatal(
+      {
+        err: error,
+      },
+      "Failed to start LabFlow API server",
+    );
     process.exit(1);
   }
 }

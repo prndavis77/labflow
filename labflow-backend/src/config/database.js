@@ -1,13 +1,26 @@
 const { Sequelize } = require("sequelize");
+
 require("dotenv").config({
   quiet: process.env.NODE_ENV === "test",
 });
+
+const logger = require("./logger");
 
 const isProduction = process.env.NODE_ENV === "production";
 
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: "postgres",
-  logging: process.env.NODE_ENV === "development" ? console.log : false,
+  logging:
+    process.env.NODE_ENV === "development"
+      ? (message) => {
+          logger.debug(
+            {
+              source: "sequelize",
+            },
+            message,
+          );
+        }
+      : false,
   dialectOptions: isProduction
     ? {
         ssl: {
@@ -21,10 +34,17 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
 async function connectDatabase() {
   try {
     await sequelize.authenticate();
-    console.log("Database connection established successfully.");
+
+    logger.info("Database connection established successfully");
   } catch (error) {
-    console.error("Unable to connect to the database:", error);
-    process.exit(1);
+    logger.error(
+      {
+        err: error,
+      },
+      "Unable to connect to the database",
+    );
+
+    throw error;
   }
 }
 
