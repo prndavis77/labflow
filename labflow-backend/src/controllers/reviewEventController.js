@@ -1,5 +1,8 @@
 const { ReviewEvent, Experiment, Protocol, Task, User } = require("../models");
+
 const { canViewProjectLinkedRecord } = require("../utils/projectAccess");
+
+const { logError } = require("../utils/errorLogger");
 
 // Formats user data safely for review event responses.
 // This prevents sensitive fields like passwordHash from being exposed.
@@ -217,7 +220,11 @@ const getReviewEvents = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching review events:", error);
+    logError(error, {
+      req,
+      event: "review_events_list_failed",
+      message: "Failed to fetch review events",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -269,7 +276,11 @@ const getReviewEventById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching review event:", error);
+    logError(error, {
+      req,
+      event: "review_event_load_failed",
+      message: "Failed to fetch review event",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -370,7 +381,11 @@ const createReviewEvent = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating review event", error);
+    logError(error, {
+      req,
+      event: "review_event_create_failed",
+      message: "Failed to create review event",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -413,7 +428,11 @@ const deleteReviewEvent = async (req, res) => {
       message: "Review event deleted successfully.",
     });
   } catch (error) {
-    console.error("Error deleting review event", error);
+    logError(error, {
+      req,
+      event: "review_event_delete_failed",
+      message: "Failed to delete review event",
+    });
 
     return res.status(500).json({
       status: "error",

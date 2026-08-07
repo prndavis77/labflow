@@ -8,6 +8,8 @@ const formatUserResponse = require("../utils/formatUserResponse");
 
 const { createUniqueOrganizationSlug } = require("../utils/organizationSlug");
 
+const { logError } = require("../utils/errorLogger");
+
 const {
   PasswordResetError,
   createPasswordResetRequest,
@@ -113,10 +115,10 @@ const sendRegistrationVerificationEmail = async ({ userId, requestIp }) => {
       expiresAt: verificationRequest.expiresAt,
     });
   } catch (deliveryError) {
-    console.error(
-      "Registration verification email delivery error",
-      deliveryError,
-    );
+    logError(deliveryError, {
+      event: "registration_verification_delivery_failed",
+      message: "Registration verification email delivery failed",
+    });
 
     emailDelivery = {
       accepted: false,
@@ -259,7 +261,11 @@ const registerUser = async (req, res) => {
        * The authenticated resend endpoint can issue another
        * verification token later.
        */
-      console.error("Registration verification setup error", verificationError);
+      logError(verificationError, {
+        req,
+        event: "registration_verification_setup_failed",
+        message: "Registration verification setup failed",
+      });
     }
 
     const token = generateToken(createdUser);
@@ -284,7 +290,11 @@ const registerUser = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Error registering organization ", error);
+    logError(error, {
+      req,
+      event: "registration_failed",
+      message: "Organization registration failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -351,7 +361,11 @@ const loginUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login error", error);
+    logError(error, {
+      req,
+      event: "login_failed",
+      message: "Login failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -387,7 +401,11 @@ const requestPasswordReset = async (req, res) => {
             expiresAt: resetRequest.expiresAt,
           });
         } catch (deliveryError) {
-          console.error("Password reset email delivery error", deliveryError);
+          logError(deliveryError, {
+            req,
+            event: "password_reset_delivery_failed",
+            message: "Password reset email delivery failed",
+          });
 
           emailDelivery = {
             accepted: false,
@@ -415,7 +433,11 @@ const requestPasswordReset = async (req, res) => {
       message: PASSWORD_RESET_PUBLIC_MESSAGE,
     });
   } catch (error) {
-    console.error("Password reset request error", error);
+    logError(error, {
+      req,
+      event: "password_reset_request_failed",
+      message: "Password reset request failed",
+    });
 
     return res.status(200).json({
       status: "success",
@@ -447,7 +469,11 @@ const getPasswordResetStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Password reset validation error", error);
+    logError(error, {
+      req,
+      event: "password_reset_validation_failed",
+      message: "Password reset validation failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -523,7 +549,11 @@ const completePasswordReset = async (req, res) => {
       });
     }
 
-    console.error("Password reset completion error", error);
+    logError(error, {
+      req,
+      event: "password_reset_completion_failed",
+      message: "Password reset completion failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -575,7 +605,11 @@ const requestEmailVerification = async (req, res) => {
         expiresAt: verificationRequest.expiresAt,
       });
     } catch (deliveryError) {
-      console.error("Email verification delivery error", deliveryError);
+      logError(deliveryError, {
+        req,
+        event: "email_verification_delivery_failed",
+        message: "Email verification email delivery failed",
+      });
 
       emailDelivery = {
         accepted: false,
@@ -606,7 +640,11 @@ const requestEmailVerification = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Email verification request error", error);
+    logError(error, {
+      req,
+      event: "email_verification_request_failed",
+      message: "Email verification request failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -650,7 +688,11 @@ const getEmailVerificationStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Email verification validation error", error);
+    logError(error, {
+      req,
+      event: "email_verification_validation_failed",
+      message: "Email verification validation failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -696,7 +738,11 @@ const completeEmailVerification = async (req, res) => {
       });
     }
 
-    console.error("Email verification completion error", error);
+    logError(error, {
+      req,
+      event: "email_verification_completion_failed",
+      message: "Email verification completion failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -731,7 +777,11 @@ const getCurrentUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get current user error", error);
+    logError(error, {
+      req,
+      event: "current_user_load_failed",
+      message: "Current user load failed",
+    });
 
     return res.status(500).json({
       status: "error",

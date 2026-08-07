@@ -8,6 +8,8 @@ const attachmentConfig = require("../config/attachmentConfig");
 
 const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
 
+const { logError } = require("../utils/errorLogger");
+
 const {
   validateAttachmentId,
   validateAttachmentMetadataUpdate,
@@ -190,7 +192,14 @@ const initiateAttachmentUpload = async (req, res) => {
       await transaction.rollback();
       transaction = null;
 
-      console.error("Error creating attachment upload URL", storageError);
+      logError(storageError, {
+        req,
+        event: "attachment_upload_url_creation_failed",
+        message: "Attachment upload URL creation failed",
+        context: {
+          attachmentId,
+        },
+      });
 
       return res.status(503).json({
         status: "error",
@@ -246,7 +255,11 @@ const initiateAttachmentUpload = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Error initiating attachment upload", error);
+    logError(error, {
+      req,
+      event: "attachment_upload_init_failed",
+      message: "Attachment upload initiation failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -404,7 +417,14 @@ const completeAttachmentUpload = async (req, res) => {
 
       const statusCode = isStorageObjectMissing ? 409 : 503;
 
-      console.error("Error verifying attachment object", storageError);
+      logError(storageError, {
+        req,
+        event: "attachment_storage_verification_failed",
+        message: "Attachment storage verification failed",
+        context: {
+          attachmentId,
+        },
+      });
 
       return res.status(statusCode).json({
         status: "error",
@@ -517,7 +537,14 @@ const completeAttachmentUpload = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Error completing attachment upload", error);
+    logError(error, {
+      req,
+      event: "attachment_upload_completion_failed",
+      message: "Attachment upload completion failed",
+      context: {
+        attachmentId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",
@@ -659,7 +686,11 @@ const listAttachments = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error listing attachments", error);
+    logError(error, {
+      req,
+      event: "attachment_list_failed",
+      message: "Attachment list failed",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -732,7 +763,14 @@ const getAttachmentById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error loading attachment", error);
+    logError(error, {
+      req,
+      event: "attachment_load_failed",
+      message: "Attachment load failed",
+      context: {
+        attachmentId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",
@@ -802,7 +840,14 @@ const createAttachmentDownloadUrl = async (req, res) => {
         storageError?.name === "NoSuchKey" ||
         storageError?.$metadata?.httpStatusCode === 404;
 
-      console.error("Error verifying attachment before download", storageError);
+      logError(storageError, {
+        req,
+        event: "attachment_download_storage_verification_failed",
+        message: "Attachment storage verification before download failed",
+        context: {
+          attachmentId,
+        },
+      });
 
       return res.status(isStorageObjectMissing ? 404 : 503).json({
         status: "error",
@@ -822,7 +867,14 @@ const createAttachmentDownloadUrl = async (req, res) => {
         expiresInSeconds: attachmentConfig.downloadUrlTtlSeconds,
       });
     } catch (storageError) {
-      console.error("Error creating attachment download URL", storageError);
+      logError(storageError, {
+        req,
+        event: "attachment_download_url_storage_failed",
+        message: "Attachment download URL creation failed",
+        context: {
+          attachmentId,
+        },
+      });
 
       return res.status(503).json({
         status: "error",
@@ -855,7 +907,14 @@ const createAttachmentDownloadUrl = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating attachment download URL", error);
+    logError(error, {
+      req,
+      event: "attachment_download_url_failed",
+      message: "Attachment download URL request failed",
+      context: {
+        attachmentId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",
@@ -1013,7 +1072,14 @@ const updateAttachmentMetadata = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Error updating attachment metadata", error);
+    logError(error, {
+      req,
+      event: "attachment_metadata_update_failed",
+      message: "Attachment metadata update failed",
+      context: {
+        attachmentId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",
@@ -1170,7 +1236,14 @@ const archiveAttachment = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Error archiving attachment", error);
+    logError(error, {
+      req,
+      event: "attachment_archive_failed",
+      message: "Attachment archive failed",
+      context: {
+        attachmentId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",

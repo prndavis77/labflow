@@ -1,6 +1,10 @@
 const { NotebookEntry, Experiment, Project, User } = require("../models");
+
 const { Op } = require("sequelize");
+
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
+
+const { logError } = require("../utils/errorLogger");
 
 // Formats user data safely for API responses
 const formatUserSummary = (user) => {
@@ -162,7 +166,11 @@ const getNotebookEntries = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching notebook entries", error);
+    logError(error, {
+      req,
+      event: "notebook_entry_list_failed",
+      message: "Failed to fetch notebook entries",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -199,7 +207,11 @@ const getNotebookEntryById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching notebook entry", error);
+    logError(error, {
+      req,
+      event: "notebook_entry_load_failed",
+      message: "Failed to fetch notebook entry",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -263,7 +275,11 @@ const createNotebookEntry = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating notebook entry", error);
+    logError(error, {
+      req,
+      event: "notebook_entry_create_failed",
+      message: "Failed to create notebook entry",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -350,7 +366,11 @@ const updateNotebookEntry = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating notebook entry", error);
+    logError(error, {
+      req,
+      event: "notebook_entry_update_failed",
+      message: "Failed to update notebook entry",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -394,7 +414,11 @@ const deleteNotebookEntry = async (req, res) => {
       message: "Notebook entry deleted successfully.",
     });
   } catch (error) {
-    console.error("Error deleting notebook entry", error);
+    logError(error, {
+      req,
+      event: "notebook_entry_delete_failed",
+      message: "Failed to delete notebook entry",
+    });
 
     return res.status(500).json({
       status: "error",

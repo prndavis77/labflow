@@ -1,15 +1,25 @@
 const bcrypt = require("bcrypt");
+
 const { Op } = require("sequelize");
+
 const { sequelize } = require("../config/database");
+
 const { Invitation, User, Organization } = require("../models");
+
 const {
   generateInvitationToken,
   hashInvitationToken,
   getInvitationExpiryDate,
 } = require("../utils/invitationTokens");
+
 const { writeAuditLog } = require("../utils/auditLogger");
+
+const { logError } = require("../utils/errorLogger");
+
 const { sendInvitationEmail } = require("../services/invitationEmailService");
+
 const { emailConfig } = require("../config/emailConfig");
+
 const {
   INVITATION_EMAIL_DELIVERY_STATUSES,
 } = require("../constants/invitationEmail");
@@ -540,7 +550,11 @@ const resendInvitation = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Error renewing invitation", error);
+    logError(error, {
+      req,
+      event: "invitation_renew_failed",
+      message: "Failed to renew invitation",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -837,7 +851,11 @@ const acceptInvitation = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Error accepting invitation", error);
+    logError(error, {
+      req,
+      event: "invitation_accept_failed",
+      message: "Failed to accept invitation",
+    });
 
     return res.status(500).json({
       status: "error",

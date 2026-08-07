@@ -1,5 +1,7 @@
 const { Equipment } = require("../models");
 
+const { logError } = require("../utils/errorLogger");
+
 // Formats equipment data before sending it to the frontend
 const formatEquipmentResponse = (equipment) => {
   return {
@@ -43,7 +45,11 @@ const getEquipment = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting equipment", error);
+    logError(error, {
+      req,
+      event: "equipment_list_failed",
+      message: "Failed to fetch equipment",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -79,7 +85,11 @@ const getEquipmentById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting equipment by ID", error);
+    logError(error, {
+      req,
+      event: "equipment_load_failed",
+      message: "Failed to fetch equipment",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -118,7 +128,11 @@ const createEquipment = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating equipment", error);
+    logError(error, {
+      req,
+      event: "equipment_create_failed",
+      message: "Failed to create equipment",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -165,7 +179,11 @@ const updateEquipment = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating equipment", error);
+    logError(error, {
+      req,
+      event: "equipment_update_failed",
+      message: "Failed to update equipment",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -202,7 +220,11 @@ const deleteEquipment = async (req, res) => {
       message: "Equipment deleted successfully.",
     });
   } catch (error) {
-    console.error("Error deleting equipment", error);
+    logError(error, {
+      req,
+      event: "equipment_delete_failed",
+      message: "Failed to delete equipment",
+    });
 
     return res.status(500).json({
       status: "error",

@@ -13,6 +13,8 @@ const { Op } = require("sequelize");
 
 const { writeAuditLog } = require("../utils/auditLogger");
 
+const { logError } = require("../utils/errorLogger");
+
 const {
   getAccessibleProjectIds,
   canViewProject,
@@ -142,7 +144,11 @@ const getProjects = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching projects:", error);
+    logError(error, {
+      req,
+      event: "project_list_failed",
+      message: "Failed to fetch projects",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -189,7 +195,14 @@ const getProjectById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching project:", error);
+    logError(error, {
+      req,
+      event: "project_load_failed",
+      message: "Failed to fetch project",
+      context: {
+        projectId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",
@@ -275,7 +288,11 @@ const createProject = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating project", error);
+    logError(error, {
+      req,
+      event: "project_create_failed",
+      message: "Failed to create project",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -399,7 +416,14 @@ const updateProject = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating project", error);
+    logError(error, {
+      req,
+      event: "project_update_failed",
+      message: "Failed to update project",
+      context: {
+        projectId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",
@@ -480,7 +504,14 @@ const deleteProject = async (req, res) => {
       message: "Project archived successfully.",
     });
   } catch (error) {
-    console.error("Error archiving project:", error);
+    logError(error, {
+      req,
+      event: "project_archive_failed",
+      message: "Failed to archive project",
+      context: {
+        projectId: req.params.id,
+      },
+    });
 
     return res.status(500).json({
       status: "error",

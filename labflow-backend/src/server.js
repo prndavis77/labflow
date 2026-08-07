@@ -9,6 +9,7 @@ const { connectDatabase, sequelize } = require("./config/database");
 const logger = require("./config/logger");
 const requestContext = require("./middleware/requestContext");
 const requestLogger = require("./middleware/requestLogger");
+const errorHandler = require("./middleware/errorHandler");
 
 // Import routes
 const authRoutes = require("./routes/authRoutes");
@@ -138,6 +139,9 @@ app.use((req, res) => {
     message: `Route not found: ${req.method} ${req.originalUrl}`,
   });
 });
+
+// Handles errors that were not handled by a controller or middleware.
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 

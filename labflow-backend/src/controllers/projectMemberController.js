@@ -3,7 +3,10 @@ const {
   getAccessibleProjectIds,
   canViewProject,
 } = require("../utils/projectAccess");
+
 const { Op } = require("sequelize");
+
+const { logError } = require("../utils/errorLogger");
 
 const VALID_PROJECT_ROLES = ["lead", "member", "viewer"];
 
@@ -129,7 +132,11 @@ const getProjectMembers = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching project members:", error);
+    logError(error, {
+      req,
+      event: "project_member_list_failed",
+      message: "Failed to fetch project members",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -174,7 +181,11 @@ const getProjectMemberById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching project member by ID:", error);
+    logError(error, {
+      req,
+      event: "project_member_load_failed",
+      message: "Failed to fetch project member",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -270,7 +281,11 @@ const createProjectMember = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating project member:", error);
+    logError(error, {
+      req,
+      event: "project_member_create_failed",
+      message: "Failed to create project member",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -334,7 +349,11 @@ const updateProjectMember = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating project member:", error);
+    logError(error, {
+      req,
+      event: "project_member_update_failed",
+      message: "Failed to update project member",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -370,7 +389,11 @@ const deleteProjectMember = async (req, res) => {
       message: "Project member removed successfully.",
     });
   } catch (error) {
-    console.error("Error deleting project member:", error);
+    logError(error, {
+      req,
+      event: "project_member_delete_failed",
+      message: "Failed to delete project member",
+    });
 
     return res.status(500).json({
       status: "error",

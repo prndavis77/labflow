@@ -10,6 +10,8 @@ const { getAccessibleProjectIds } = require("../utils/projectAccess");
 
 const { writeAuditLog } = require("../utils/auditLogger");
 
+const { logError } = require("../utils/errorLogger");
+
 const {
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
@@ -259,7 +261,11 @@ const getTasks = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting tasks", error);
+    logError(error, {
+      req,
+      event: "tasks_list_failed",
+      message: "Failed to fetch tasks",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -336,7 +342,11 @@ const getTaskById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting task by ID", error);
+    logError(error, {
+      req,
+      event: "task_load_failed",
+      message: "Failed to fetch task",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -527,7 +537,11 @@ const createTask = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating task", error);
+    logError(error, {
+      req,
+      event: "task_create_failed",
+      message: "Failed to create task",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -852,7 +866,11 @@ const updateTask = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating task:", error);
+    logError(error, {
+      req,
+      event: "task_update_failed",
+      message: "Failed to update task",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -947,7 +965,11 @@ const deleteTask = async (req, res) => {
       message: "Task archived successfully.",
     });
   } catch (error) {
-    console.error("Error archiving task", error);
+    logError(error, {
+      req,
+      event: "task_archive_failed",
+      message: "Failed to archive task",
+    });
 
     return res.status(500).json({
       status: "error",

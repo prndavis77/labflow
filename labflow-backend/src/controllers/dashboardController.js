@@ -1,4 +1,5 @@
 const { Op } = require("sequelize");
+
 const {
   Project,
   Task,
@@ -9,7 +10,10 @@ const {
   NotebookEntry,
   User,
 } = require("../models");
+
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
+
+const { logError } = require("../utils/errorLogger");
 
 const buildDashboardProjectScope = async (user) => {
   if (!user?.id || !user?.organizationId) {
@@ -657,7 +661,11 @@ const getDashboardSummary = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting dashboard summary", error);
+    logError(error, {
+      req,
+      event: "dashboard_summary_failed",
+      message: "Failed to load dashboard summary",
+    });
 
     return res.status(500).json({
       status: "error",

@@ -4,7 +4,7 @@
   "description": "Backend API for LabFlow university laboratory project management app",
   "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
+    "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/scripts/seedDemoData.js",
     "setup:db": "node src/scripts/setupDatabase.js",

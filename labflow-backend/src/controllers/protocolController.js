@@ -13,6 +13,8 @@ const {
 
 const { writeAuditLog } = require("../utils/auditLogger");
 
+const { logError } = require("../utils/errorLogger");
+
 const {
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
@@ -282,7 +284,11 @@ const getProtocols = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting protocols", error);
+    logError(error, {
+      req,
+      event: "protocol_list_failed",
+      message: "Failed to fetch protocols",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -333,7 +339,11 @@ const getProtocolById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting protocol by ID", error);
+    logError(error, {
+      req,
+      event: "protocol_load_failed",
+      message: "Failed to fetch protocol",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -517,7 +527,11 @@ const createProtocol = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating protocol", error);
+    logError(error, {
+      req,
+      event: "protocol_create_failed",
+      message: "Failed to create protocol",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -801,7 +815,11 @@ const updateProtocol = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating protocol", error);
+    logError(error, {
+      req,
+      event: "protocol_update_failed",
+      message: "Failed to update protocol",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -897,7 +915,11 @@ const deleteProtocol = async (req, res) => {
       message: "Protocol archived successfully.",
     });
   } catch (error) {
-    console.error("Error archiving protocol", error);
+    logError(error, {
+      req,
+      event: "protocol_archive_failed",
+      message: "Failed to archive protocol",
+    });
 
     return res.status(500).json({
       status: "error",

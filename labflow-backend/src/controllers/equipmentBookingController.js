@@ -1,4 +1,5 @@
 const { Op } = require("sequelize");
+
 const {
   EquipmentBooking,
   Equipment,
@@ -6,7 +7,10 @@ const {
   Project,
   Experiment,
 } = require("../models");
+
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
+
+const { logError } = require("../utils/errorLogger");
 
 // Formats user data safely for API responses
 const formatUserSummary = (user) => {
@@ -239,7 +243,11 @@ const getEquipmentBookings = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting equipment bookings", error);
+    logError(error, {
+      req,
+      event: "equipment_booking_list_failed",
+      message: "Failed to load equipment bookings",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -276,7 +284,11 @@ const getEquipmentBookingById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting equipment booking by ID", error);
+    logError(error, {
+      req,
+      event: "equipment_booking_load_failed",
+      message: "Failed to load equipment booking",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -442,7 +454,11 @@ const createEquipmentBooking = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating equipment booking", error);
+    logError(error, {
+      req,
+      event: "equipment_booking_create_failed",
+      message: "Failed to create equipment booking",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -639,7 +655,11 @@ const updateEquipmentBooking = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating equipment booking", error);
+    logError(error, {
+      req,
+      event: "equipment_booking_update_failed",
+      message: "Failed to update equipment booking",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -676,7 +696,11 @@ const deleteEquipmentBooking = async (req, res) => {
       message: "Equipment booking deleted successfully.",
     });
   } catch (error) {
-    console.error("Error deleting equipment booking", error);
+    logError(error, {
+      req,
+      event: "equipment_booking_delete_failed",
+      message: "Failed to delete equipment booking",
+    });
 
     return res.status(500).json({
       status: "error",

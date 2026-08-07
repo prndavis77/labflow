@@ -1,5 +1,8 @@
 const { Organization } = require("../models");
+
 const { writeAuditLog } = require("../utils/auditLogger");
+
+const { logError } = require("../utils/errorLogger");
 
 const formatOrganizationResponse = (organization) => {
   return {
@@ -31,7 +34,11 @@ const getCurrentOrganization = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting organization", error);
+    logError(error, {
+      req,
+      event: "organization_load_failed",
+      message: "Failed to load organization",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -93,7 +100,11 @@ const updateCurrentOrganization = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating organization", error);
+    logError(error, {
+      req,
+      event: "organization_update_failed",
+      message: "Failed to update organization",
+    });
 
     return res.status(500).json({
       status: "error",

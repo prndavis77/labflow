@@ -1,5 +1,8 @@
 const { AuditLog, User } = require("../models");
+
 const { Op } = require("sequelize");
+
+const { logError } = require("../utils/errorLogger");
 
 const getAuditLogs = async (req, res) => {
   try {
@@ -89,7 +92,11 @@ const getAuditLogs = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get audit logs error:", error);
+    logError(error, {
+      req,
+      event: "audit_logs_load_failed",
+      message: "Failed to load audit logs",
+    });
 
     return res.status(500).json({
       status: "error",

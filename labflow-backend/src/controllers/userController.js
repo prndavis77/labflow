@@ -1,8 +1,14 @@
 const { User } = require("../models");
+
 const bcrypt = require("bcrypt");
+
 const formatUserResponse = require("../utils/formatUserResponse");
+
 const { VALID_ROLES, ROLES } = require("../constants/roles");
+
 const { writeAuditLog } = require("../utils/auditLogger");
+
+const { logError } = require("../utils/errorLogger");
 
 const WORKFLOW_PERMISSION_FIELDS = [
   "canCreateExperiments",
@@ -52,7 +58,11 @@ const getUsers = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get users error:", error);
+    logError(error, {
+      req,
+      event: "users_list_failed",
+      message: "Failed to fetch users",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -107,7 +117,11 @@ const getUserById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get user by ID error:", error);
+    logError(error, {
+      req,
+      event: "user_load_failed",
+      message: "Failed to fetch user",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -196,7 +210,11 @@ const updateUserRole = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update user role error:", error);
+    logError(error, {
+      req,
+      event: "user_role_update_failed",
+      message: "Failed to update user role",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -297,7 +315,11 @@ const updateUserWorkflowPermissions = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update user workflow permissions error:", error);
+    logError(error, {
+      req,
+      event: "user_workflow_permissions_update_failed",
+      message: "Failed to update user workflow permissions",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -369,7 +391,12 @@ const updateUserAccountStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update user account status error:", error);
+    logError(error, {
+      req,
+      event: "user_account_status_update_failed",
+      message: "Failed to update user account status",
+    });
+
     return res.status(500).json({
       success: false,
       message: "Failed to update user account status.",
@@ -444,7 +471,11 @@ const resetUserPassword = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Reset user password error:", error);
+    logError(error, {
+      req,
+      event: "user_password_reset_failed",
+      message: "Failed to reset user password",
+    });
 
     return res.status(500).json({
       success: false,

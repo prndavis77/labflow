@@ -19,6 +19,8 @@ const { validateAttachmentId } = require("../utils/attachmentValidation");
 
 const { formatAttachmentResponse } = require("../utils/attachmentResponse");
 
+const { logError } = require("../utils/errorLogger");
+
 const { AUDIT_ACTIONS } = require("../constants/auditActions");
 
 const {
@@ -928,7 +930,11 @@ const getArchivedItems = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get archived items error:", error);
+    logError(error, {
+      req,
+      event: "archived_items_list_failed",
+      message: "Failed to fetch archived items list",
+    });
 
     return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
       status: "error",
@@ -1010,7 +1016,11 @@ const restoreArchivedAttachment = async (req, res) => {
         storageKey: attachment.storageKey,
       });
     } catch (storageError) {
-      console.error("Error verifying archived attachment object", storageError);
+      logError(storageError, {
+        req,
+        event: "archived_item_load_failed",
+        message: "Failed to load archived attachment object",
+      });
 
       if (isStorageObjectMissingError(storageError)) {
         return res.status(STATUS_CODES.CONFLICT).json({
@@ -1154,7 +1164,11 @@ const restoreArchivedAttachment = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Restore archived attachment error:", error);
+    logError(error, {
+      req,
+      event: "archived_item_restore_failed",
+      message: "Failed to restore archived attachment",
+    });
 
     return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
       status: "error",
@@ -1301,7 +1315,11 @@ const restoreArchivedItem = async (req, res) => {
       await transaction.rollback();
     }
 
-    console.error("Restore archived item error:", error);
+    logError(error, {
+      req,
+      event: "archived_item_storage_restore_failed",
+      message: "Failed to restore archived item",
+    });
 
     return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
       status: "error",

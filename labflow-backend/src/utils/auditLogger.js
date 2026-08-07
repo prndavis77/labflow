@@ -1,5 +1,7 @@
 const { AuditLog } = require("../models");
 
+const { logError } = require("./errorLogger");
+
 const getRequestIp = (req) => {
   return (
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
@@ -24,7 +26,17 @@ const writeAuditLog = async ({
       organizationId || req?.user?.organizationId || null;
 
     if (!resolvedOrganizationId) {
-      console.error("Audit log write skipped: organizationId is missing.");
+      logError(new Error("Audit log organizationId is missing"), {
+        req,
+        event: "audit_log_missing_organization",
+        message: "Audit log write skipped because organizationId is missing",
+        context: {
+          action,
+          entityType,
+          entityId,
+        },
+        level: "warn",
+      });
       return;
     }
 
@@ -41,7 +53,16 @@ const writeAuditLog = async ({
       userAgent: req?.headers?.["user-agent"] || null,
     });
   } catch (error) {
-    console.error("Audit log write failed:", error);
+    logError(error, {
+      req,
+      event: "audit_log_write_failed",
+      message: "Audit log write failed",
+      context: {
+        action,
+        entityType,
+        entityId,
+      },
+    });
   }
 };
 

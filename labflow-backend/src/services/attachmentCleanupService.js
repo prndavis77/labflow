@@ -6,6 +6,8 @@ const attachmentConfig = require("../config/attachmentConfig");
 
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
 
+const { logError } = require("../utils/errorLogger");
+
 const sequelize = Attachment.sequelize;
 
 const isAttachmentStillExpired = ({ attachment, now }) => {
@@ -90,11 +92,23 @@ const cleanupExpiredAttachment = async ({ attachmentId, now, storage }) => {
       try {
         await transaction.rollback();
       } catch (rollbackError) {
-        console.error("Attachment cleanup rollback failed", rollbackError);
+        logError(rollbackError, {
+          event: "attachment_cleanup_rollback_failed",
+          message: "Attachment cleanup rollback failed",
+          context: {
+            attachmentId,
+          },
+        });
       }
     }
 
-    console.error(`Failed to clean pending attachment ${attachmentId}`, error);
+    logError(error, {
+      event: "attachment_cleanup_item_failed",
+      message: "Failed to clean pending attachment",
+      context: {
+        attachmentId,
+      },
+    });
 
     return {
       attachmentId,

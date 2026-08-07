@@ -9,6 +9,8 @@ const {
 
 const { writeAuditLog } = require("../utils/auditLogger");
 
+const { logError } = require("../utils/errorLogger");
+
 const { Op } = require("sequelize");
 
 const {
@@ -304,7 +306,11 @@ const getExperiments = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting experiments", error);
+    logError(error, {
+      req,
+      event: "experiment_list_failed",
+      message: "Failed to fetch experiments",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -368,7 +374,11 @@ const getExperimentById = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error getting experiment", error);
+    logError(error, {
+      req,
+      event: "experiment_load_failed",
+      message: "Failed to fetch experiment",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -561,7 +571,11 @@ const createExperiment = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating experiment", error);
+    logError(error, {
+      req,
+      event: "experiment_create_failed",
+      message: "Failed to create experiment",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -891,7 +905,11 @@ const updateExperiment = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating experiment", error);
+    logError(error, {
+      req,
+      event: "experiment_update_failed",
+      message: "Failed to update experiment",
+    });
 
     return res.status(500).json({
       status: "error",
@@ -987,7 +1005,11 @@ const deleteExperiment = async (req, res) => {
       message: "Experiment archived successfully.",
     });
   } catch (error) {
-    console.error("Error archiving experiment:", error);
+    logError(error, {
+      req,
+      event: "experiment_archive_failed",
+      message: "Failed to archive experiment",
+    });
 
     return res.status(500).json({
       status: "error",
