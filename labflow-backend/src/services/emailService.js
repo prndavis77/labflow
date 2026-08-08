@@ -1,6 +1,7 @@
 const { emailConfig } = require("../config/emailConfig");
-
 const { createEmailProvider } = require("../email/createEmailProvider");
+const logger = require("../config/logger");
+const { logError } = require("../utils/errorLogger");
 
 let emailProviderInstance;
 
@@ -36,13 +37,48 @@ const sendEmail = async ({ to, subject, text, html, tags = [] }) => {
 
   const provider = getEmailProvider();
 
-  return provider.sendMessage({
-    to: to.trim(),
-    subject: subject.trim(),
-    text,
-    html,
-    tags,
-  });
+  try {
+    const result = await provider.sendMessage({
+      to: to.trim(),
+      subject: subject.trim(),
+      text,
+      html,
+      tags,
+    });
+
+    if (result.skipped) {
+      logger.warn(
+        {
+          event: "email_delivery_skipped",
+          provider: result.provider,
+          tags,
+        },
+        "Email delivery skipped",
+      );
+    } else {
+      logger.info(
+        {
+          event: "email_delivery_succeeded",
+          provider: result.provider,
+          tags,
+        },
+        "Email delivered to provider",
+      );
+    }
+
+    return result;
+  } catch (error) {
+    logError(error, {
+      event: "email_delivery_failed",
+      message: "Email delivery failed",
+      context: {
+        provider: provider.provider,
+        tags,
+      },
+    });
+
+    throw error;
+  }
 };
 
 /*
