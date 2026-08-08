@@ -7,6 +7,7 @@ require("dotenv").config();
 const { connectDatabase, sequelize } = require("./config/database");
 
 const logger = require("./config/logger");
+const { logError } = require("./utils/errorLogger");
 const requestContext = require("./middleware/requestContext");
 const requestLogger = require("./middleware/requestLogger");
 const errorHandler = require("./middleware/errorHandler");
@@ -60,12 +61,45 @@ app.use(
 // Parse incoming JSON request bodies
 app.use(express.json());
 
-// Health check route
+// Liveness check.
+// Confirms that the Node/Express process is running.
+// This intentionally does not depend on PostgreSQL.
 app.get("/api/health", (req, res) => {
-  res.json({
+  return res.status(200).json({
     status: "success",
     message: "Labflow API is running",
   });
+});
+
+// Readiness check.
+// Confirms that the API can currently communicate with PostgreSQL.
+app.get("/api/ready", async (req, res) => {
+  try {
+    await sequelize.authenticate();
+
+    return res.status(200).json({
+      status: "success",
+      message: "LabFlow API is ready",
+      checks: {
+        database: "ready",
+      },
+    });
+  } catch (error) {
+    logError(error, {
+      req,
+      event: "database_readiness_failed",
+      message: "Database readiness check failed",
+    });
+
+    return res.status(503).json({
+      status: "error",
+      message: "LabFlow API is not ready",
+      checks: {
+        database: "unavailable",
+      },
+      requestId: req.requestId,
+    });
+  }
 });
 
 app.use(helmet());
