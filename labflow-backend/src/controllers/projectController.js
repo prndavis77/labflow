@@ -374,7 +374,7 @@ const updateProject = async (req, res) => {
       }
 
       const supervisorValidation = await validateProjectSupervisor(
-        resolvedSupervisorId,
+        supervisorId,
         req.user.organizationId,
       );
 
@@ -392,7 +392,7 @@ const updateProject = async (req, res) => {
       title: title !== undefined ? title.trim() : project.title,
       description:
         description !== undefined
-          ? description.trim() || null
+          ? description?.trim() || null
           : project.description,
       status: status !== undefined ? status : project.status,
       startDate: nextStartDate,
