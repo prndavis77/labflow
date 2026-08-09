@@ -367,7 +367,7 @@ Neon provides point-in-time recovery within the configured restore-history windo
 
 Neon also supports database snapshots. Snapshots can capture a point-in-time database state and can be restored either directly or through a temporary branch for inspection before finalizing a restore.
 
-Current Neon capabilities must be reviewed against the production plan before defining the final retention policy.
+Current Neon production capabilities have been reviewed against the deployment plan. The verified Free-plan baseline includes a 6-hour restore-history window, one manual snapshot, no scheduled snapshots, and portable logical backups for additional recovery coverage.
 
 ### Cloudflare R2
 
@@ -375,7 +375,11 @@ Cloudflare R2 provides highly durable object storage with provider-managed redun
 
 Provider durability protects against underlying storage-device failure, but durability alone must not be treated as protection from logical deletion, application bugs, credential misuse, or intentional deletion.
 
-The R2 recovery strategy therefore needs separate evaluation in Phase 25B.4.
+The R2 recovery strategy was evaluated and validated in Phase 25B.4.
+
+The current strategy uses private production R2 storage together with independent dated attachment backups. Bucket locking is intentionally not enabled because pending and completed attachment objects share the same storage-key namespace, while the expired-pending-upload cleanup process must remain able to delete partial objects.
+
+A representative attachment restore into an isolated R2 recovery bucket has been successfully tested with SHA-256 integrity verification.
 
 ### Render
 
@@ -391,17 +395,17 @@ Project configuration represented in repository files is recoverable through Git
 
 ## Current Recovery Status
 
-| Component                  | Backup/recovery state                                                        | Restore tested                      |
-| -------------------------- | ---------------------------------------------------------------------------- | ----------------------------------- |
-| PostgreSQL                 | Provider recovery capabilities available; LabFlow strategy not yet finalized | No                                  |
-| R2 attachments             | Durable provider storage; LabFlow backup/recovery strategy not yet finalized | No                                  |
-| GitHub source              | Version controlled                                                           | Yes, normal clone/redeploy workflow |
-| Render configuration       | Exists in production; recovery inventory requires documentation              | No                                  |
-| Vercel configuration       | Exists in production; recovery inventory requires documentation              | No                                  |
-| Mailgun configuration      | Exists in production; recovery procedure requires documentation              | No                                  |
-| Better Stack configuration | Exists in production; recreation procedure requires documentation            | No                                  |
+| Component                  | Backup/recovery state                                                                  | Restore tested                      |
+| -------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------- |
+| PostgreSQL                 | Backup strategy and restore procedures defined; isolated restore drill pending         | No                                  |
+| R2 attachments             | Dated backup created; representative restore verified; combined reconciliation pending | Yes, representative object restore  |
+| GitHub source              | Version controlled                                                                     | Yes, normal clone/redeploy workflow |
+| Render configuration       | Exists in production; recovery inventory requires documentation                        | No                                  |
+| Vercel configuration       | Exists in production; recovery inventory requires documentation                        | No                                  |
+| Mailgun configuration      | Exists in production; recovery procedure requires documentation                        | No                                  |
+| Better Stack configuration | Exists in production; recreation procedure requires documentation                      | No                                  |
 
-The absence of a tested PostgreSQL restore is the primary recovery gap at the start of Phase 25B.
+The primary remaining recovery-validation gap is the isolated PostgreSQL restore and combined PostgreSQL/R2 reconciliation drill scheduled for Phase 25B.7.
 
 ## PostgreSQL Backup Strategy
 
@@ -1200,3 +1204,415 @@ Actual isolated restore: Not yet performed
 ```
 
 The PostgreSQL restore procedure is defined, but recovery capability will not be considered restore-verified until the Phase 25B.7 drill succeeds.
+
+## Attachment Storage Backup and Recovery
+
+### Objective
+
+The Cloudflare R2 recovery strategy protects LabFlow attachment objects against failures that provider durability alone does not address, including:
+
+- accidental logical deletion
+- application or cleanup defects
+- credential misuse
+- destructive bulk object operations
+- corruption or replacement of stored objects
+- loss of the production R2 bucket
+- recovery into isolated replacement object storage
+
+Cloudflare R2 remains the production object store for LabFlow attachments. Attachment metadata remains in PostgreSQL.
+
+A complete attachment recovery therefore requires both:
+
+1. recoverable PostgreSQL attachment metadata
+2. recoverable R2 objects under the expected storage keys
+
+### Verified Production R2 Configuration
+
+The production attachment bucket is:
+
+```text
+Bucket: labflow-attachments
+Location hint: Eastern Europe (EEUR)
+Default storage class: Standard
+Public Development URL: Disabled
+Custom domain: None
+R2 Data Catalog: Disabled
+Bucket lock rules: None
+Event notifications: Not enabled
+On Demand Migration: Disabled
+Local Uploads: Disabled
+```
+
+The production bucket remains private.
+
+The current CORS configuration permits the deployed LabFlow frontend and local Vite development origin to perform the required browser operations.
+
+The production bucket currently has no object-expiration lifecycle rule.
+
+The only observed lifecycle rule is Cloudflare's default incomplete multipart-upload abort rule.
+
+### Verified Object-Key Structure
+
+The production attachment namespace is organization-scoped.
+
+Observed structure:
+
+```text
+organizations/
+  {organizationId}/
+    equipment/
+    experiment/
+    project/
+    protocol/
+    task/
+```
+
+A representative experiment attachment used this structure:
+
+```text
+organizations/1/experiment/1/1c4832f3-1984-434a-8177-c65d0a88c1a7/blood-pressure.xlsx
+```
+
+The effective storage-key pattern is therefore approximately:
+
+```text
+organizations/{organizationId}/{entityType}/{entityId}/{attachmentUuid}/{filename}
+```
+
+Upload status is not encoded in the R2 storage key.
+
+The distinction between:
+
+```text
+pending
+available
+failed
+```
+
+exists in PostgreSQL attachment metadata.
+
+### Bucket-Lock Decision
+
+Bucket Lock Rules are not enabled on the current production attachment bucket.
+
+Reason:
+
+The current object-key hierarchy does not separate pending upload objects from completed attachment objects.
+
+LabFlow's expired-pending-upload cleanup process intentionally deletes partial R2 objects before changing the associated PostgreSQL attachment record to `failed`.
+
+A retention lock applied to the current attachment prefixes could therefore block legitimate cleanup deletion and cause normal maintenance failures.
+
+For example, locking:
+
+```text
+organizations/
+```
+
+or an organization/entity prefix would also apply to pending upload objects stored under that prefix.
+
+LabFlow will not redesign the object-key hierarchy solely to support bucket locking during the current production-hardening phase.
+
+A future design may reconsider prefix-scoped retention if temporary and durable attachment objects are separated into distinct namespaces.
+
+### R2 Recovery Strategy
+
+The current recovery strategy uses two layers:
+
+1. Cloudflare R2 as the private production object store.
+2. Independent dated attachment backup copies stored outside the production R2 bucket.
+
+The independent copy is required because R2 durability does not independently protect LabFlow from logical deletion, application defects, credential misuse, or destructive object operations.
+
+For the current demo/pilot deployment, the first independent copy is stored locally in an access-controlled backup location.
+
+Current attachment backup root:
+
+```text
+F:\LabFlow Backups\attachments
+```
+
+The backup is organized into dated recovery sets rather than a continuously mirrored directory.
+
+Example:
+
+```text
+F:\LabFlow Backups\attachments\
+  2026-08-09\
+    organizations\
+      ...
+```
+
+A dated copy is preferred over a destructive mirror because deletion from production must not automatically remove the corresponding recovery copy.
+
+### Attachment Backup RPO
+
+LabFlow's overall recovery target remains:
+
+```text
+RPO: 24 hours or less
+```
+
+The attachment backup strategy should therefore eventually provide a recoverable attachment state from within the previous 24 hours.
+
+Current implementation:
+
+```text
+Manual dated attachment backup
+```
+
+Future pilot implementation:
+
+```text
+Automated daily attachment backup
+```
+
+Additional attachment backups should be created before:
+
+- storage-key migrations
+- bulk R2 object operations
+- physical attachment-deletion implementations
+- other risky storage changes
+
+### First Production Attachment Backup
+
+The first dated production R2 attachment backup was created on:
+
+```text
+2026-08-09
+```
+
+Backup location:
+
+```text
+F:\LabFlow Backups\attachments\2026-08-09
+```
+
+Production inventory before backup:
+
+```text
+Total Objects: 47
+Total Size: 22735636 bytes
+```
+
+Local backup verification:
+
+```text
+Local files: 47
+Local size: 22735636 bytes
+```
+
+The production and local inventory counts and byte totals matched exactly.
+
+### SHA-256 Integrity Manifest
+
+A SHA-256 manifest was created for the first attachment backup.
+
+Manifest:
+
+```text
+F:\LabFlow Backups\attachments\2026-08-09\sha256-manifest.csv
+```
+
+Verified manifest entries:
+
+```text
+47
+```
+
+The manifest records:
+
+- relative object path
+- file size
+- SHA-256 hash
+
+The manifest is part of the backup material and must not be committed to Git.
+
+Production attachment filenames and storage-key structure may be present in the manifest.
+
+### Recovery-Test Bucket
+
+An isolated R2 bucket was created for recovery validation:
+
+```text
+labflow-attachments-recovery-test
+```
+
+Verified configuration:
+
+```text
+Location hint: Eastern Europe (EEUR)
+Public Development URL: Disabled
+Custom domain: None
+CORS: None
+Bucket lock rules: None
+Default storage class: Standard
+```
+
+The recovery bucket is not used by the production LabFlow application.
+
+It exists only as an isolated recovery target.
+
+### Recovery Credential Isolation
+
+A dedicated R2 Object Read & Write credential was created for the recovery-test bucket.
+
+The credential was restricted to:
+
+```text
+labflow-attachments-recovery-test
+```
+
+Scope verification produced:
+
+```text
+Recovery bucket: Accessible
+Production bucket: AccessDenied
+```
+
+This confirms that the recovery credential can write restored objects into the isolated recovery bucket without receiving access to the production `labflow-attachments` bucket.
+
+The recovery credential must not be committed to Git or stored in documentation.
+
+Temporary PowerShell environment variables used during the drill were cleared after use.
+
+### Representative Attachment Restore Test
+
+A representative attachment was restored from the local dated backup into the isolated R2 recovery bucket.
+
+Test object:
+
+```text
+organizations/1/experiment/1/1c4832f3-1984-434a-8177-c65d0a88c1a7/blood-pressure.xlsx
+```
+
+Recovery path:
+
+```text
+local dated attachment backup
+-> isolated R2 recovery bucket
+-> download from recovery bucket
+-> SHA-256 comparison
+```
+
+The upload into the recovery bucket succeeded.
+
+The recovered object was then downloaded from the recovery bucket successfully.
+
+Original backup SHA-256:
+
+```text
+4DF3FFAEAB5108C98337227D75263FF220A920DBD1E3AD74E81B9B2239F415E5
+```
+
+Recovered-object SHA-256:
+
+```text
+4DF3FFAEAB5108C98337227D75263FF220A920DBD1E3AD74E81B9B2239F415E5
+```
+
+The hashes matched exactly.
+
+This confirms that the tested attachment could be restored from the independent backup into isolated R2 storage and recovered byte-for-byte.
+
+### Attachment Recovery Procedure
+
+For recovery of one or more attachment objects:
+
+1. Identify the required attachment metadata in PostgreSQL.
+2. Determine the expected R2 storage key.
+3. Locate the required object in a dated attachment backup set.
+4. Verify the backup copy against the SHA-256 manifest where available.
+5. Create or select an isolated recovery bucket.
+6. Use recovery-only credentials that do not grant unnecessary production-bucket access.
+7. Restore the object using the same storage key expected by PostgreSQL.
+8. Download the restored object from the recovery bucket.
+9. Compare the recovered file hash with the backup manifest.
+10. Only after validation, decide whether the restored object should be copied into replacement or production storage.
+11. Verify that LabFlow attachment metadata points to the correct storage key.
+12. Verify application-level download behavior after recovery.
+
+Do not delete a production object merely to test recovery.
+
+### PostgreSQL and R2 Reconciliation
+
+A restored PostgreSQL database and a restored attachment backup may represent different points in time.
+
+After any database restore, attachment reconciliation must identify at least:
+
+- active attachment metadata whose R2 object is missing
+- archived attachment metadata whose R2 object is missing
+- R2 objects for which no restored PostgreSQL attachment metadata exists
+- attachment records whose expected storage key differs from recovered storage
+- pending attachment rows that should not be treated as completed attachment recovery targets
+
+The database remains authoritative for LabFlow attachment metadata and workflow state.
+
+R2 remains authoritative for the binary object content at the referenced storage key.
+
+An attachment should not be considered fully recovered until both sides are consistent.
+
+### Current Limitations
+
+The current attachment backup strategy has these limitations:
+
+- the first independent backup is stored on local storage
+- local storage does not protect against loss of the local machine or backup drive
+- daily attachment backup automation is not yet implemented
+- no provider-independent remote backup copy has yet been configured
+- full PostgreSQL-plus-R2 recovery reconciliation has not yet been performed
+- only one representative R2 object has been restore-tested
+- the production bucket does not currently use bucket locking
+- the current storage-key hierarchy does not separate pending and completed attachment objects
+
+For a real customer pilot, add an off-machine or off-provider backup copy and automate attachment backups sufficiently to meet the intended RPO.
+
+### Phase 25B.4 Verification Checklist
+
+- [x] Production R2 bucket inspected
+- [x] Production bucket confirmed private
+- [x] Production location and storage class recorded
+- [x] Current lifecycle configuration reviewed
+- [x] Bucket-lock capability evaluated
+- [x] Bucket lock intentionally not enabled because of pending-upload cleanup semantics
+- [x] Object-key hierarchy inspected
+- [x] Organization and entity-type scoping confirmed
+- [x] Pending and completed objects confirmed to share the same storage namespace
+- [x] Production R2 inventory recorded
+- [x] First dated independent attachment backup created
+- [x] Production and local object counts matched
+- [x] Production and local byte totals matched
+- [x] SHA-256 manifest created
+- [x] Isolated R2 recovery bucket created
+- [x] Recovery-only credential created
+- [x] Recovery credential access to production bucket denied
+- [x] Representative attachment restored into isolated R2 storage
+- [x] Recovered attachment downloaded successfully
+- [x] Recovered SHA-256 matched original backup SHA-256
+- [x] PostgreSQL/R2 reconciliation requirement documented
+- [ ] Automated daily attachment backup not yet implemented
+- [ ] Off-machine/off-provider attachment backup copy not yet implemented
+- [ ] Full database-plus-R2 recovery reconciliation remains scheduled for Phase 25B.7
+
+### Current Attachment Recovery Status
+
+```text
+Production R2 bucket: Private and verified
+Bucket lock: Not enabled by design
+Independent dated backup: Created
+Backup date: 2026-08-09
+Backup object count: 47
+Backup object bytes: 22735636
+SHA-256 manifest: Created, 47 entries
+Isolated recovery bucket: Created
+Recovery-only credential isolation: Verified
+Representative object restore: Successful
+Representative hash verification: Successful
+Full PostgreSQL/R2 reconciliation drill: Not yet performed
+```
+
+Phase 25B.4 is complete for the current demo/pilot production-hardening stage.
+
+The attachment backup and recovery procedure has been demonstrated using an isolated recovery target without modifying or deleting production attachment objects.
+
+Full combined recovery remains part of Phase 25B.7.
