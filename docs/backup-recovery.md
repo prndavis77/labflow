@@ -733,3 +733,470 @@ Actual restore: Not yet tested
 ```
 
 The PostgreSQL backup strategy is not considered fully verified until an isolated restore drill succeeds.
+
+## PostgreSQL Restore Procedure
+
+### Objective
+
+The PostgreSQL restore procedure defines how LabFlow relational data should be recovered without unnecessarily modifying or overwriting the current production database.
+
+The preferred recovery approach is:
+
+1. identify the failure and required recovery point
+2. preserve the current production state before destructive recovery where practical
+3. preview or restore into an isolated recovery environment first
+4. validate schema and representative data
+5. only then decide whether production should be replaced or restored
+
+Production must not be overwritten merely to prove that a backup can be restored.
+
+## Restore Methods
+
+LabFlow currently has three PostgreSQL recovery paths:
+
+1. Neon point-in-time restore
+2. Neon snapshot restore
+3. portable `pg_dump` / `pg_restore` recovery
+
+The appropriate method depends on the failure scenario and age of the required recovery point.
+
+### Recovery Method Selection
+
+| Scenario                                               | Preferred recovery method                        |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| Recent accidental DELETE or UPDATE within PITR history | Neon point-in-time restore                       |
+| Recent bad migration within PITR history               | Neon point-in-time restore                       |
+| Known-good manual snapshot exists                      | Neon snapshot restore                            |
+| Recovery point is outside current PITR window          | Portable logical backup                          |
+| Original Neon project is unavailable                   | Portable logical backup into replacement project |
+| Provider migration is required                         | Portable logical backup                          |
+| Restore procedure is being tested                      | Isolated recovery database/project               |
+
+## General Restore Safety Rules
+
+Before any restore:
+
+1. Confirm the incident and the approximate time of the destructive event.
+2. Determine whether newer valid production data exists that would be lost by restoring to an older point.
+3. Record the current production state and recovery decision.
+4. Do not run application tests against the production database.
+5. Do not overwrite production solely to test recovery capability.
+6. Prefer an isolated recovery branch, database, or project for inspection.
+7. Use direct, unpooled database connections for restore tooling.
+8. Never paste production database credentials into documentation, screenshots, Git, or shared logs.
+9. Keep the production backend pointed at the existing production database until the recovered database has been validated.
+10. Treat a restore as a potentially destructive production operation.
+
+## Restore Decision Process
+
+When a database recovery incident occurs:
+
+### Step 1: Determine the failure window
+
+Identify:
+
+- when the destructive operation occurred
+- when the problem was discovered
+- whether the required point is within Neon's current 6-hour PITR history
+- whether the current manual snapshot predates the incident
+- whether a suitable external logical backup exists
+
+### Step 2: Determine data-loss consequences
+
+Before restoring to an earlier point, identify what valid data was created after that point.
+
+Examples include:
+
+- new users
+- projects
+- tasks
+- experiments
+- protocols
+- equipment bookings
+- notebook entries
+- review actions
+- invitations
+- attachment metadata
+
+A restore that fixes corrupted data can also remove newer valid data.
+
+If newer valid data must be preserved, a selective recovery or data-reconciliation strategy may be safer than a full database rollback.
+
+### Step 3: Preserve current state
+
+Before a destructive production restore, create an additional logical backup of the current database when practical.
+
+This preserves the post-incident state for:
+
+- forensic comparison
+- selective data recovery
+- rollback of the recovery operation itself
+
+If the database is unavailable or too badly corrupted to export safely, document that limitation.
+
+## Neon Point-in-Time Restore Procedure
+
+Use Neon point-in-time recovery when:
+
+- the required recovery point is within the retained history window
+- the approximate safe timestamp is known
+- restoring the full relational database state is appropriate
+
+Current LabFlow production PITR history:
+
+```text
+6 hours
+```
+
+### Procedure
+
+1. Open the Neon production project.
+2. Open Backup & Restore.
+3. Select the `production` branch.
+4. Choose the intended recovery timestamp.
+5. Use Neon's preview capability where available to inspect the selected point before committing a restore.
+6. Verify representative tables and records.
+7. Confirm the chosen timestamp predates the destructive operation.
+8. Assess what newer valid data would be lost.
+9. Preserve the current production state with a logical export when practical.
+10. Only after validation, perform the restore if production recovery is actually required.
+11. Confirm Neon reports the restore operation as completed.
+12. Verify database connectivity.
+13. Verify Sequelize migration state.
+14. Verify representative LabFlow data.
+15. Verify `/api/ready`.
+16. Perform a production application smoke test.
+17. Monitor structured backend logs for database or application errors.
+
+Do not experiment with the production Restore action during routine verification.
+
+## Neon Snapshot Restore Procedure
+
+Use a manual snapshot when:
+
+- the snapshot represents a known-good database state
+- the required recovery point is older than the current PITR window
+- the snapshot was intentionally retained for a migration or production change
+
+Current baseline snapshot:
+
+```text
+Branch: production
+Created: 2026-08-09 12:30:17 UTC
+Size: 33.17 MB
+Expiration: none shown by Neon
+```
+
+### Procedure
+
+1. Open Neon Backup & Restore.
+2. Locate the intended manual snapshot.
+3. Confirm the snapshot creation time.
+4. Confirm the snapshot predates the incident.
+5. Determine what newer production data would be lost.
+6. Preserve the current database with a logical backup when practical.
+7. Prefer restoring or inspecting the snapshot through an isolated branch or equivalent recovery workflow where Neon permits it.
+8. Validate representative data before using the recovered state as production.
+9. If a production restore is required, explicitly confirm the destructive operation.
+10. After recovery, verify migrations, application data, readiness, and application functionality.
+
+Do not delete the existing snapshot while it is required for an active recovery operation.
+
+## Portable Logical Backup Restore
+
+LabFlow uses PostgreSQL custom-format logical backups created with pg_dump.
+
+Verified backup example:
+
+labflow-production-20260809-1506.dump
+
+The archive has been successfully inspected with pg_restore --list.
+
+It has not yet been restore-verified.
+
+### Isolated Restore Requirement
+
+A logical backup must first be restored into a database that is not the active LabFlow production database.
+
+Recommended targets include:
+
+- a dedicated recovery database in Neon
+- a separate Neon recovery project
+- another isolated PostgreSQL instance
+
+For the Phase 25B.7 restore drill, a separate Neon recovery target is preferred because it most closely reproduces the production environment without placing production data at risk.
+
+### Preparing a Recovery Database
+
+Before restoring a logical backup:
+
+1. Create an isolated PostgreSQL database or Neon project.
+2. Use the same major PostgreSQL version where practical.
+3. Obtain a direct, unpooled connection string for the recovery database.
+4. Confirm the target is not the production database.
+5. Confirm no deployed LabFlow service is using the recovery target.
+6. Confirm the target database can safely be replaced or recreated during testing.
+
+Never reuse the production DATABASE_URL as the restore target.
+
+### Logical Restore Command
+
+For a PostgreSQL custom-format archive, use pg_restore.
+
+Example PowerShell workflow:
+
+```powershell
+$env:RECOVERY_DATABASE_URL = 'PASTE_RECOVERY_DATABASE_CONNECTION_STRING_HERE'
+
+$backupFile = 'F:\LabFlow Backups\labflow-production-20260809-1506.dump'
+
+
+pg_restore `
+  --verbose `
+  --no-owner `
+  --no-acl `
+  --dbname="$env:RECOVERY_DATABASE_URL" `
+  "$backupFile"
+```
+
+The recovery connection string must be direct and unpooled.
+
+Do not paste the recovery connection string into:
+
+- documentation
+- Git
+- screenshots
+- shell scripts committed to the repository
+- shared terminal output
+
+After the operation:
+
+```powershell
+Remove-Item Env:RECOVERY_DATABASE_URL -ErrorAction SilentlyContinue
+[bool]$env:RECOVERY_DATABASE_URL
+```
+
+Expected:
+
+```text
+False
+```
+
+### Empty Target Requirement
+
+A full logical restore should normally target an empty database.
+
+Restoring a full archive into a database that already contains LabFlow tables can produce:
+
+- duplicate-object errors
+- conflicting enum types
+- existing-table errors
+- duplicate rows
+- sequence inconsistencies
+- misleading partial restores
+
+For a recovery drill, prefer creating a clean database rather than trying to merge a full dump into an existing LabFlow schema.
+
+### Restore Error Handling
+
+A restore must not be declared successful merely because pg_restore starts.
+
+Review the complete restore output for:
+
+- errors
+- warnings requiring investigation
+- extension failures
+- ownership issues
+- constraint failures
+- duplicate-object errors
+
+If the restore produces unexpected errors, stop validation and investigate before using the recovered database.
+
+Do not suppress restore errors merely to make the operation appear successful.
+
+## Post-Restore Validation
+
+After restoring into an isolated recovery database, validate the following.
+
+### Database connectivity
+
+Confirm that PostgreSQL accepts connections.
+
+### Schema presence
+
+Verify expected LabFlow tables exist.
+
+Examples include:
+
+- Organizations
+- Users
+- Projects
+- Tasks
+- Experiments
+- Protocols
+- Equipment
+- EquipmentBookings
+- NotebookEntries
+- Attachments
+
+Actual table names should be verified against the restored schema.
+
+### Migration state
+
+Run the Sequelize migration-status command against the recovery database.
+
+From labflow-backend:
+
+```powershell
+$env:DATABASE_URL = 'RECOVERY_DATABASE_CONNECTION_STRING'
+
+npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
+```
+
+Do not run migrations immediately just because a migration appears pending.
+
+First determine whether:
+
+- the backup was intentionally taken before that migration
+- the restored application version matches the backup
+- applying the migration is appropriate for the intended recovery point
+
+Clear the recovery connection string afterward.
+
+### Representative data
+
+Verify representative counts and relationships for:
+
+- organizations
+- users
+- projects
+- tasks
+- experiments
+- protocols
+- equipment
+- bookings
+- notebook entries
+- invitations
+- attachment metadata
+
+The goal is not merely to see tables, but to confirm relational data is coherent.
+
+### Organization isolation
+
+Verify records remain associated with the expected organizations.
+
+Recovery must not accidentally collapse, duplicate, or cross-link tenant data.
+
+### Account-security state
+
+Verify that restored account-security data is structurally present, including:
+
+- user verification state
+- token-version state
+- invitation state
+- password-reset and verification-token tables where appropriate
+
+Do not expose or reuse historical raw tokens during validation.
+
+### Attachment metadata
+
+Verify attachment metadata exists and retains storage references.
+
+R2 object consistency is evaluated separately under the attachment-recovery subphase.
+
+## Application-Level Recovery Validation
+
+A database restore is not fully validated until the LabFlow application can operate against the recovered database.
+
+During the dedicated restore drill:
+
+1. Point an isolated backend instance or local backend process at the recovery database.
+2. Ensure the production frontend/backend remain unchanged.
+3. Start the backend.
+4. Confirm database connection succeeds.
+5. Check `/api/health`.
+6. Check `/api/ready`.
+7. Perform a representative login.
+8. Load representative organization data.
+9. Inspect structured logs for failures.
+
+Do not point the deployed production backend at the recovery database during the restore drill.
+
+## Recovery Verification Criteria
+
+A PostgreSQL restore is considered successful only when:
+
+- the restore completes without unexplained errors
+- the expected schema exists
+- Sequelize migration state is understood
+- representative data exists
+- important relationships are intact
+- organization isolation remains intact
+- account-security state is coherent
+- the backend can connect to the recovered database
+- `/api/ready` succeeds against the recovery environment
+- representative LabFlow workflows can read the recovered data
+
+## Production Cutover After Disaster
+
+If a disaster requires replacing the production database with a recovered database:
+
+1. Stop or restrict production writes where practical.
+2. Preserve the current production state if possible.
+3. Restore and validate the recovery database.
+4. Confirm the recovered database is the intended recovery point.
+5. Update the backend database connection securely.
+6. Restart or redeploy the backend.
+7. Verify `/api/health`.
+8. Verify `/api/ready`.
+9. Verify login.
+10. Verify representative application data.
+11. Verify organization isolation.
+12. Verify attachment metadata.
+13. Monitor structured logs.
+14. Confirm Better Stack recovery.
+15. Document the incident and the final recovery point.
+
+A production database cutover should not occur until the recovered database has passed isolated validation whenever circumstances permit.
+
+## Rollback of a Failed Recovery
+
+A recovery operation itself can introduce problems.
+
+Before a production cutover, retain enough information to return to the pre-recovery state where practical.
+
+If recovery validation fails:
+
+1. Do not continue application writes against the failed recovery target.
+2. Restore the previous production connection if it was changed.
+3. Preserve logs and error evidence.
+4. Reassess the recovery point or backup source.
+5. Create a new isolated recovery attempt.
+6. Do not repeatedly overwrite production while troubleshooting.
+
+## Phase 25B.3 Verification Checklist
+
+- [x] PostgreSQL recovery methods identified
+- [x] PITR restore procedure documented
+- [x] Snapshot restore procedure documented
+- [x] Logical-backup restore procedure documented
+- [x] Production overwrite protections documented
+- [x] Isolated recovery target requirement documented
+- [x] Restore validation requirements documented
+- [x] Production cutover procedure documented
+- [x] Failed-recovery rollback procedure documented
+- [ ] Actual isolated PostgreSQL restore performed
+
+The unchecked restore item intentionally remains deferred to Phase 25B.7.
+
+## Current PostgreSQL Restore Status
+
+```text
+PITR procedure: Documented
+Snapshot restore procedure: Documented
+Logical restore procedure: Documented
+Production cutover procedure: Documented
+Actual isolated restore: Not yet performed
+```
+
+The PostgreSQL restore procedure is defined, but recovery capability will not be considered restore-verified until the Phase 25B.7 drill succeeds.
