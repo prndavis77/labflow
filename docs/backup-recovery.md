@@ -402,3 +402,334 @@ Project configuration represented in repository files is recoverable through Git
 | Better Stack configuration | Exists in production; recreation procedure requires documentation            | No                                  |
 
 The absence of a tested PostgreSQL restore is the primary recovery gap at the start of Phase 25B.
+
+## PostgreSQL Backup Strategy
+
+### Objective
+
+The PostgreSQL backup strategy protects LabFlow relational data against:
+
+- accidental record deletion
+- incorrect bulk updates
+- application defects that corrupt stored data
+- failed or destructive migrations
+- production database loss
+- Neon project loss
+- situations requiring recovery into a replacement PostgreSQL environment
+
+The strategy uses multiple recovery mechanisms because no single backup method protects against every failure scenario.
+
+## Backup Layers
+
+### Layer 1: Neon point-in-time restore
+
+Neon point-in-time restore is the primary recovery mechanism for recent logical database failures.
+
+The current LabFlow production project is on the Neon Free plan.
+
+Verified production restore-history window:
+
+```text
+6 hours
+```
+
+This provides fine-grained recovery for failures discovered within the previous six hours.
+
+The current restore-history window does not independently satisfy LabFlow's broader target of retaining a recoverable state from within the previous 24 hours.
+
+The 24-hour recovery objective will therefore be satisfied through the combined backup strategy rather than PITR alone.
+
+LabFlow will use:
+
+Neon PITR for very recent failures
+manual Neon snapshots for important known-good recovery points
+external PostgreSQL logical backups for portable recovery outside the PITR window
+
+If LabFlow moves to a paid Neon plan in the future, extending the restore-history window to at least 24 hours is preferred.
+
+### Layer 2: Neon snapshots
+
+Neon snapshots provide named database recovery points.
+
+Verified current production capability:
+
+```text
+Manual snapshots: Available
+Manual snapshot limit on current Free plan: 1
+Scheduled snapshots: Not available on current plan
+```
+
+The Neon Console currently provides a manual Create snapshot action and requires an upgrade for snapshot schedules.
+
+For the current LabFlow deployment, manual snapshots should be created:
+
+before meaningful production database migrations
+before risky data-changing maintenance
+before significant database restructuring
+before other production changes where a known-good database recovery point is valuable
+
+Because only one manual snapshot is available on the current plan, the existing snapshot may need to be replaced when creating a newer recovery point.
+
+Before deleting or replacing an existing snapshot, confirm that it is no longer the recovery point required for an unresolved incident or recent production change.
+
+Automated daily Neon snapshots are not part of the current Free-plan backup strategy.
+
+### Manual Snapshot Replacement Procedure
+
+The current Neon Free plan permits one manual snapshot.
+
+When a new recovery snapshot is required and an existing manual snapshot already exists:
+
+1. Confirm there is no active incident or unresolved production change that still depends on the existing snapshot.
+2. Record the existing snapshot creation time and purpose if it is operationally relevant.
+3. Create or verify an external `pg_dump` backup when additional protection is appropriate.
+4. Delete the existing Neon snapshot only after confirming it is safe to replace.
+5. Create a new manual snapshot from the `production` branch.
+6. Confirm the new snapshot appears in Neon Backup & Restore.
+7. Record the new snapshot creation time.
+8. Do not use the Restore action during snapshot replacement.
+
+Snapshot replacement is a destructive action with respect to the previous named recovery point. It must not be performed casually.
+
+### Layer 3: Portable PostgreSQL logical export
+
+LabFlow should maintain the ability to create an independent logical PostgreSQL backup using pg_dump.
+
+This backup is intended primarily for:
+
+migration to another Neon project
+migration to another PostgreSQL provider
+recovery when provider-native restore mechanisms are unavailable
+retaining an external copy outside the normal Neon recovery timeline
+disaster-recovery testing
+
+Logical exports are not the primary mechanism for routine point-in-time recovery.
+
+## pg_dump Requirements
+
+pg_dump must use an unpooled Neon connection string.
+
+Do not use the PgBouncer/pooled connection string for backup exports.
+
+Preferred backup format:
+
+PostgreSQL custom format
+
+Example:
+
+pg_dump `  --format=custom`
+--no-owner `  --no-acl`
+--file="labflow-production-YYYYMMDD-HHMM.dump" `
+"$env:DATABASE_URL"
+
+The environment variable used for this command must contain an unpooled production connection string.
+
+Do not place the production connection string directly in:
+
+- shell history
+- scripts committed to Git
+- documentation
+- backup filenames
+- screenshots
+- terminal output shared publicly
+
+After the backup completes, clear the temporary environment variable.
+
+Example:
+
+Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+
+## Backup File Verification
+
+A successful pg_dump process exit alone is not sufficient evidence that a backup is usable.
+
+For each manually retained logical backup:
+
+1. confirm the command exits successfully
+2. confirm the backup file exists
+3. confirm the file size is greater than zero
+4. inspect the archive using pg_restore --list
+5. retain enough metadata to identify when and why the backup was created
+6. eventually verify it through an actual restore drill
+
+Example inspection:
+
+pg_restore --list .\labflow-production-YYYYMMDD-HHMM.dump
+
+The backup must not be considered restore-verified until Phase 25B.7 successfully restores and validates it.
+
+## Backup Storage Security
+
+Logical backup files may contain the complete LabFlow production database.
+
+They must therefore be treated as sensitive production data.
+
+Backup files must not be:
+
+- committed to Git
+- uploaded to the public repository
+- stored in a publicly accessible bucket
+- emailed as normal attachments
+- placed in publicly shared cloud folders
+- left indefinitely in temporary download directories
+
+Where an external logical backup is retained, it should be stored in an access-controlled location.
+
+Encryption at rest should be used where practical.
+
+The backup storage account should use strong authentication and multi-factor authentication where available.
+
+Current logical backup location:
+
+```text
+F:\LabFlow Backups
+```
+
+## Backup Naming
+
+Use a consistent filename format:
+
+labflow-production-YYYYMMDD-HHMM.dump
+
+For a pre-migration backup, an optional descriptive suffix may be used:
+
+labflow-production-YYYYMMDD-HHMM-pre-migration.dump
+
+Do not include:
+
+- database passwords
+- connection strings
+- usernames
+- API credentials
+- customer or organization names
+- other sensitive identifiers
+
+## Retention Strategy
+
+For the current LabFlow demo/pilot deployment:
+
+### Neon point-in-time history
+
+```text
+Current production window: 6 hours
+Preferred: longer when plan and cost permit
+```
+
+The current Free-plan PITR window protects against recent failures discovered within six hours.
+
+The broader 24-hour LabFlow recovery objective is achieved through the combined use of PITR, manual snapshots, and portable logical backups rather than PITR alone.
+
+If LabFlow moves to a paid Neon plan, a restore-history window of at least 24 hours is preferred.
+
+### Neon snapshots
+
+Current plan:
+
+```text
+Manual snapshots: 1
+Scheduled snapshots: unavailable
+```
+
+A manual snapshot should normally be maintained around meaningful production changes.
+
+The snapshot should not be treated as the only database backup because:
+
+only one manual snapshot is available
+snapshot replacement removes the older named recovery point
+snapshots remain within the Neon provider ecosystem
+
+External logical backups provide the additional portable recovery layer.
+
+### External logical backups
+
+At this stage, logical backups are not required daily.
+
+The current production strategy uses:
+
+- 6-hour Neon PITR
+- one manually maintained Neon snapshot
+- periodic portable logical backups
+
+Because scheduled Neon snapshots are unavailable on the current plan, periodic logical exports provide an important recovery point outside the short PITR window.
+
+Create an external logical backup:
+
+- before major database restructuring when additional protection is appropriate
+- before migrations judged higher risk
+- before moving between database providers or Neon projects
+- for periodic disaster-recovery validation
+- when a portable off-provider recovery copy is required
+
+A future institutional deployment should define a stricter automated external-backup retention policy.
+
+## Pre-Migration Backup Policy
+
+Before a production migration with meaningful schema or data risk:
+
+1. confirm current Neon restore capability
+2. create a manual Neon snapshot where supported
+3. record the snapshot creation time
+4. optionally create a pg_dump for higher-risk migrations
+5. confirm the backup/snapshot exists
+6. only then run the migration
+7. verify migration status afterward
+8. perform application smoke testing
+
+Simple low-risk migrations may not require a separate logical export if Neon PITR and snapshots are confirmed available.
+
+## Provider Failure Consideration
+
+Neon-native PITR and Neon snapshots are stored within the same provider ecosystem.
+
+They provide strong protection against many application and user errors but should not be treated as a complete independent off-provider disaster-recovery copy.
+
+A pg_dump stored outside Neon provides an additional recovery path if:
+
+- the original Neon project becomes unavailable
+- the project is accidentally deleted
+- provider-native restore access is unavailable
+- LabFlow must be moved to another PostgreSQL provider
+
+This is the primary reason LabFlow retains a logical-export capability even when Neon-native backup features are enabled.
+
+## Production Backup Verification Checklist
+
+Before considering the PostgreSQL backup strategy operational, verify:
+
+- [x] Production Neon plan identified as Free
+- [x] Production Neon restore-history window identified as 6 hours
+- [x] Manual snapshot capability verified
+- [x] Current Free-plan manual snapshot limit identified as 1
+- [x] Scheduled snapshots confirmed unavailable on the current plan
+- [x] One manual recovery snapshot created
+- [x] Manual snapshot creation procedure verified
+- [x] Manual snapshot replacement procedure documented
+- [x] An unpooled production connection string is available for `pg_dump`
+- [x] PostgreSQL client tools are available locally
+- [x] A logical backup can be created without exposing credentials
+- [x] The logical backup can be inspected with `pg_restore --list`
+- [x] Backup storage location is access-controlled
+- [x] No backup files are tracked by Git
+- [ ] Restore testing remains scheduled for Phase 25B.7
+
+## Current PostgreSQL Backup Status
+
+```text
+Neon plan: Free
+PITR window: 6 hours, verified
+Manual snapshots: Available, limit 1
+Scheduled snapshots: Not available on current plan
+Manual recovery snapshot: Created
+Snapshot branch: production
+Snapshot created: 2026-08-09 12:30:17 UTC
+Snapshot size: 33.17 MB
+Snapshot expiration: none shown by Neon
+External logical backup: Created
+Logical backup file: labflow-production-20260809-1506.dump
+Logical backup size: 107006 bytes
+Logical backup format: PostgreSQL custom format
+Logical backup archive inspection: Successful
+Actual restore: Not yet tested
+```
+
+The PostgreSQL backup strategy is not considered fully verified until an isolated restore drill succeeds.
