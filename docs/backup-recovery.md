@@ -57,10 +57,10 @@ Contains the binary objects associated with LabFlow attachment metadata.
 
 Examples include uploaded:
 
-documents
-images
-PDFs
-other supported laboratory files
+- documents
+- images
+- PDFs
+- other supported laboratory files
 
 The database contains attachment metadata, but the actual file contents are stored separately in R2.
 
@@ -82,13 +82,13 @@ prndavis77/labflow
 
 Contains:
 
-backend source code
-frontend source code
-Sequelize migrations
-package manifests and lock files
-deployment-related configuration stored in source control
-operational documentation
-recovery documentation
+- backend source code
+- frontend source code
+- Sequelize migrations
+- package manifests and lock files
+- deployment-related configuration stored in source control
+- operational documentation
+- recovery documentation
 
 GitHub is the authoritative version-controlled copy of the application source.
 
@@ -104,13 +104,13 @@ Render
 
 Contains deployment-specific configuration including:
 
-backend service definition
-build/start configuration
-production environment-variable names and values
-secret credentials
-deployment linkage to GitHub
-attachment-cleanup job configuration
-runtime configuration
+- backend service definition
+- build/start configuration
+- production environment-variable names and values
+- secret credentials
+- deployment linkage to GitHub
+- attachment-cleanup job configuration
+- runtime configuration
 
 The values of production secrets must not be committed to Git.
 
@@ -128,11 +128,11 @@ Vercel
 
 Contains deployment-specific configuration including:
 
-project linkage to GitHub
-production deployment configuration
-frontend environment variables
-production domain configuration
-framework/build settings where not represented in the repository
+- project linkage to GitHub
+- production deployment configuration
+- frontend environment variables
+- production domain configuration
+- framework/build settings where not represented in the repository
 
 Recovery priority:
 
@@ -146,17 +146,17 @@ Mailgun
 
 Required for:
 
-invitation email delivery
-password-reset email delivery
-email-verification delivery
+- invitation email delivery
+- password-reset email delivery
+- email-verification delivery
 
 Recoverable configuration includes:
 
-sending domain
-sender identity
-API-region selection
-DNS configuration
-API credentials or the ability to generate replacement credentials
+- sending domain
+- sender identity
+- API-region selection
+- DNS configuration
+- API credentials or the ability to generate replacement credentials
 
 Historical delivered email messages are not part of the LabFlow application backup requirement.
 
@@ -172,11 +172,11 @@ Better Stack
 
 Contains:
 
-frontend uptime monitor
-backend liveness monitor
-backend readiness monitor
-responder/contact configuration
-alert-delivery configuration
+- frontend uptime monitor
+- backend liveness monitor
+- backend readiness monitor
+- responder/contact configuration
+- alert-delivery configuration
 
 Loss of Better Stack configuration would not destroy LabFlow application data, but it would remove external outage detection.
 
@@ -268,13 +268,13 @@ A major provider-wide outage may exceed this target.
 
 In a broad disaster, services should normally be recovered in this order:
 
-source code and recovery documentation
-PostgreSQL database
-Cloudflare R2 attachment storage
-backend configuration and deployment
-frontend configuration and deployment
-transactional email
-external monitoring
+1. source code and recovery documentation
+2. PostgreSQL database
+3. Cloudflare R2 attachment storage
+4. backend configuration and deployment
+5. frontend configuration and deployment
+6. transactional email
+7. external monitoring
 
 The database and attachment storage should be validated before declaring application recovery complete.
 
@@ -395,15 +395,15 @@ Project configuration represented in repository files is recoverable through Git
 
 ## Current Recovery Status
 
-| Component                  | Backup/recovery state                                                                  | Restore tested                      |
-| -------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------- |
-| PostgreSQL                 | Backup strategy and restore procedures defined; isolated restore drill pending         | No                                  |
-| R2 attachments             | Dated backup created; representative restore verified; combined reconciliation pending | Yes, representative object restore  |
-| GitHub source              | Version controlled                                                                     | Yes, normal clone/redeploy workflow |
-| Render configuration       | Exists in production; recovery inventory requires documentation                        | No                                  |
-| Vercel configuration       | Exists in production; recovery inventory requires documentation                        | No                                  |
-| Mailgun configuration      | Exists in production; recovery procedure requires documentation                        | No                                  |
-| Better Stack configuration | Exists in production; recreation procedure requires documentation                      | No                                  |
+| Component                  | Backup/recovery state                                                                                           | Restore tested                      |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| PostgreSQL                 | Backup strategy and restore procedures defined; isolated restore drill pending                                  | No                                  |
+| R2 attachments             | Dated backup created; representative restore verified; combined reconciliation pending                          | Yes, representative object restore  |
+| GitHub source              | Version controlled                                                                                              | Yes, normal clone/redeploy workflow |
+| Render configuration       | Production service and cron configuration inventoried; secret regeneration and recreation procedures documented | No                                  |
+| Vercel configuration       | Production frontend configuration inventoried; recreation procedure documented                                  | No                                  |
+| Mailgun configuration      | Current sending infrastructure inventoried; credential regeneration procedure documented                        | No                                  |
+| Better Stack configuration | Production monitors and notification routing inventoried; recreation procedure documented                       | No                                  |
 
 The primary remaining recovery-validation gap is the isolated PostgreSQL restore and combined PostgreSQL/R2 reconciliation drill scheduled for Phase 25B.7.
 
@@ -445,9 +445,9 @@ The 24-hour recovery objective will therefore be satisfied through the combined 
 
 LabFlow will use:
 
-Neon PITR for very recent failures
-manual Neon snapshots for important known-good recovery points
-external PostgreSQL logical backups for portable recovery outside the PITR window
+- Neon PITR for very recent failures
+- manual Neon snapshots for important known-good recovery points
+- external PostgreSQL logical backups for portable recovery outside the PITR window
 
 If LabFlow moves to a paid Neon plan in the future, extending the restore-history window to at least 24 hours is preferred.
 
@@ -467,10 +467,10 @@ The Neon Console currently provides a manual Create snapshot action and requires
 
 For the current LabFlow deployment, manual snapshots should be created:
 
-before meaningful production database migrations
-before risky data-changing maintenance
-before significant database restructuring
-before other production changes where a known-good database recovery point is valuable
+- before meaningful production database migrations
+- before risky data-changing maintenance
+- before significant database restructuring
+- before other production changes where a known-good database recovery point is valuable
 
 Because only one manual snapshot is available on the current plan, the existing snapshot may need to be replaced when creating a newer recovery point.
 
@@ -497,21 +497,21 @@ Snapshot replacement is a destructive action with respect to the previous named 
 
 ### Layer 3: Portable PostgreSQL logical export
 
-LabFlow should maintain the ability to create an independent logical PostgreSQL backup using pg_dump.
+LabFlow should maintain the ability to create an independent logical PostgreSQL backup using `pg_dump`.
 
 This backup is intended primarily for:
 
-migration to another Neon project
-migration to another PostgreSQL provider
-recovery when provider-native restore mechanisms are unavailable
-retaining an external copy outside the normal Neon recovery timeline
-disaster-recovery testing
+- migration to another Neon project
+- migration to another PostgreSQL provider
+- recovery when provider-native restore mechanisms are unavailable
+- retaining an external copy outside the normal Neon recovery timeline
+- disaster-recovery testing
 
 Logical exports are not the primary mechanism for routine point-in-time recovery.
 
 ## pg_dump Requirements
 
-pg_dump must use an unpooled Neon connection string.
+`pg_dump` must use an unpooled Neon connection string.
 
 Do not use the PgBouncer/pooled connection string for backup exports.
 
@@ -521,10 +521,7 @@ PostgreSQL custom format
 
 Example:
 
-pg_dump `  --format=custom`
---no-owner `  --no-acl`
---file="labflow-production-YYYYMMDD-HHMM.dump" `
-"$env:DATABASE_URL"
+pg_dump --format=custom --no-owner --no-acl --file="labflow-production-YYYYMMDD-HHMM.dump" "$env:DATABASE_URL"
 
 The environment variable used for this command must contain an unpooled production connection string.
 
@@ -541,24 +538,24 @@ After the backup completes, clear the temporary environment variable.
 
 Example:
 
-Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+`Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue`
 
 ## Backup File Verification
 
-A successful pg_dump process exit alone is not sufficient evidence that a backup is usable.
+A successful `pg_dump` process exit alone is not sufficient evidence that a backup is usable.
 
 For each manually retained logical backup:
 
 1. confirm the command exits successfully
 2. confirm the backup file exists
 3. confirm the file size is greater than zero
-4. inspect the archive using pg_restore --list
+4. inspect the archive using `pg_restore --list`
 5. retain enough metadata to identify when and why the backup was created
 6. eventually verify it through an actual restore drill
 
 Example inspection:
 
-pg_restore --list .\labflow-production-YYYYMMDD-HHMM.dump
+`pg_restore --list .\labflow-production-YYYYMMDD-HHMM.dump`
 
 The backup must not be considered restore-verified until Phase 25B.7 successfully restores and validates it.
 
@@ -638,9 +635,9 @@ A manual snapshot should normally be maintained around meaningful production cha
 
 The snapshot should not be treated as the only database backup because:
 
-only one manual snapshot is available
-snapshot replacement removes the older named recovery point
-snapshots remain within the Neon provider ecosystem
+- only one manual snapshot is available
+- snapshot replacement removes the older named recovery point
+- snapshots remain within the Neon provider ecosystem
 
 External logical backups provide the additional portable recovery layer.
 
@@ -673,7 +670,7 @@ Before a production migration with meaningful schema or data risk:
 1. confirm current Neon restore capability
 2. create a manual Neon snapshot where supported
 3. record the snapshot creation time
-4. optionally create a pg_dump for higher-risk migrations
+4. optionally create a `pg_dump` for higher-risk migrations
 5. confirm the backup/snapshot exists
 6. only then run the migration
 7. verify migration status afterward
@@ -687,7 +684,7 @@ Neon-native PITR and Neon snapshots are stored within the same provider ecosyste
 
 They provide strong protection against many application and user errors but should not be treated as a complete independent off-provider disaster-recovery copy.
 
-A pg_dump stored outside Neon provides an additional recovery path if:
+A `pg_dump` stored outside Neon provides an additional recovery path if:
 
 - the original Neon project becomes unavailable
 - the project is accidentally deleted
@@ -908,13 +905,13 @@ Do not delete the existing snapshot while it is required for an active recovery 
 
 ## Portable Logical Backup Restore
 
-LabFlow uses PostgreSQL custom-format logical backups created with pg_dump.
+LabFlow uses PostgreSQL custom-format logical backups created with `pg_dump`.
 
 Verified backup example:
 
 labflow-production-20260809-1506.dump
 
-The archive has been successfully inspected with pg_restore --list.
+The archive has been successfully inspected with `pg_restore --list`.
 
 It has not yet been restore-verified.
 
@@ -941,11 +938,11 @@ Before restoring a logical backup:
 5. Confirm no deployed LabFlow service is using the recovery target.
 6. Confirm the target database can safely be replaced or recreated during testing.
 
-Never reuse the production DATABASE_URL as the restore target.
+Never reuse the production `DATABASE_URL` as the restore target.
 
 ### Logical Restore Command
 
-For a PostgreSQL custom-format archive, use pg_restore.
+For a PostgreSQL custom-format archive, use `pg_restore`.
 
 Example PowerShell workflow:
 
@@ -1003,7 +1000,7 @@ For a recovery drill, prefer creating a clean database rather than trying to mer
 
 ### Restore Error Handling
 
-A restore must not be declared successful merely because pg_restore starts.
+A restore must not be declared successful merely because `pg_restore` starts.
 
 Review the complete restore output for:
 
@@ -1049,7 +1046,7 @@ Actual table names should be verified against the restored schema.
 
 Run the Sequelize migration-status command against the recovery database.
 
-From labflow-backend:
+From `labflow-backend`:
 
 ```powershell
 $env:DATABASE_URL = 'RECOVERY_DATABASE_CONNECTION_STRING'
@@ -1616,3 +1613,986 @@ Phase 25B.4 is complete for the current demo/pilot production-hardening stage.
 The attachment backup and recovery procedure has been demonstrated using an isolated recovery target without modifying or deleting production attachment objects.
 
 Full combined recovery remains part of Phase 25B.7.
+
+## Configuration and Secret Recovery
+
+### Objective
+
+LabFlow depends on production configuration that is not fully represented in source control.
+
+Source code, migrations, package manifests, and operational documentation are recoverable from GitHub, but several production platforms also contain:
+
+- environment variables
+- credentials
+- deployment settings
+- service definitions
+- domains
+- monitoring configuration
+- provider-specific runtime settings
+
+A complete disaster recovery therefore requires enough documentation to recreate the production environment without storing plaintext secrets in Git.
+
+The configuration-recovery strategy distinguishes between:
+
+1. non-secret configuration that may be documented directly
+2. secret credentials that must be regenerated or recovered securely
+3. provider-assigned identifiers that may change when replacement infrastructure is created
+4. application source-controlled configuration that is restored from GitHub
+
+Plaintext production credentials must never be added to this document.
+
+### Secret Classification
+
+For recovery purposes, LabFlow configuration is classified as follows.
+
+#### Secret
+
+A value that grants authentication or privileged access.
+
+Examples:
+
+```text
+DATABASE_URL
+JWT_SECRET
+MAILGUN_API_KEY
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+```
+
+Secret values must not be:
+
+- committed to Git
+- copied into recovery documentation
+- placed in screenshots
+- stored in public issue trackers
+- included in shell scripts committed to the repository
+- retained in shared terminal output
+
+Where a secret is lost, regeneration or credential rotation is preferred over attempting to recover an undocumented plaintext copy.
+
+#### Sensitive deployment identifier
+
+A value that is not itself an authentication secret but identifies deployed infrastructure.
+
+Examples include:
+
+- `R2_ACCOUNT_ID`
+- `R2_BUCKET_NAME`
+- Mailgun sending domain
+- frontend and backend production URLs
+
+These values may generally be documented, but they should still be changed if replacement infrastructure requires different identifiers.
+
+#### Operational configuration
+
+Non-secret settings that define application behavior.
+
+Examples include:
+
+- `NODE_ENV`
+- attachment size limits
+- attachment TTL values
+- email provider selection
+- build and start commands
+- health-check paths
+- deployment branches
+
+These values should be documented sufficiently to recreate production behavior.
+
+### Render Backend Configuration
+
+#### Verified Web Service
+
+Current backend service:
+
+```text
+Provider: Render
+Service: labflow-backend
+Service type: Web Service
+Runtime: Node
+Region: Frankfurt (EU Central)
+Instance: Free
+Repository: prndavis77/labflow
+Branch: main
+Root directory: labflow-backend
+Build command: npm install
+Pre-deploy command: none
+Start command: npm start
+Auto-deploy: On Commit
+Build filters: none configured
+Custom domain: none
+Render subdomain: enabled
+PR previews: off
+Health-check path: /api/ready
+Maintenance mode: disabled
+```
+
+The Render-generated service identifier does not need to be preserved when recreating the service.
+
+A replacement Render service may receive a different service ID and hostname.
+
+#### Backend Environment Variables
+
+Verified manually configured production variables:
+
+```text
+ATTACHMENT_CLEANUP_BATCH_SIZE
+ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS
+ATTACHMENT_MAX_FILE_SIZE_BYTES
+ATTACHMENT_PENDING_TTL_MINUTES
+ATTACHMENT_STORAGE_PROVIDER
+ATTACHMENT_UPLOAD_URL_TTL_SECONDS
+DATABASE_URL
+EMAIL_FROM_ADDRESS
+EMAIL_FROM_NAME
+EMAIL_PROVIDER
+FRONTEND_URL
+JWT_SECRET
+MAILGUN_API_BASE_URL
+MAILGUN_API_KEY
+MAILGUN_DOMAIN
+NODE_ENV
+R2_ACCESS_KEY_ID
+R2_ACCOUNT_ID
+R2_BUCKET_NAME
+R2_SECRET_ACCESS_KEY
+```
+
+PORT is supplied by the Render runtime and is not currently a manually managed LabFlow environment variable.
+
+#### Render Secret Classification
+
+```text
+Secret:
+DATABASE_URL
+JWT_SECRET
+MAILGUN_API_KEY
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+```
+
+Deployment-specific but not secret:
+
+```text
+FRONTEND_URL
+MAILGUN_DOMAIN
+R2_ACCOUNT_ID
+R2_BUCKET_NAME
+EMAIL_FROM_ADDRESS
+```
+
+Operational configuration:
+
+```text
+NODE_ENV
+EMAIL_PROVIDER
+EMAIL_FROM_NAME
+MAILGUN_API_BASE_URL
+ATTACHMENT_STORAGE_PROVIDER
+ATTACHMENT_CLEANUP_BATCH_SIZE
+ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS
+ATTACHMENT_MAX_FILE_SIZE_BYTES
+ATTACHMENT_PENDING_TTL_MINUTES
+ATTACHMENT_UPLOAD_URL_TTL_SECONDS
+```
+
+#### Render Recovery Source
+
+Recover service configuration from:
+
+- this recovery document
+- GitHub repository contents
+- Render configuration if the original account/service remains accessible
+- provider dashboards for replacement credential generation
+
+Do not rely on the current Render service as the only record of required variable names.
+
+#### Render Deploy Hook
+
+A private deploy hook currently exists for the backend service.
+
+The deploy-hook URL is a secret-capable trigger and must not be committed to Git.
+
+If the hook is lost or compromised:
+
+1. regenerate the hook in Render
+2. update any external system that legitimately uses it
+3. do not attempt to preserve the previous plaintext hook URL
+
+### Attachment Cleanup Cron Job
+
+A production configuration gap was discovered during Phase 25B.5 inventory and corrected.
+
+Current cron job:
+
+```text
+Provider: Render
+Name: labflow-attachment-cleanup
+Type: Cron Job
+Repository: prndavis77/labflow
+Branch: main
+Region: Frankfurt (EU Central)
+Root directory: labflow-backend
+Build command: npm install
+Command: npm run cleanup:attachments
+Schedule: */15 * * * *
+Instance: Starter
+NODE_ENV: production
+```
+
+The cron job uses the production database and attachment-storage configuration required by the cleanup process.
+
+Required environment variables include:
+
+```text
+DATABASE_URL
+NODE_ENV
+ATTACHMENT_STORAGE_PROVIDER
+ATTACHMENT_CLEANUP_BATCH_SIZE
+ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS
+ATTACHMENT_MAX_FILE_SIZE_BYTES
+ATTACHMENT_PENDING_TTL_MINUTES
+ATTACHMENT_UPLOAD_URL_TTL_SECONDS
+R2_ACCOUNT_ID
+R2_BUCKET_NAME
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+```
+
+Mailgun, JWT, and frontend variables are not required by the cleanup process.
+
+#### Cron Job Verification
+
+The cron job was verified through both manual and scheduled execution.
+
+Observed successful scheduled run:
+
+Command: npm run cleanup:attachments
+Result:
+scanned: 0
+cleaned: 0
+skipped: 0
+failed: 0
+
+Observed total runtime: approximately 9 seconds
+
+The job completed successfully.
+
+A PostgreSQL client warning concerning future sslmode=require semantics was observed during the run.
+
+The warning did not cause cleanup failure and is tracked as a future dependency/configuration-hardening concern rather than a Phase 25B.5 blocker.
+
+### Vercel Frontend Configuration
+
+#### Verified Project Configuration
+
+```config
+Provider: Vercel
+Project: labflow
+Plan: Hobby
+Repository: prndavis77/labflow
+Production branch: main
+Framework preset: Vite
+Root directory: labflow-frontend
+Build command: npm run build
+Build-command override: enabled
+Output directory: dist
+Output-directory override: disabled
+Install command: npm install
+Install-command override: enabled
+Development command: vite
+Development-command override: disabled
+```
+
+Additional verified build behavior:
+
+- Include files outside root directory in build step: enabled
+- Skip deployments when root/dependencies have no changes: enabled
+
+#### Production Domain
+
+Current production frontend origin:
+
+https://labflow-brown.vercel.app
+
+The production domain is currently a Vercel-managed domain.
+
+No custom LabFlow domain is currently configured.
+
+Production branch tracking is:
+
+main
+
+Every commit pushed to main creates a Production Deployment.
+
+Automatic assignment of production domains is enabled.
+
+#### Frontend Environment Variables
+
+Verified LabFlow-defined project variable:
+
+VITE_API_URL
+
+Current scope:
+
+```text
+Production
+Preview
+```
+
+VITE_API_URL is not an authentication secret, but it is deployment-specific configuration.
+
+Vercel System Environment Variables access is enabled.
+
+#### Deployment Protection
+
+Verified current settings include:
+
+- Vercel Authentication: enabled
+- Protection mode: Standard Protection
+- Password protection: not configured
+- Trusted-IP restriction: disabled
+- Protection-bypass secret: not configured
+- OPTIONS allowlist: disabled
+- Protected sourcemaps: enabled
+
+#### Vercel Git Integration
+
+The project is linked to:
+
+prndavis77/labflow
+
+Git LFS is disabled.
+
+No Vercel deploy hooks are currently configured.
+
+#### Vercel Recovery
+
+To recreate the frontend:
+
+1. connect Vercel to prndavis77/labflow
+2. select labflow-frontend as the root directory
+3. select Vite
+4. restore the documented build settings
+5. configure production branch main
+6. recreate VITE_API_URL
+7. deploy the frontend
+8. record the replacement frontend origin if it differs
+9. update backend FRONTEND_URL
+10. update R2 CORS if the frontend origin changed
+11. update Better Stack frontend monitoring if the origin changed
+12. perform frontend smoke testing
+
+A replacement Vercel Project ID does not need to match the current project ID.
+
+### Neon PostgreSQL Configuration
+
+#### Verified Project Configuration
+
+```text
+Provider: Neon
+Project name: labflow
+Plan: Free
+Region: AWS Europe Central 1 (Frankfurt)
+PostgreSQL version: 17
+Default branch: production
+Default compute size: 0.25 ↔ 2 CU
+Scale to zero: 5 minutes
+History retention: 6 hours
+```
+
+Current production database:
+
+```text
+Database: neondb
+Owner/role: neondb_owner
+```
+
+Existing branches:
+
+```text
+production
+labflow_test
+```
+
+production is the default production branch.
+
+labflow_test is a child of production and is not required for disaster recovery because it can be recreated.
+
+#### Neon Networking and Features
+
+Verified current configuration:
+
+- Public internet access: enabled
+- IP restrictions: none
+- VPC: not configured
+- Data API: disabled
+- Logical replication: disabled
+- HIPAA compliance: disabled / unavailable on current plan
+
+A recreated Neon environment must remain reachable by the Render backend unless a deliberately different networking architecture is introduced.
+
+#### Neon Connection Configuration
+
+Verified production connection configuration:
+
+```text
+Branch: production
+Compute: Primary
+Database: neondb
+Role: neondb_owner
+Direct/unpooled connection: available
+Connection pooling: available but currently not selected
+sslmode: require
+channel_binding: require
+```
+
+Direct, unpooled connections must be used for the documented `pg_dump` and `pg_restore` procedures.
+
+#### Database Credential Recovery
+
+`DATABASE_URL` is a secret.
+
+If the current database password or connection string is lost:
+
+1. access the Neon project if available
+2. reset or regenerate the database-role password as appropriate
+3. obtain a new production connection string
+4. use the correct production branch, database, and role
+5. update `DATABASE_URL` in the Render backend
+6. update `DATABASE_URL` in the attachment-cleanup cron job
+7. restart/redeploy affected services
+8. verify `/api/ready`
+9. verify the cleanup job
+10. verify representative application workflows
+
+Do not attempt to recover the old database password from Git.
+
+If the Neon project itself is lost, create a replacement PostgreSQL environment and restore the database using the documented PostgreSQL recovery procedure.
+
+### Cloudflare R2 Configuration
+
+#### Production Bucket
+
+Verified current configuration:
+
+```text
+Provider: Cloudflare R2
+Bucket: labflow-attachments
+Location hint: Eastern Europe (EEUR)
+Default storage class: Standard
+Public Development URL: disabled
+Custom domain: none
+R2 Data Catalog: disabled
+Bucket Lock Rules: none
+Event Notifications: not enabled
+On Demand Migration: disabled
+Local Uploads: disabled
+```
+
+Production CORS allows:
+
+```text
+https://labflow-brown.vercel.app
+http://localhost:5173
+```
+
+Required browser methods:
+
+GET
+PUT
+HEAD
+
+The only observed lifecycle configuration is the default incomplete multipart-upload abort rule after seven days.
+
+Bucket Lock Rules are intentionally not enabled because pending and completed attachment objects share the same namespace and the cleanup process must be able to delete expired partial objects.
+
+#### Required R2 Application Configuration
+
+```text
+R2_ACCOUNT_ID
+R2_BUCKET_NAME
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+```
+
+```text
+Secret:
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+```
+
+```text
+Deployment-specific identifiers:
+R2_ACCOUNT_ID
+R2_BUCKET_NAME
+```
+
+#### R2 Credential Recovery
+
+If the production R2 application credential is lost or compromised:
+
+1. create a new credential scoped only as broadly as required by LabFlow
+2. ensure the credential can perform the operations required by production attachment workflows
+3. ensure cleanup has the required object-deletion capability
+4. update Render backend credentials
+5. update the attachment-cleanup cron job
+6. restart/redeploy affected services
+7. verify upload initiation
+8. verify upload completion
+9. verify download
+10. verify cleanup behavior
+11. revoke the superseded credential when safe
+
+Do not store replacement R2 secret values in Git.
+
+#### Recovery-Test Bucket
+
+A separate isolated recovery bucket exists:
+
+labflow-attachments-recovery-test
+
+A recovery-only Object Read & Write credential was created and verified to be restricted to that recovery bucket.
+
+Attempting to list the production bucket using the recovery credential returned Access Denied.
+
+This credential isolation was verified as part of Phase 25B.4.
+
+Recovery-test credentials should not be used by the production application.
+
+### Mailgun Configuration
+
+#### Current Sending Infrastructure
+
+Current Mailgun sending domain:
+
+mg.cockadoodlemeatmarket.com
+
+This domain is shared infrastructure from another project and is being used temporarily by LabFlow.
+
+A Mailgun sending key currently exists with the description:
+
+Labflow development key
+
+The actual key value is secret and must not be documented.
+
+Mailgun account region shown in the current dashboard:
+
+US
+
+#### Verified Domain Configuration
+
+Current domain authentication state includes:
+
+```text
+SPF: verified
+DKIM: active
+Tracking CNAME: verified
+DMARC: configured
+```
+
+Receiving MX state:
+
+```text
+mxa.mailgun.org: verified
+mxb.mailgun.org: unverified
+```
+
+The unverified second MX record is relevant primarily to receiving mail and does not currently block LabFlow's outbound transactional-email use case.
+
+Other verified domain settings:
+
+- TLS connection: Opportunistic
+- Certificate verification: Required
+- Click tracking: Off
+- Open tracking: Off
+- Unsubscribes: Off
+- Wildcard domain: Off
+- Message retention: unavailable on current plan
+
+#### Mailgun Environment Configuration
+
+Required backend values:
+
+```text
+EMAIL_PROVIDER
+EMAIL_FROM_NAME
+EMAIL_FROM_ADDRESS
+MAILGUN_DOMAIN
+MAILGUN_API_BASE_URL
+MAILGUN_API_KEY
+```
+
+```text
+Secret:
+MAILGUN_API_KEY
+```
+
+The remaining values are operational or deployment-specific configuration.
+
+#### Mailgun Secret Recovery
+
+If the Mailgun sending credential is lost or compromised:
+
+1. create a replacement sending/API credential
+2. restrict it appropriately for the Mailgun integration
+3. update MAILGUN_API_KEY in Render
+4. restart/redeploy the backend
+5. verify invitation email delivery
+6. verify password-reset delivery
+7. verify email-verification delivery
+8. revoke the superseded credential when safe
+
+Do not recover Mailgun credentials from Git history.
+
+#### Future Dedicated Product Domain
+
+LabFlow is expected to be renamed.
+
+For that reason, a dedicated LabFlow-branded Mailgun domain will not be created before the final product name and domain are selected.
+
+Current status:
+
+```text
+Current Mailgun domain:
+mg.cockadoodlemeatmarket.com
+
+Status:
+Temporary/shared demo infrastructure
+```
+
+Before a real external/customer pilot under the final product identity:
+
+1. acquire or confirm the final product domain
+2. create a dedicated Mailgun sending subdomain
+3. configure SPF
+4. configure DKIM
+5. configure DMARC
+6. verify the sending domain
+7. create a dedicated production sending credential
+8. update Render Mailgun configuration
+9. update the sender identity
+10. verify all transactional email flows
+
+The temporary shared sending domain should then be retired from LabFlow.
+
+### Better Stack Configuration
+
+Current Better Stack configuration contains three active LabFlow monitors.
+
+#### Frontend
+
+```text
+URL: https://labflow-brown.vercel.app
+Check interval: 3 minutes
+Alert condition: URL becomes unavailable
+```
+
+#### Backend readiness
+
+```text
+URL: https://labflow-backend-p7im.onrender.com/api/ready
+Check interval: 3 minutes
+Alert condition: URL becomes unavailable
+```
+
+#### Backend liveness
+
+```text
+URL: https://labflow-backend-p7im.onrender.com/api/health
+Check interval: 5 minutes
+Alert condition: URL becomes unavailable
+```
+
+#### Alert Routing
+
+Current configuration:
+
+- Notification target: primary responder / team
+- Primary notification method: E-mail
+- Call: disabled
+- SMS: disabled
+- Push notification: disabled
+- Critical alert: disabled
+- On-call schedule: none configured
+- Custom escalation policies: none configured
+- Fallback behavior: entire team notified
+
+The current configuration is appropriate for the present demo/pilot deployment.
+
+#### Better Stack Recovery
+
+Better Stack does not contain authoritative LabFlow business data.
+
+If its configuration is lost:
+
+1. recreate the frontend monitor
+2. recreate the backend `/api/health` monitor
+3. recreate the backend `/api/ready` monitor
+4. restore the documented check intervals
+5. configure email notification
+6. send test alerts
+7. confirm incident creation and notification delivery
+
+If replacement deployment URLs differ, monitors must use the replacement URLs rather than the historical values in this document.
+
+### JWT Secret Recovery
+
+`JWT_SECRET` is an application secret used by the backend.
+
+It must not be stored in Git.
+
+If the existing JWT secret is permanently lost or suspected compromised:
+
+1. generate a new cryptographically strong secret
+2. update `JWT_SECRET` in the Render backend
+3. restart/redeploy the backend
+4. expect existing JWTs signed with the previous secret to become invalid
+5. require affected users to authenticate again
+6. verify login and authenticated API access
+
+Rotation of `JWT_SECRET` is therefore expected to invalidate existing sessions and must be treated as an intentional security event.
+
+The previous secret should not be recovered from Git history.
+
+### Configuration Recovery Sources
+
+| Component                        | Recovery source                                  | Secret recovery method                                   |
+| -------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| GitHub source                    | GitHub repository                                | Not applicable                                           |
+| Render service definition        | This document + GitHub + Render if accessible    | Recreate service                                         |
+| Render environment configuration | Variable-name inventory in this document         | Regenerate/recover secret values from owning providers   |
+| Render cleanup cron              | This document + GitHub                           | Recreate cron job                                        |
+| Vercel frontend                  | This document + GitHub                           | Recreate project/configuration                           |
+| Neon database                    | Neon if available + PostgreSQL backups           | Reset database credential or create replacement database |
+| Cloudflare R2                    | This document + attachment backups               | Generate replacement scoped R2 credential                |
+| Mailgun                          | This document + Mailgun domain/DNS configuration | Generate replacement sending/API credential              |
+| Better Stack                     | This document                                    | Recreate monitors and notification routing               |
+| JWT secret                       | Render if still securely available               | Generate a new secret if lost                            |
+
+### Credential Regeneration Principles
+
+When a credential is lost or compromised:
+
+1. prefer generating a replacement credential
+2. apply least privilege where the provider supports it
+3. update every service that depends on the credential
+4. restart or redeploy affected services
+5. verify the affected workflow
+6. revoke the old credential after successful replacement
+7. document the rotation event without documenting the secret value
+
+Do not retain obsolete production credentials merely because they were previously functional.
+
+### Configuration Restore Order
+
+During a broad infrastructure-loss event, restore configuration in the following order.
+
+#### 1. Recover source and documentation
+
+Recover:
+
+- GitHub repository
+- docs/backup-recovery.md
+- deployment documentation
+- runbook
+- migration history
+
+Confirm the intended application revision before creating replacement infrastructure.
+
+#### 2. Recover PostgreSQL
+
+Restore or recreate Neon/PostgreSQL using the PostgreSQL recovery procedure.
+
+Confirm:
+
+- database available
+- expected schema present
+- migration state understood
+- representative data valid
+
+Obtain a replacement `DATABASE_URL` if necessary.
+
+Do not connect the production application until the recovered database has been validated.
+
+#### 3. Recover R2 attachment storage
+
+Recover or recreate:
+
+- production R2 bucket
+- required storage-key hierarchy
+- required CORS configuration
+- production R2 credential
+
+Restore attachment objects as required.
+
+Reconcile PostgreSQL attachment metadata with R2 before declaring attachment recovery complete.
+
+#### 4. Recreate Render backend
+
+Recreate:
+
+`labflow-backend`
+
+Restore non-secret configuration.
+
+Generate or securely recover required secrets:
+
+```text
+DATABASE_URL
+JWT_SECRET
+MAILGUN_API_KEY
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+```
+
+Deploy the backend.
+
+Verify:
+
+- `/api/health`
+- `/api/ready`
+- structured logs
+- database connectivity
+
+#### 5. Recreate attachment-cleanup cron
+
+Recreate:
+
+`labflow-attachment-cleanup`
+
+Restore its database and R2 configuration.
+
+Trigger a manual run.
+
+Confirm:
+
+```text
+failed: 0
+```
+
+Only then rely on the scheduled cleanup.
+
+#### 6. Recreate Vercel frontend
+
+Recreate the frontend from GitHub.
+
+Restore:
+
+- production branch
+- root directory
+- build configuration
+- VITE_API_URL
+- deployment protection
+- production domain configuration
+
+If the frontend origin changes:
+
+1. update Render FRONTEND_URL
+2. update R2 CORS
+3. redeploy/restart affected services
+4. update Better Stack monitoring
+
+#### 7. Recover Mailgun transactional email
+
+Generate or restore Mailgun sending access.
+
+Restore:
+
+- EMAIL_PROVIDER
+- EMAIL_FROM_NAME
+- EMAIL_FROM_ADDRESS
+- MAILGUN_DOMAIN
+- MAILGUN_API_BASE_URL
+- MAILGUN_API_KEY
+
+Verify:
+
+- invitation email
+- password reset
+- email verification
+
+Email recovery is required before declaring account lifecycle workflows fully operational.
+
+#### 8. Recreate Better Stack monitoring
+
+Recreate all three monitors.
+
+Send test alerts.
+
+Confirm email notifications are delivered.
+
+External monitoring should be restored after the application endpoints themselves are known and stable.
+
+### Post-Configuration Recovery Verification
+
+After rebuilding configuration, verify at least:
+
+- backend deploy succeeds
+- `/api/health` succeeds
+- `/api/ready` succeeds
+- frontend loads
+- frontend can communicate with the backend
+- authentication succeeds
+- representative organization data loads
+- attachment upload works
+- attachment download works
+- attachment cleanup job succeeds
+- invitation email works
+- password-reset email works
+- email-verification delivery works
+- Better Stack monitors are active
+- Better Stack test notification is received
+- no replacement secrets appear in Git or documentation
+
+### Phase 25B.5 Verification Checklist
+
+- [x] Render environment-variable inventory verified
+- [x] Render web-service configuration verified
+- [x] Render secret and non-secret configuration classified
+- [x] Vercel environment-variable inventory verified
+- [x] Vercel build and Git configuration verified
+- [x] Vercel production branch verified
+- [x] Vercel production domain verified
+- [x] Neon project configuration verified
+- [x] Neon database, branch, and role configuration verified
+- [x] Neon direct connection configuration verified
+- [x] Neon networking configuration reviewed
+- [x] Cloudflare R2 production configuration verified
+- [x] R2 credential recovery method documented
+- [x] Mailgun configuration inventoried
+- [x] Mailgun credential recovery method documented
+- [x] Temporary shared Mailgun-domain dependency identified
+- [x] Better Stack monitors inventoried
+- [x] Better Stack notification configuration verified
+- [x] Secret classification documented
+- [x] Secret regeneration policy documented
+- [x] Configuration restore order documented
+- [x] Missing production attachment-cleanup scheduler discovered
+- [x] Render attachment-cleanup cron job created
+- [x] Manual cron execution verified
+- [x] Scheduled cron execution verified
+- [x] Cron cleanup result verified with zero failures
+
+### Current Configuration Recovery Status
+
+```text
+Render backend configuration: Inventoried
+Render backend environment variables: Inventoried
+Render attachment-cleanup cron: Configured and verified
+Vercel frontend configuration: Inventoried
+Neon platform configuration: Inventoried
+Cloudflare R2 configuration: Inventoried
+Mailgun configuration: Inventoried
+Better Stack configuration: Inventoried
+Secret classifications: Documented
+Credential regeneration procedures: Documented
+Configuration restore order: Documented
+Plaintext secrets stored in Git: No
+```
+
+Phase 25B.5 is complete for the current demo/pilot production-hardening stage.
+
+The production infrastructure can now be reconstructed from source-controlled application code, documented platform configuration, restored application data, and regenerated provider credentials without requiring plaintext production secrets to be stored in Git.
+
+The next recovery-hardening step is Phase 25B.6 disaster-recovery procedure consolidation.
