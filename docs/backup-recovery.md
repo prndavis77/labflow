@@ -397,15 +397,17 @@ Project configuration represented in repository files is recoverable through Git
 
 | Component                  | Backup/recovery state                                                                                           | Restore tested                      |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| PostgreSQL                 | Backup strategy and restore procedures defined; isolated restore drill pending                                  | No                                  |
-| R2 attachments             | Dated backup created; representative restore verified; combined reconciliation pending                          | Yes, representative object restore  |
+| PostgreSQL                 | Backup and restore procedures verified                                                                          | Yes, isolated restore               |
+| R2 attachments             | Dated backup and recovery procedures verified                                                                   | Yes, restore and reconciliation     |
 | GitHub source              | Version controlled                                                                                              | Yes, normal clone/redeploy workflow |
 | Render configuration       | Production service and cron configuration inventoried; secret regeneration and recreation procedures documented | No                                  |
 | Vercel configuration       | Production frontend configuration inventoried; recreation procedure documented                                  | No                                  |
 | Mailgun configuration      | Current sending infrastructure inventoried; credential regeneration procedure documented                        | No                                  |
 | Better Stack configuration | Production monitors and notification routing inventoried; recreation procedure documented                       | No                                  |
 
-The primary remaining recovery-validation gap is the isolated PostgreSQL restore and combined PostgreSQL/R2 reconciliation drill scheduled for Phase 25B.7.
+The isolated PostgreSQL restore, application-level recovery validation, and combined PostgreSQL/attachment-backup reconciliation were completed successfully during Phase 25B.7.
+
+Remaining backup-hardening gaps include automated daily attachment backups and an off-machine or off-provider attachment backup copy.
 
 ## PostgreSQL Backup Strategy
 
@@ -557,7 +559,7 @@ Example inspection:
 
 `pg_restore --list .\labflow-production-YYYYMMDD-HHMM.dump`
 
-The backup must not be considered restore-verified until Phase 25B.7 successfully restores and validates it.
+This backup was restore-verified successfully during Phase 25B.7.
 
 ## Backup Storage Security
 
@@ -711,7 +713,7 @@ Before considering the PostgreSQL backup strategy operational, verify:
 - [x] The logical backup can be inspected with `pg_restore --list`
 - [x] Backup storage location is access-controlled
 - [x] No backup files are tracked by Git
-- [ ] Restore testing remains scheduled for Phase 25B.7
+- [x] Isolated restore testing completed successfully in Phase 25B.7
 
 ## Current PostgreSQL Backup Status
 
@@ -730,10 +732,10 @@ Logical backup file: labflow-production-20260809-1506.dump
 Logical backup size: 107006 bytes
 Logical backup format: PostgreSQL custom format
 Logical backup archive inspection: Successful
-Actual restore: Not yet tested
+Actual isolated restore: Successfully tested on 2026-08-11
 ```
 
-The PostgreSQL backup strategy is not considered fully verified until an isolated restore drill succeeds.
+The PostgreSQL logical-backup recovery path has been restore-verified successfully through the isolated Phase 25B.7 recovery drill.
 
 ## PostgreSQL Restore Procedure
 
@@ -909,11 +911,11 @@ LabFlow uses PostgreSQL custom-format logical backups created with `pg_dump`.
 
 Verified backup example:
 
-labflow-production-20260809-1506.dump
+`labflow-production-20260809-1506.dump`
 
 The archive has been successfully inspected with `pg_restore --list`.
 
-It has not yet been restore-verified.
+The archive was successfully restored and validated in an isolated PostgreSQL 17 recovery environment during Phase 25B.7.
 
 ### Isolated Restore Requirement
 
@@ -925,7 +927,7 @@ Recommended targets include:
 - a separate Neon recovery project
 - another isolated PostgreSQL instance
 
-For the Phase 25B.7 restore drill, a separate Neon recovery target is preferred because it most closely reproduces the production environment without placing production data at risk.
+For the Phase 25B.7 restore drill, a separate Neon recovery target was used because it closely reproduced the production PostgreSQL environment without placing production data at risk.
 
 ### Preparing a Recovery Database
 
@@ -1186,21 +1188,22 @@ If recovery validation fails:
 - [x] Restore validation requirements documented
 - [x] Production cutover procedure documented
 - [x] Failed-recovery rollback procedure documented
-- [ ] Actual isolated PostgreSQL restore performed
+- [x] Actual isolated PostgreSQL restore performed
 
-The unchecked restore item intentionally remains deferred to Phase 25B.7.
+The previously deferred isolated restore was completed successfully during Phase 25B.7.
 
 ## Current PostgreSQL Restore Status
 
 ```text
 PITR procedure: Documented
 Snapshot restore procedure: Documented
-Logical restore procedure: Documented
+Logical restore procedure: Documented and tested
 Production cutover procedure: Documented
-Actual isolated restore: Not yet performed
+Actual isolated logical restore: Successfully performed
+Application-level validation against recovered database: Successfully performed
 ```
 
-The PostgreSQL restore procedure is defined, but recovery capability will not be considered restore-verified until the Phase 25B.7 drill succeeds.
+The PostgreSQL logical-backup recovery procedure is now restore-verified through the successful Phase 25B.7 isolated recovery drill.
 
 ## Attachment Storage Backup and Recovery
 
@@ -1557,7 +1560,6 @@ The current attachment backup strategy has these limitations:
 - local storage does not protect against loss of the local machine or backup drive
 - daily attachment backup automation is not yet implemented
 - no provider-independent remote backup copy has yet been configured
-- full PostgreSQL-plus-R2 recovery reconciliation has not yet been performed
 - only one representative R2 object has been restore-tested
 - the production bucket does not currently use bucket locking
 - the current storage-key hierarchy does not separate pending and completed attachment objects
@@ -1589,7 +1591,7 @@ For a real customer pilot, add an off-machine or off-provider backup copy and au
 - [x] PostgreSQL/R2 reconciliation requirement documented
 - [ ] Automated daily attachment backup not yet implemented
 - [ ] Off-machine/off-provider attachment backup copy not yet implemented
-- [ ] Full database-plus-R2 recovery reconciliation remains scheduled for Phase 25B.7
+- [x] Full database-plus-attachment-backup reconciliation completed in Phase 25B.7
 
 ### Current Attachment Recovery Status
 
@@ -1605,14 +1607,14 @@ Isolated recovery bucket: Created
 Recovery-only credential isolation: Verified
 Representative object restore: Successful
 Representative hash verification: Successful
-Full PostgreSQL/R2 reconciliation drill: Not yet performed
+Full PostgreSQL/attachment-backup reconciliation drill: Successfully performed
 ```
 
 Phase 25B.4 is complete for the current demo/pilot production-hardening stage.
 
 The attachment backup and recovery procedure has been demonstrated using an isolated recovery target without modifying or deleting production attachment objects.
 
-Full combined recovery remains part of Phase 25B.7.
+Combined PostgreSQL/attachment-backup reconciliation was completed successfully during Phase 25B.7.
 
 ## Configuration and Secret Recovery
 
@@ -2316,7 +2318,7 @@ Current configuration:
 - Critical alert: disabled
 - On-call schedule: none configured
 - Custom escalation policies: none configured
-- Fallback behavior: entire team notified
+- Current responder model: entire team is notified because no on-call schedule is configured
 
 The current configuration is appropriate for the present demo/pilot deployment.
 
@@ -3056,7 +3058,7 @@ Do not record:
 - [x] Recovery completion criteria defined
 - [x] Recovery evidence requirements defined
 - [x] No plaintext production secrets added to recovery documentation
-- [ ] Full end-to-end disaster-recovery drill remains scheduled for Phase 25B.7
+- [x] Isolated PostgreSQL restore, application validation, and PostgreSQL/attachment-backup reconciliation completed in Phase 25B.7
 
 ### Current Disaster-Recovery Procedure Status
 
@@ -3073,9 +3075,744 @@ Production cutover: Consolidated
 Failed-recovery rollback: Consolidated
 Recovery completion criteria: Defined
 Recovery evidence requirements: Defined
-Full disaster-recovery drill: Not yet performed
+Isolated recovery drill: Successfully performed
+Production infrastructure reconstruction drill: Not performed
+Production cutover drill: Not performed
 ```
 
 Phase 25B.6 is complete for the current demo/pilot production-hardening stage.
 
 The LabFlow recovery procedures are now consolidated into a single operational sequence that can be followed from incident discovery through isolated recovery, data reconciliation, infrastructure reconstruction, application validation, production cutover, and post-recovery verification.
+
+## Phase 25B.7: Isolated PostgreSQL Restore and PostgreSQL/Attachment Recovery Reconciliation Drill
+
+### Objective
+
+Phase 25B.7 validates the disaster-recovery procedures documented in the preceding backup and recovery phases through an actual isolated recovery drill.
+
+The drill verifies that LabFlow can:
+
+- restore the retained PostgreSQL logical backup into an isolated PostgreSQL environment
+- recover the expected LabFlow schema
+- recover representative relational application data
+- verify Sequelize migration state
+- preserve organization-scoped data relationships
+- recover attachment metadata
+- reconcile recovered PostgreSQL attachment metadata with the independent dated attachment backup
+- verify attachment integrity using SHA-256
+- perform recovery validation without modifying the active production database or production R2 bucket
+
+This drill does not perform a production cutover.
+
+The purpose is to demonstrate recovery capability safely in isolated infrastructure.
+
+### Drill Safety Conditions
+
+The recovery drill was performed under the following safety requirements:
+
+- the active LabFlow production database was not used as the restore target
+- the production PostgreSQL database was not overwritten
+- the production R2 bucket was not deleted, modified, or used as the recovery target
+- no production backend service was pointed at the recovery database
+- no production frontend configuration was changed
+- recovery credentials and database connection strings were not recorded in documentation
+- recovery validation was performed against isolated infrastructure and local backup material
+- pending attachment records were not treated as completed attachment recovery targets
+
+### Drill Date
+
+```text
+2026-08-11
+```
+
+### Recovery Inputs
+
+#### PostgreSQL logical backup
+
+The recovery drill used the previously created PostgreSQL custom-format logical backup:
+
+`F:\LabFlow Backups\labflow-production-20260809-1506.dump`
+
+Verified archive metadata:
+
+```text
+Archive created: 2026-08-09 15:06:56
+Database name recorded by archive: neondb
+TOC entries: 243
+Compression: gzip
+Format: PostgreSQL custom format
+```
+
+The archive had previously passed `pg_restore --list` inspection.
+
+Phase 25B.7 performed the first actual restore validation of this backup.
+
+#### Attachment backup
+
+The attachment reconciliation used the dated independent attachment backup:
+
+`F:\LabFlow Backups\attachments\2026-08-09`
+
+Previously verified backup inventory:
+
+```text
+Objects: 47
+Bytes: 22735636
+SHA-256 manifest entries: 47
+```
+
+Manifest:
+
+`F:\LabFlow Backups\attachments\2026-08-09\sha256-manifest.csv`
+
+### Isolated PostgreSQL Recovery Environment
+
+A separate Neon project was created specifically for recovery testing.
+
+```text
+Project: labflow-recovery-test
+Region: AWS Europe Central 1 (Frankfurt)
+PostgreSQL version: 17
+Branch: production
+Database: neondb
+Role: neondb_owner
+Connection type used for restore: Direct / unpooled
+```
+
+The recovery project is separate from the active LabFlow production Neon project.
+
+No deployed LabFlow service was configured to use the recovery project.
+
+### Empty Recovery-Target Verification
+
+Before restoring the backup, the recovery database was checked using:
+
+```powershell
+psql "$env:RECOVERY_DATABASE_URL" -c "\dt"
+```
+
+Observed result:
+
+```text
+Did not find any relations.
+```
+
+This confirmed that the recovery target did not already contain LabFlow tables.
+
+### PostgreSQL Logical Restore
+
+The logical backup was restored using pg_restore against the isolated recovery database.
+
+Recovery procedure:
+
+```powershell
+$env:RECOVERY_DATABASE_URL = 'RECOVERY_DATABASE_CONNECTION_STRING'
+
+$backupFile = 'F:\LabFlow Backups\labflow-production-20260809-1506.dump'
+
+pg_restore `
+  --verbose `
+  --no-owner `
+  --no-acl `
+  --dbname="$env:RECOVERY_DATABASE_URL" `
+  "$backupFile"
+```
+
+The restore populated the isolated recovery database successfully.
+
+No production database connection was used as the restore destination.
+
+### Recovered Schema Verification
+
+After the restore, PostgreSQL relation inspection showed 17 LabFlow tables:
+
+```text
+SequelizeMeta
+attachments
+audit_logs
+email_verification_tokens
+equipment
+equipment_bookings
+experiments
+invitations
+notebook_entries
+organizations
+password_reset_tokens
+project_members
+projects
+protocols
+review_events
+tasks
+users
+```
+
+Recovered table count:
+
+```text
+17
+```
+
+This confirmed that the expected LabFlow relational schema was present in the recovery database.
+
+### Sequelize Migration Verification
+
+The Sequelize migration-status command reported all known migrations as applied.
+
+A direct query against the recovered database's SequelizeMeta table was also performed to independently verify the migration state.
+
+Recovered migration entries:
+
+```text
+20260622122950-initial-labflow-schema.js
+20260625133918-add-user-account-status.js
+20260626130549-create-audit-logs.js
+20260628153801-add-archive-fields-to-core-records.js
+20260702103623-add-organizations-and-user-organization.js
+20260702155102-add-organization-id-to-core-records.js
+20260706101545-create-invitations.js
+20260707201348-add-department-to-invitations.js
+20260711125439-add-requires-review-to-users.js
+20260711160206-add-not-required-experiment-review-status.js
+20260711225539-add-review-status-to-protocols.js
+20260724101117-create-attachments.js
+20260801183056-add-invitation-email-delivery-tracking.js
+20260803135024-add-password-reset-and-email-verification.js
+```
+
+Verified migration count:
+
+```text
+14
+```
+
+All recovered migrations were recorded as applied.
+
+### Representative Relational Data Verification
+
+Representative row counts were inspected directly in the recovered database.
+
+Observed counts:
+
+```text
+attachments: 3
+audit_logs: 31
+email_verification_tokens: 2
+equipment: 3
+equipment_bookings: 2
+experiments: 5
+invitations: 4
+notebook_entries: 4
+organizations: 3
+password_reset_tokens: 7
+project_members: 8
+projects: 6
+protocols: 5
+review_events: 9
+tasks: 7
+users: 10
+```
+
+The recovered database therefore contained application data rather than only an empty restored schema.
+
+Representative organization-scoped records, projects, tasks, experiments, protocols, equipment, bookings, notebook entries, users, invitations, review data, audit data, and account-security records were present.
+
+### Application-Level Recovery Validation
+
+After database-level validation, a local isolated LabFlow backend process was started against the recovered `labflow-recovery-test` PostgreSQL database.
+
+The production Render backend and production Vercel frontend were not modified.
+
+The isolated backend used:
+
+```text
+Local backend port: 4001
+Database target: labflow-recovery-test
+Database connection: Direct / unpooled recovery connection
+Production backend configuration changed: No
+```
+
+#### Liveness Verification
+
+The isolated backend liveness endpoint was tested:
+
+`GET /api/health`
+
+Observed result:
+
+```text
+status: success
+message: Labflow API is running
+```
+
+Result:
+
+```text
+Liveness validation: PASS
+```
+
+#### Readiness Verification
+
+The isolated backend readiness endpoint was tested:
+
+`GET /api/ready`
+
+Observed result:
+
+```text
+status: success
+message: LabFlow API is ready
+database: ready
+```
+
+The readiness endpoint performs an actual Sequelize database authentication check.
+
+Result:
+
+```text
+Recovered database connectivity through application: PASS
+```
+
+#### Authentication Verification
+
+A restored LabFlow account was used to authenticate against the isolated backend.
+
+Observed results:
+
+```text
+Login status: success
+Login message: Login successful.
+JWT returned: Yes
+Authenticated /api/auth/me request: success
+```
+
+No password or JWT value was recorded in recovery documentation.
+
+Result:
+
+```text
+Authentication against restored user state: PASS
+```
+
+#### Representative API Data Verification
+
+Authenticated read-only requests were performed against representative restored application resources.
+
+Observed results:
+
+```text
+GET /api/projects: success
+GET /api/tasks: success
+```
+
+These calls verified that the running LabFlow backend could read restored relational application data through normal authenticated API workflows.
+
+No create, update, archive, restore, or delete operations were performed during this validation.
+
+Result:
+
+```text
+Representative application data access: PASS
+```
+
+### Application-Level Validation Result
+
+```text
+Backend startup against recovered database: Successful
+/api/health: PASS
+/api/ready: PASS
+Database readiness: PASS
+Login: PASS
+JWT issuance: PASS
+Authenticated /api/auth/me: PASS
+Authenticated /api/projects: PASS
+Authenticated /api/tasks: PASS
+Production backend modified: No
+Production frontend modified: No
+Application-level recovery validation: PASS
+```
+
+### Attachment Schema Verification
+
+The recovered attachments table retained the expected attachment-recovery fields, including:
+
+```text
+id
+organizationId
+uploadedById
+originalFileName
+fileName
+fileExtension
+mimeType
+fileSize
+verifiedFileSize
+storageProvider
+storageKey
+checksum
+etag
+entityType
+entityId
+category
+description
+uploadStatus
+uploadExpiresAt
+isArchived
+archivedAt
+archivedById
+createdAt
+updatedAt
+```
+
+Important recovered constraints included:
+
+- unique storageKey
+- valid attachment entity types
+- positive file-size requirements
+- valid upload states:
+  - pending
+  - available
+  - failed
+- archive-state consistency
+- organization foreign-key relationship
+- uploader foreign-key relationship
+
+This confirmed that attachment metadata structure and integrity constraints survived the restore.
+
+### Recovered Attachment Inventory
+
+The recovered PostgreSQL database contained three attachment records.
+
+Status summary:
+
+```text
+Available: 1
+Pending: 2
+Archived: 0
+Failed: 0
+Total: 3
+```
+
+Recovered records:
+
+```text
+Pending:
+organizations/2/project/5/ca5f8f3b-3def-4d41-9b1b-aa06d80aebeb/pilot-upload-test.txt
+
+Pending:
+organizations/2/project/5/af2df80f-a6a0-4fb6-a7e1-88b3e48b9c8b/pilot-upload-test.txt
+
+Available:
+organizations/2/project/5/cdfbf984-fbe8-4c97-a9e1-4ad1d8e17d1d/pilot-upload-test.txt
+```
+
+The available attachment had:
+
+```text
+fileSize: 70
+verifiedFileSize: 70
+uploadStatus: available
+isArchived: false
+```
+
+The two pending rows did not contain completed verified file-size state and were not treated as completed attachment recovery targets.
+
+### PostgreSQL and Attachment-Backup Reconciliation
+
+Each recovered PostgreSQL attachment storage key was compared with the dated local attachment backup.
+
+Observed reconciliation:
+
+```text
+Pending attachment 1:
+Backup object exists: No
+
+Pending attachment 2:
+Backup object exists: No
+
+Available attachment:
+Backup object exists: Yes
+```
+
+The absence of backup objects for the two pending rows is consistent with their incomplete upload state and does not constitute a recovery failure.
+
+The available attachment had a matching object at the exact storage key expected by the recovered PostgreSQL metadata.
+
+Recovered available storage key:
+
+organizations/2/project/5/cdfbf984-fbe8-4c97-a9e1-4ad1d8e17d1d/pilot-upload-test.txt
+
+### Available Attachment Size Verification
+
+The recovered PostgreSQL metadata, local backup object, and backup manifest reported the same file size:
+
+```text
+Database fileSize: 70
+Database verifiedFileSize: 70
+Backup object size: 70
+Manifest size: 70
+```
+
+Result:
+
+```text
+Size verification: PASS
+```
+
+### Available Attachment SHA-256 Verification
+
+The recovered available attachment was verified against the SHA-256 manifest.
+
+Actual backup SHA-256:
+
+```text
+4B303543DDECAFD37FBD368C483681C4B5598DCBF5EF23EB1A886DEEA6135DD1
+```
+
+Manifest SHA-256:
+
+```text
+4B303543DDECAFD37FBD368C483681C4B5598DCBF5EF23EB1A886DEEA6135DD1
+```
+
+Result:
+
+```text
+HashMatches: True
+```
+
+The backup object therefore matched its recorded integrity manifest byte-for-byte.
+
+### Combined PostgreSQL/R2 Recovery Interpretation
+
+The PostgreSQL recovery point contained three attachment metadata rows, while the dated attachment backup contained 47 objects.
+
+The recovery procedure intentionally did not restore all 47 objects blindly.
+
+The recovered PostgreSQL database remains authoritative for which attachment metadata records exist at the selected recovery point.
+
+Only attachment records representing completed application attachment state should normally be treated as required completed-object recovery targets.
+
+For this recovery point:
+
+```text
+Completed available attachment records: 1
+Matching backup objects: 1
+Missing required available objects: 0
+Storage-key mismatches: 0
+Size mismatches: 0
+SHA-256 mismatches: 0
+Pending rows requiring completed-object recovery: 0
+```
+
+The additional objects present in the dated attachment backup are not automatically recovery errors.
+
+They represent attachment-storage state that is not represented by the recovered PostgreSQL recovery point and must not be activated merely because the objects exist in backup storage.
+
+This drill confirms why PostgreSQL and R2 recovery must be reconciled rather than restored independently.
+
+### Production Impact
+
+The drill did not modify active production infrastructure.
+
+```text
+Production PostgreSQL overwritten: No
+Production PostgreSQL restore performed: No
+Production R2 objects deleted: No
+Production R2 restore performed: No
+Production backend pointed at recovery database: No
+Production frontend configuration changed: No
+Production cutover performed: No
+```
+
+### Drill Result
+
+```text
+Phase 25B.7 disaster-recovery drill result: PASS
+
+Isolated PostgreSQL recovery target: Successful
+Logical PostgreSQL restore: Successful
+Recovered schema: Successful
+Recovered LabFlow tables: 17
+Migration-state verification: Successful
+Applied migrations verified: 14
+Representative relational data recovery: Successful
+Attachment schema recovery: Successful
+PostgreSQL/attachment-backup reconciliation: Successful
+Required available attachment found in backup: Yes
+Storage-key verification: Successful
+Attachment size verification: Successful
+SHA-256 integrity verification: Successful
+Missing required available attachment objects: 0
+Unexplained reconciliation errors: None observed
+Isolated backend startup: Successful
+/api/health validation: Successful
+/api/ready validation: Successful
+Recovered database application connectivity: Successful
+Restored-user login: Successful
+JWT issuance: Successful
+Authenticated /api/auth/me: Successful
+Authenticated /api/projects: Successful
+Authenticated /api/tasks: Successful
+Application-level recovery validation: Successful
+Production modified: No
+```
+
+### Recovery Evidence
+
+```text
+Drill date: 2026-08-11
+Incident type: Planned disaster-recovery validation drill
+Production incident: No
+Recovery PostgreSQL project: labflow-recovery-test
+Recovery PostgreSQL region: AWS Europe Central 1 (Frankfurt)
+Recovery PostgreSQL version: 17
+Recovery branch: production
+Recovery database: neondb
+Connection type: Direct / unpooled
+Logical backup: labflow-production-20260809-1506.dump
+Logical backup archive created: 2026-08-09 15:06:56
+Logical restore: Successful
+Recovered tables: 17
+Recovered Sequelize migrations: 14
+Representative application data: Present
+Recovered attachment rows: 3
+Available attachment rows: 1
+Pending attachment rows: 2
+Archived attachment rows: 0
+Failed attachment rows: 0
+Attachment backup set: 2026-08-09
+Attachment backup objects: 47
+Attachment manifest entries: 47
+Available attachment backup match: Successful
+Available attachment database size: 70 bytes
+Available attachment backup size: 70 bytes
+Available attachment manifest size: 70 bytes
+Available attachment SHA-256 match: Successful
+Required available objects missing from backup: 0
+Storage-key mismatches: 0
+Production cutover performed: No
+Isolated backend validation port: 4001
+Backend health check: Successful
+Backend readiness check: Successful
+Recovered database readiness: Successful
+Restored-user login: Successful
+JWT issued: Yes
+Authenticated current-user lookup: Successful
+Authenticated project read: Successful
+Authenticated task read: Successful
+Application-level recovery validation: Successful
+Temporary recovery environment variables cleared: Yes
+Production modified: No
+Overall drill result: PASS
+```
+
+No database passwords, connection strings containing credentials, R2 secret keys, JWT secrets, Mailgun credentials, deploy-hook URLs, or temporary signed URLs are included in the recorded recovery evidence.
+
+### Recovery-Environment Cleanup
+
+After recovery validation is complete:
+
+1. remove temporary PowerShell database environment variables
+2. confirm the temporary variables no longer exist
+3. retain the recovery evidence in this document
+4. retain the logical database backup according to the current backup-retention policy
+5. retain the dated attachment backup and SHA-256 manifest
+6. decide whether the isolated Neon recovery project should be retained for future drills or deleted
+7. decide whether the isolated R2 recovery-test bucket should be retained for future drills or deleted
+8. revoke recovery-only credentials if the associated recovery infrastructure is removed
+9. do not delete recovery infrastructure while it is still required for investigation or evidence collection
+
+Example environment cleanup:
+
+```powershell
+Remove-Item Env:RECOVERY_DATABASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:PORT -ErrorAction SilentlyContinue
+
+[bool]$env:RECOVERY_DATABASE_URL
+[bool]$env:DATABASE_URL
+[bool]$env:PORT
+```
+
+Expected after cleanup:
+
+```text
+False
+False
+False
+```
+
+```text
+Temporary recovery database variables cleared: Yes
+Temporary isolated-backend port variable cleared: Yes
+```
+
+### Phase 25B.7 Verification Checklist
+
+- [x] Separate PostgreSQL recovery environment created
+- [x] Recovery environment uses PostgreSQL 17
+- [x] Recovery environment located in AWS Europe Central 1 (Frankfurt)
+- [x] Direct/unpooled recovery connection used
+- [x] Recovery target verified empty before restore
+- [x] Existing PostgreSQL logical backup restored
+- [x] Production PostgreSQL database left unchanged
+- [x] Recovered schema verified
+- [x] Seventeen LabFlow tables recovered
+- [x] Sequelize migration state verified
+- [x] Fourteen applied migrations verified directly in recovered `SequelizeMeta`
+- [x] Representative relational application data recovered
+- [x] Attachment schema verified
+- [x] Recovered attachment inventory reviewed
+- [x] Available and pending attachment states distinguished
+- [x] Recovered attachment metadata compared with dated attachment backup
+- [x] Required available attachment found in backup
+- [x] Attachment storage key matched
+- [x] Database, backup, and manifest file sizes matched
+- [x] SHA-256 integrity verification succeeded
+- [x] Missing required available attachment objects confirmed as zero
+- [x] PostgreSQL/attachment-backup reconciliation completed
+- [x] Isolated backend started against recovered database
+- [x] `/api/health` succeeded
+- [x] `/api/ready` succeeded with database ready
+- [x] Restored-user login succeeded
+- [x] JWT issuance succeeded
+- [x] Authenticated `/api/auth/me` succeeded
+- [x] Authenticated `/api/projects` succeeded
+- [x] Authenticated `/api/tasks` succeeded
+- [x] Representative application-level data access verified
+- [x] No production R2 objects modified for the drill
+- [x] No production backend pointed at recovery database
+- [x] No production frontend configuration changed
+- [x] No production cutover performed
+- [x] Recovery evidence recorded without plaintext secrets
+- [x] Temporary recovery environment variables cleared
+- [x] Full isolated PostgreSQL restore drill completed
+- [x] Combined PostgreSQL/attachment-backup disaster-recovery reconciliation completed
+- [x] Application-level recovery validation completed
+
+### Current Disaster-Recovery Validation Status
+
+```text
+PostgreSQL backup creation: Verified
+PostgreSQL archive inspection: Verified
+PostgreSQL isolated restore: Verified
+PostgreSQL schema recovery: Verified
+PostgreSQL relational-data recovery: Verified
+Sequelize migration recovery: Verified
+Isolated backend startup against recovery database: Verified
+Backend liveness against recovery environment: Verified
+Backend readiness against recovery environment: Verified
+Restored-user authentication: Verified
+Authenticated representative API reads: Verified
+R2 independent attachment backup: Verified
+Representative isolated R2 object restore: Verified
+Attachment SHA-256 integrity verification: Verified
+Combined PostgreSQL/attachment-backup reconciliation: Verified
+Production infrastructure reconstruction: Not performed
+Production recovery cutover: Not performed, intentionally outside drill scope
+```
+
+Phase 25B.7 is complete for the current demo/pilot production-hardening stage.
+
+The previously unverified PostgreSQL logical backup has now been restored successfully into an isolated PostgreSQL 17 recovery environment, representative relational data and migration state have been validated, and recovered attachment metadata has been reconciled successfully with the dated independent attachment backup.
+
+The drill demonstrates that LabFlow's documented PostgreSQL and attachment recovery procedures can recover and validate application data without modifying active production infrastructure.
