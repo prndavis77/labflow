@@ -2595,4 +2595,487 @@ Phase 25B.5 is complete for the current demo/pilot production-hardening stage.
 
 The production infrastructure can now be reconstructed from source-controlled application code, documented platform configuration, restored application data, and regenerated provider credentials without requiring plaintext production secrets to be stored in Git.
 
-The next recovery-hardening step is Phase 25B.6 disaster-recovery procedure consolidation.
+## Disaster-Recovery Procedure Consolidation
+
+### Objective
+
+Phase 25B.6 consolidates the previously documented LabFlow backup, restore, attachment-recovery, and configuration-recovery procedures into one operational disaster-recovery sequence.
+
+The purpose of this section is not to replace the detailed procedures documented earlier in this file.
+
+Instead, it provides a single recovery workflow that identifies:
+
+- how to assess an incident
+- how to determine which recovery components are required
+- the order in which infrastructure should be restored
+- when isolated recovery must be used
+- when production cutover is appropriate
+- how PostgreSQL and R2 recovery must be reconciled
+- how configuration and credentials are reconstructed
+- how application functionality is validated
+- how failed recovery attempts are handled
+- what evidence should be recorded before recovery is considered complete
+
+Detailed component-specific recovery instructions remain authoritative in their respective sections of this document.
+
+### Recovery Objectives
+
+The current LabFlow demo/pilot recovery objectives remain:
+
+```text
+Target RPO: 24 hours or less
+Target RTO: 4 hours
+```
+
+The RPO and RTO are recovery targets for the current deployment stage and are not contractual SLAs.
+
+Recovery should prioritize correctness and preservation of valid data over attempting to meet the RTO through unsafe or destructive shortcuts.
+
+### Disaster-Recovery Safety Rules
+
+The following rules apply to every LabFlow disaster-recovery event:
+
+1. Do not overwrite production merely to test whether recovery works.
+2. Preserve the current production state before destructive recovery where practical.
+3. Prefer isolated recovery environments before production cutover.
+4. Do not point the production backend at an unvalidated recovery database.
+5. Do not delete production R2 objects merely to test recovery.
+6. Do not expose production credentials in Git, screenshots, documentation, or shared logs.
+7. Do not assume that PostgreSQL recovery alone restores attachment functionality.
+8. Reconcile PostgreSQL attachment metadata with R2 object state after relevant recovery operations.
+9. Regenerate or rotate lost credentials rather than attempting to recover undocumented plaintext values.
+10. Validate recovered infrastructure before returning it to normal use.
+11. Preserve logs and recovery evidence when a recovery attempt fails.
+12. Avoid repeated destructive production recovery attempts while troubleshooting.
+
+### Step 1: Declare and Classify the Incident
+
+Determine what has failed before beginning recovery.
+
+Identify whether the incident affects one or more of the following:
+
+- PostgreSQL data
+- PostgreSQL availability
+- R2 attachment objects
+- attachment metadata/object consistency
+- Render backend deployment
+- attachment-cleanup cron job
+- Vercel frontend deployment
+- production credentials
+- Mailgun transactional email
+- Better Stack monitoring
+- multiple infrastructure providers
+
+Record:
+
+- approximate incident start time
+- time the issue was discovered
+- affected services
+- known destructive operations or changes
+- whether production is still accepting writes
+- whether valid data may have been created after the failure point
+- whether credentials may have been compromised
+
+If the failure involves suspected credential compromise, credential rotation should be treated as part of the recovery rather than waiting until after service restoration.
+
+### Step 2: Stabilize Production
+
+Before attempting restoration, reduce the possibility of additional damage.
+
+Where practical:
+
+1. stop or restrict production writes if continuing writes could worsen corruption
+2. avoid further migrations or bulk data operations
+3. preserve current logs and error evidence
+4. preserve the current PostgreSQL state with a logical export when it is safe and possible
+5. do not change production database or storage credentials until the intended recovery path is understood
+6. record the existing production database, storage, and deployment targets before replacing them
+
+If the affected service is already unavailable, document that limitation rather than delaying recovery indefinitely.
+
+### Step 3: Determine the Required PostgreSQL Recovery Point
+
+If PostgreSQL recovery is required, determine which documented recovery method is appropriate.
+
+| Situation                                                       | Preferred recovery method                           |
+| --------------------------------------------------------------- | --------------------------------------------------- |
+| Failure occurred within the current Neon restore-history window | Neon point-in-time recovery                         |
+| A known-good manual snapshot represents the required state      | Neon snapshot recovery                              |
+| Required state falls outside provider-native recovery history   | Portable logical backup                             |
+| Original Neon project is unavailable                            | Portable logical backup into replacement PostgreSQL |
+| Recovery capability is being tested                             | Isolated recovery target                            |
+
+Current Neon production recovery history:
+
+6 hours
+
+Before selecting an earlier recovery point, determine what valid data would be lost by restoring to that point.
+
+Do not perform a destructive production restore until the intended recovery point has been identified and the data-loss consequences are understood.
+
+### Step 4: Recover PostgreSQL in Isolation
+
+Where circumstances permit, restore PostgreSQL into an isolated recovery environment first.
+
+Follow the detailed PostgreSQL restore procedures documented earlier in this file.
+
+Validate at least:
+
+- database connectivity
+- expected schema
+- Sequelize migration state
+- representative organizations
+- representative users
+- representative projects and tasks
+- representative experiments and protocols
+- equipment and bookings
+- notebook entries
+- invitations
+- attachment metadata
+- organization isolation
+- account-security state
+
+The recovered database must not be considered ready for production use merely because `pg_restore`, PITR, or snapshot restoration completed successfully.
+
+Application-level validation is also required.
+
+### Step 5: Determine Attachment Recovery Requirements
+
+After PostgreSQL recovery, inspect attachment metadata before restoring R2 objects.
+
+Determine:
+
+- which attachment records exist in the recovered database
+- which attachment storage keys are expected
+- which R2 objects currently exist
+- which objects are available in the dated attachment backup
+- whether the restored database and attachment backup represent different points in time
+
+Attachment recovery is required when the restored PostgreSQL metadata references objects that are missing from the intended R2 environment.
+
+Do not blindly restore the entire R2 backup without first understanding the PostgreSQL recovery point.
+
+### Step 6: Recover and Reconcile R2 Attachments
+
+Use the documented attachment-recovery procedure.
+
+For each required recovered object:
+
+1. identify its PostgreSQL attachment metadata
+2. determine the expected storage key
+3. locate the object in the dated backup
+4. verify the backup copy against the SHA-256 manifest where available
+5. restore into isolated or replacement R2 storage
+6. preserve the expected storage key
+7. verify the recovered object's SHA-256 hash
+8. confirm PostgreSQL metadata and the recovered R2 object agree
+
+Reconciliation must identify at least:
+
+- active attachment metadata with missing R2 objects
+- archived attachment metadata with missing R2 objects
+- R2 objects with no corresponding recovered PostgreSQL metadata
+- attachment records with incorrect or mismatched storage keys
+- pending attachment rows that should not be treated as completed attachment recovery targets
+
+Do not declare attachment recovery complete until PostgreSQL metadata and R2 object state are consistent.
+
+### Step 7: Recreate Core Production Configuration
+
+If infrastructure configuration has been lost, recreate it using the documented Phase 25B.5 configuration inventory.
+
+Recover components in this order:
+
+#### 1. PostgreSQL configuration
+
+Obtain or generate the required production `DATABASE_URL`.
+
+Use the validated recovered PostgreSQL environment.
+
+#### 2. R2 production configuration
+
+Recover or recreate:
+
+- production bucket
+- required CORS configuration
+- application credential
+- expected storage configuration
+
+#### 3. Render backend
+
+Recreate:
+
+`labflow-backend`
+
+Restore documented non-secret configuration.
+
+Generate or securely recover required secrets.
+
+Verify:
+
+- deployment succeeds
+- `/api/health`
+- `/api/ready`
+- database connectivity
+- structured logs
+
+#### 4. Attachment-cleanup cron
+
+Recreate:
+
+`labflow-attachment-cleanup`
+
+Restore its documented PostgreSQL and R2 configuration.
+
+Perform a manual run before relying on the schedule.
+
+Expected successful execution includes:
+
+```text
+failed: 0
+```
+
+#### 5. Vercel frontend
+
+Recreate the frontend from GitHub using the documented Vercel configuration.
+
+Restore `VITE_API_URL`.
+
+If the production frontend origin changes:
+
+1. update Render `FRONTEND_URL`
+2. update R2 CORS
+3. redeploy or restart affected services
+4. update Better Stack monitoring
+
+#### 6. Mailgun
+
+Restore transactional email configuration and generate replacement credentials when required.
+
+#### 7. Better Stack
+
+Recreate external monitoring only after the recovered application endpoints are stable.
+
+### Step 8: Regenerate Lost or Compromised Credentials
+
+Do not depend on recovery of historical plaintext credentials.
+
+Where required, generate replacements for:
+
+```text
+DATABASE_URL credentials
+JWT_SECRET
+MAILGUN_API_KEY
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+Render deploy hook
+```
+
+After generating a replacement credential:
+
+1. apply least privilege where supported
+2. update every dependent service
+3. restart or redeploy affected services
+4. verify the affected workflow
+5. revoke the superseded credential when safe
+6. record the rotation event without recording the secret value
+
+Rotation of `JWT_SECRET` invalidates JWTs signed with the previous secret and should be expected to require users to authenticate again.
+
+### Step 9: Perform Application-Level Recovery Validation
+
+Before production is considered usable, validate the application as a complete system.
+
+Verify:
+
+- backend deployment succeeds
+- `/api/health` succeeds
+- `/api/ready` succeeds
+- frontend loads
+- frontend communicates with the recovered backend
+- login succeeds
+- authenticated API access succeeds
+- representative organization data loads
+- organization isolation remains correct
+- projects and tasks load
+- representative laboratory records load
+- attachment upload works
+- attachment completion works
+- attachment download works
+- recovered attachment content is correct
+- attachment-cleanup job succeeds
+- invitation email delivery works
+- password-reset email delivery works
+- email-verification delivery works
+- Better Stack monitors become healthy
+- Better Stack notification testing succeeds
+- structured logs show no unexplained recovery-related errors
+
+Failure of an important validation item must be investigated before declaring recovery complete.
+
+### Step 10: Perform Production Cutover
+
+A production cutover is required only when replacement or recovered infrastructure must become the new active production environment.
+
+Before cutover:
+
+1. confirm the recovery target passed validation
+2. confirm the intended PostgreSQL recovery point
+3. confirm PostgreSQL/R2 reconciliation
+4. confirm required credentials are available
+5. record the existing production configuration where practical
+6. restrict writes during the transition where practical
+
+During cutover:
+
+1. update production database connectivity
+2. update production R2 configuration if replacement storage is used
+3. update backend configuration
+4. redeploy or restart the backend
+5. update frontend configuration when required
+6. update Mailgun configuration when required
+7. update monitoring URLs when deployment addresses changed
+
+Immediately after cutover, repeat critical validation.
+
+At minimum verify:
+
+- `/api/health`
+- `/api/ready`
+- login
+- representative organization data
+- attachment download
+- attachment upload
+- transactional email
+- Better Stack status
+
+### Step 11: Roll Back a Failed Recovery
+
+If production cutover introduces unexpected failures:
+
+1. stop additional writes against the failed recovery target where practical
+2. restore the previous production connection or configuration when it remains valid
+3. preserve error logs and recovery evidence
+4. identify whether the problem is related to data, schema, configuration, credentials, or storage
+5. return to an isolated recovery environment
+6. correct the recovery issue
+7. repeat validation
+8. perform another production cutover only after the new recovery target passes validation
+
+Do not repeatedly overwrite or mutate the production environment while diagnosing a failed recovery.
+
+### Step 12: Restore Monitoring and Normal Operations
+
+Once the recovered application is stable:
+
+1. confirm all Better Stack monitors use the current production URLs
+2. confirm monitors report healthy status
+3. confirm email notifications are configured
+4. send a test alert where appropriate
+5. confirm the attachment-cleanup cron is running on schedule
+6. confirm no temporary recovery credentials remain in production
+7. remove temporary environment variables used during recovery
+8. revoke temporary or superseded credentials when safe
+9. remove isolated recovery infrastructure when it is no longer required and when doing so will not destroy needed recovery evidence
+
+Do not remove recovery evidence until the incident has been reviewed.
+
+### Recovery Completion Criteria
+
+A LabFlow disaster recovery may be declared complete only when:
+
+- the intended PostgreSQL recovery point is known
+- PostgreSQL recovery has been validated
+- PostgreSQL migration state is understood
+- representative relational data is coherent
+- organization isolation is preserved
+- attachment metadata has been reviewed
+- required R2 objects are available
+- PostgreSQL/R2 reconciliation is complete where applicable
+- backend health and readiness succeed
+- frontend operation is restored
+- authentication works
+- attachment workflows work
+- attachment cleanup works
+- transactional email works
+- external monitoring is active
+- replacement credentials are functioning
+- obsolete compromised credentials have been revoked when appropriate
+- no recovery secrets have been committed to Git
+- recovery evidence has been recorded
+- unresolved recovery issues have been documented
+
+### Recovery Evidence
+
+For each significant disaster-recovery event, record at least:
+
+```text
+Incident date:
+Incident type:
+Incident start time, if known:
+Detection time:
+Affected components:
+Recovery point selected:
+PostgreSQL recovery method:
+PostgreSQL recovery target:
+Attachment recovery required:
+Attachment backup set used:
+Configuration recreated:
+Credentials rotated:
+Production cutover performed:
+Validation completed:
+Recovery completed:
+Known data loss:
+Known limitations:
+Follow-up actions:
+```
+
+Do not record:
+
+- database passwords
+- connection strings containing credentials
+- API secret values
+- JWT secrets
+- R2 secret keys
+- Mailgun secret keys
+- deploy-hook URLs
+- temporary signed URLs
+
+### Phase 25B.6 Verification Checklist
+
+- [x] Existing PostgreSQL recovery procedures consolidated into the disaster-recovery sequence
+- [x] Existing R2 attachment-recovery procedure consolidated
+- [x] PostgreSQL/R2 reconciliation incorporated
+- [x] Existing configuration-recovery procedure consolidated
+- [x] Credential-regeneration procedure consolidated
+- [x] Incident assessment and stabilization steps defined
+- [x] Isolated recovery requirement incorporated
+- [x] Production cutover procedure incorporated
+- [x] Failed-recovery rollback procedure incorporated
+- [x] Application-level validation requirements consolidated
+- [x] Recovery completion criteria defined
+- [x] Recovery evidence requirements defined
+- [x] No plaintext production secrets added to recovery documentation
+- [ ] Full end-to-end disaster-recovery drill remains scheduled for Phase 25B.7
+
+### Current Disaster-Recovery Procedure Status
+
+```text
+Incident classification procedure: Documented
+Production stabilization procedure: Documented
+PostgreSQL recovery sequence: Consolidated
+R2 attachment recovery sequence: Consolidated
+PostgreSQL/R2 reconciliation: Consolidated
+Configuration recovery sequence: Consolidated
+Credential regeneration: Consolidated
+Application validation: Consolidated
+Production cutover: Consolidated
+Failed-recovery rollback: Consolidated
+Recovery completion criteria: Defined
+Recovery evidence requirements: Defined
+Full disaster-recovery drill: Not yet performed
+```
+
+Phase 25B.6 is complete for the current demo/pilot production-hardening stage.
+
+The LabFlow recovery procedures are now consolidated into a single operational sequence that can be followed from incident discovery through isolated recovery, data reconciliation, infrastructure reconstruction, application validation, production cutover, and post-recovery verification.
