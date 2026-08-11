@@ -43,10 +43,12 @@ LabFlow uses separate liveness and readiness checks.
 
 Expected response:
 
+```json
 {
-"status": "success",
-"message": "Labflow API is running"
+  "status": "success",
+  "message": "Labflow API is running"
 }
+```
 
 A successful liveness response means the Node/Express application is reachable.
 
@@ -58,13 +60,15 @@ It does not prove that PostgreSQL is reachable.
 
 Expected healthy response:
 
+```json
 {
-"status": "success",
-"message": "LabFlow API is ready",
-"checks": {
-"database": "ready"
+  "status": "success",
+  "message": "LabFlow API is ready",
+  "checks": {
+    "database": "ready"
+  }
 }
-}
+```
 
 A successful readiness response means the backend can currently communicate with PostgreSQL.
 
@@ -293,6 +297,54 @@ See:
 
 for the full migration procedure.
 
+## Backup and Disaster Recovery
+
+Detailed backup, restore, and disaster-recovery procedures are maintained in:
+
+`docs/backup-recovery.md`
+
+Current recovery objectives for the demo/pilot deployment are:
+
+```text
+Target RPO: 24 hours or less
+Target RTO: 4 hours
+```
+
+Current verified recovery capabilities include:
+
+- Neon PostgreSQL point-in-time recovery with a current 6-hour history window
+- one manually maintained Neon recovery snapshot
+- portable PostgreSQL logical backups
+- a successfully tested isolated PostgreSQL logical restore
+- independent dated Cloudflare R2 attachment backups
+- SHA-256 attachment-integrity verification
+- successfully tested representative R2 object recovery
+- successfully completed PostgreSQL/attachment-backup reconciliation
+- successfully completed application-level validation against the recovered database
+
+During a database or attachment-recovery incident:
+
+1. Do not overwrite production merely to test recovery.
+2. Preserve the current production state before destructive recovery where practical.
+3. Prefer isolated recovery infrastructure before production cutover.
+4. Select the appropriate PostgreSQL recovery point and recovery method.
+5. Validate schema, migration state, relational data, and application access.
+6. Reconcile recovered PostgreSQL attachment metadata with the required attachment objects.
+7. Recreate configuration and credentials as documented when infrastructure has been lost.
+8. Perform production cutover only after the recovery target has passed validation.
+
+A production cutover was intentionally not performed during the Phase 25B.7 recovery drill.
+
+Current recovery limitations include:
+
+- automated daily attachment backups are not yet implemented
+- the independent attachment backup is currently stored locally
+- no off-machine or off-provider attachment backup copy is currently configured
+- production infrastructure reconstruction has not been drill-tested
+- production recovery cutover has not been drill-tested
+
+For detailed recovery method selection, restore commands, attachment reconciliation, configuration reconstruction, validation criteria, and recovery evidence requirements, use `docs/backup-recovery.md`.
+
 ## Test Database Safety
 
 The test database guard must not be weakened.
@@ -345,7 +397,9 @@ The current LabFlow deployment is not yet intended for:
 - institutional production workloads
 - guaranteed uptime/SLA workloads
 
-Additional hardening phases cover backup/restore, security, automated frontend/E2E testing, and privacy/data lifecycle controls.
+Backup and recovery hardening has been completed for the current demo/pilot stage, including an isolated PostgreSQL restore drill and attachment-recovery reconciliation.
+
+Remaining hardening phases cover security, automated frontend/E2E testing, and privacy/data lifecycle controls.
 
 ## Related Documentation
 
@@ -353,3 +407,4 @@ Additional hardening phases cover backup/restore, security, automated frontend/E
 - docs/production-environment.md
 - docs/production-smoke-test.md
 - docs/attachments.md
+- docs/backup-recovery.md
