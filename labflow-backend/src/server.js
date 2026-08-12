@@ -37,13 +37,22 @@ app.use(requestContext);
 app.use(requestLogger);
 
 // Enable cross-origin requests from the frontend
-const allowedOrigins = [
-  "http://localhost:5173", // Vite dev
-  "http://localhost:4173", // Vite preview
-  "http://127.0.0.1:5173", // Vite dev alternative
-  "http://127.0.0.1:4173", // Vite preview alternative
-  process.env.FRONTEND_URL,
-].filter(Boolean);
+const developmentOrigins = [
+  "http://localhost:5173",
+  "http://localhost:4173",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:4173",
+];
+
+const isProductionCors = process.env.NODE_ENV === "production";
+
+if (isProductionCors && !process.env.FRONTEND_URL) {
+  throw new Error("FRONTEND_URL is required for production CORS.");
+}
+
+const allowedOrigins = isProductionCors
+  ? [process.env.FRONTEND_URL].filter(Boolean)
+  : [...developmentOrigins, process.env.FRONTEND_URL].filter(Boolean);
 
 app.use(
   cors({
@@ -60,6 +69,8 @@ app.use(
 
 // Parse incoming JSON request bodies
 app.use(express.json());
+
+app.use(helmet());
 
 // Liveness check.
 // Confirms that the Node/Express process is running.
@@ -101,8 +112,6 @@ app.get("/api/ready", async (req, res) => {
     });
   }
 });
-
-app.use(helmet());
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
