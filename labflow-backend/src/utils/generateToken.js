@@ -10,7 +10,9 @@ const generateToken = (user) => {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: "7d",
+      expiresIn: "24h",
+      issuer: "labflow-api",
+      audience: "labflow-web",
     },
   );
 };

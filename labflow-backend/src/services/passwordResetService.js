@@ -1,8 +1,7 @@
 const crypto = require("crypto");
-
 const bcrypt = require("bcrypt");
+const { validatePassword } = require("../utils/passwordPolicy");
 const { Op } = require("sequelize");
-
 const { User, Organization, PasswordResetToken } = require("../models");
 
 const SALT_ROUNDS = 12;
@@ -299,9 +298,11 @@ const resetPasswordWithToken = async ({
     );
   }
 
-  if (password.length < 8) {
+  const passwordValidation = validatePassword(password);
+
+  if (!passwordValidation.valid) {
     throw new PasswordResetError(
-      "Password must be at least 8 characters long.",
+      passwordValidation.message,
       "INVALID_PASSWORD",
     );
   }

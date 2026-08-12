@@ -361,11 +361,17 @@ const updateUserAccountStatus = async (req, res) => {
       });
     }
 
-    await user.update({
+    const updates = {
       isActive,
       deactivatedAt: isActive ? null : new Date(),
       deactivatedById: isActive ? null : req.user.id,
-    });
+    };
+
+    if (!isActive) {
+      updates.tokenVersion = Number(user.tokenVersion || 0) + 1;
+    }
+
+    await user.update(updates);
 
     await writeAuditLog({
       req,

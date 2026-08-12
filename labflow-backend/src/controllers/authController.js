@@ -1,13 +1,9 @@
 const bcrypt = require("bcrypt");
-
 const { User, Organization } = require("../models");
-
 const generateToken = require("../utils/generateToken");
-
+const { validatePassword } = require("../utils/passwordPolicy");
 const formatUserResponse = require("../utils/formatUserResponse");
-
 const { createUniqueOrganizationSlug } = require("../utils/organizationSlug");
-
 const { logError } = require("../utils/errorLogger");
 
 const {
@@ -160,10 +156,12 @@ const registerUser = async (req, res) => {
       });
     }
 
-    if (password.length < 8) {
+    const passwordValidation = validatePassword(password);
+
+    if (!passwordValidation.valid) {
       return res.status(400).json({
         status: "error",
-        message: "Password must be at least 8 characters long.",
+        message: passwordValidation.message,
       });
     }
 
@@ -504,10 +502,12 @@ const completePasswordReset = async (req, res) => {
       });
     }
 
-    if (password.length < 8) {
+    const passwordValidation = validatePassword(password);
+
+    if (!passwordValidation.valid) {
       return res.status(400).json({
         status: "error",
-        message: "Password must be at least 8 characters long.",
+        message: passwordValidation.message,
       });
     }
 

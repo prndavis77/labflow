@@ -134,19 +134,8 @@ const apiLimiter = rateLimit({
 
 app.use("/api", apiLimiter);
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === "test" ? 1000 : 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    status: "error",
-    message: "Too many authentication attempts. Please try again later.",
-  },
-});
-
 // Authentication routes
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 
 // User summary routes
 app.use("/api/users", userRoutes);
