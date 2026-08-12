@@ -33,6 +33,8 @@ const archivedItemRoutes = require("./routes/archivedItemRoutes");
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(requestContext);
 app.use(requestLogger);
 
@@ -68,7 +70,13 @@ app.use(
 );
 
 // Parse incoming JSON request bodies
-app.use(express.json());
+const JSON_BODY_LIMIT = "1mb";
+
+app.use(
+  express.json({
+    limit: JSON_BODY_LIMIT,
+  }),
+);
 
 app.use(helmet());
 
@@ -112,6 +120,19 @@ app.get("/api/ready", async (req, res) => {
     });
   }
 });
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === "test" ? 10000 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: "error",
+    message: "Too many requests. Please try again later.",
+  },
+});
+
+app.use("/api", apiLimiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
