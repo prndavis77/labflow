@@ -348,7 +348,7 @@ describe("Authorization", () => {
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
     expect(response.body.message).toBe(
-      "New password must be at least 8 characters.",
+      "Password must be at least 12 characters long.",
     );
   });
 

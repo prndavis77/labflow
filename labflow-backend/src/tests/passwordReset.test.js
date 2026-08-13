@@ -555,7 +555,7 @@ describe("Password reset", () => {
       expect(secondResponse.body.message).toBe(INVALID_LINK_MESSAGE);
     });
 
-    it("rejects passwords shorter than eight characters", async () => {
+    it("rejects passwords shorter than twelve characters", async () => {
       await createResetRequest();
 
       const response = await request(app)
@@ -568,7 +568,7 @@ describe("Password reset", () => {
       expect(response.status).toBe(400);
 
       expect(response.body.message).toBe(
-        "Password must be at least 8 characters long.",
+        "Password must be at least 12 characters long.",
       );
 
       const storedToken = await getStoredResetToken();

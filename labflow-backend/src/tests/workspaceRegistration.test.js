@@ -31,7 +31,7 @@ describe("Workspace registration", () => {
         name: "John Doe",
         email: `${suffix}@university.edu`,
         department: "Analytical Chemistry",
-        password: "password123",
+        password: "password1234",
       });
 
     expect(response.status).toBe(201);
@@ -76,7 +76,7 @@ describe("Workspace registration", () => {
       organizationType: "lab",
       name: "Jane Doe",
       email: "  JANE.DOE@UNIVERSITY.EDU  ",
-      password: "password123",
+      password: "password1234",
     });
 
     expect(response.status).toBe(201);
@@ -103,7 +103,7 @@ describe("Workspace registration", () => {
         organizationType: "lab",
         name: "First Admin",
         email: `first-${suffix}@university.edu`,
-        password: "password123",
+        password: "password1234",
       });
 
     const secondResponse = await request(app)
@@ -113,7 +113,7 @@ describe("Workspace registration", () => {
         organizationType: "lab",
         name: "Second Admin",
         email: `second-${suffix}@university.edu`,
-        password: "password123",
+        password: "password1234",
       });
 
     expect(firstResponse.status).toBe(201);
@@ -156,7 +156,7 @@ describe("Workspace registration", () => {
         organizationType: "lab",
         name: "Security Test Admin",
         email: `security-${suffix}@university.edu`,
-        password: "password123",
+        password: "password1234",
         role: "researcher",
         organizationId: existingOrganization.id,
         isActive: false,
@@ -182,7 +182,7 @@ describe("Workspace registration", () => {
       organizationType: "lab",
       name: "First Admin",
       email: "duplicate@university.edu",
-      password: "password123",
+      password: "password1234",
     };
 
     const firstResponse = await request(app)
@@ -221,7 +221,7 @@ describe("Workspace registration", () => {
       organizationType: "lab",
       name: "Missing Organization Admin",
       email: "missing.organization@university.edu",
-      password: "password123",
+      password: "password1234",
     });
 
     expect(response.status).toBe(400);
@@ -231,7 +231,7 @@ describe("Workspace registration", () => {
     expect(await Organization.count()).toBe(organizationCountBefore);
   });
 
-  it("rejects a password shorter than eight characters", async () => {
+  it("rejects a password shorter than twelve characters", async () => {
     const userCountBefore = await User.count();
     const organizationCountBefore = await Organization.count();
 
@@ -246,7 +246,7 @@ describe("Workspace registration", () => {
     expect(response.status).toBe(400);
     expect(response.body).toMatchObject({
       status: "error",
-      message: "Password must be at least 8 characters long.",
+      message: "Password must be at least 12 characters long.",
     });
 
     expect(await User.count()).toBe(userCountBefore);
@@ -262,7 +262,7 @@ describe("Workspace registration", () => {
       organizationType: "University Research Laboratory",
       name: "Invalid Type Admin",
       email: "invalid.type@university.edu",
-      password: "password123",
+      password: "password1234",
     });
 
     expect(response.status).toBe(400);

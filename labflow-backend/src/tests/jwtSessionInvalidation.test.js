@@ -35,6 +35,8 @@ const createLegacyToken = (user, overrides = {}) => {
     process.env.JWT_SECRET,
     {
       expiresIn: "7d",
+      issuer: "labflow-api",
+      audience: "labflow-web",
     },
   );
 };

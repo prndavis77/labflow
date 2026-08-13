@@ -19,7 +19,7 @@ const { createTestUser } = require("./helpers/testHelpers");
 const createRegistrationPayload = (overrides = {}) => ({
   name: "Workspace Admin",
   email: "workspace-admin@test.com",
-  password: "password123",
+  password: "password1234",
   department: "Analytical Chemistry",
   organizationName: "Authentication Test Laboratory",
   organizationType: "lab",
