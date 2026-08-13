@@ -1,15 +1,10 @@
 const { User } = require("../models");
-
 const bcrypt = require("bcrypt");
-
 const formatUserResponse = require("../utils/formatUserResponse");
-
 const { VALID_ROLES, ROLES } = require("../constants/roles");
-
 const { writeAuditLog } = require("../utils/auditLogger");
-
 const { logError } = require("../utils/errorLogger");
-
+const { validatePassword } = require("../utils/passwordPolicy");
 const WORKFLOW_PERMISSION_FIELDS = [
   "canCreateExperiments",
   "canEditExperiments",
@@ -429,10 +424,12 @@ const resetUserPassword = async (req, res) => {
       });
     }
 
-    if (newPassword.length < 8) {
+    const passwordValidation = validatePassword(newPassword);
+
+    if (!passwordValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: "New password must be at least 8 characters.",
+        message: passwordValidation.message,
       });
     }
 
