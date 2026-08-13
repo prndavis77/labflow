@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getTasks,
   getTaskById,
@@ -7,13 +6,11 @@ const {
   updateTask,
   deleteTask,
 } = require("../controllers/taskController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();

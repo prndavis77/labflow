@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getEquipment,
   getEquipmentById,
@@ -7,13 +6,11 @@ const {
   updateEquipment,
   deleteEquipment,
 } = require("../controllers/equipmentController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();

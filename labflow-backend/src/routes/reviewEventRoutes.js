@@ -1,18 +1,15 @@
 const express = require("express");
-
 const {
   getReviewEvents,
   getReviewEventById,
   createReviewEvent,
   deleteReviewEvent,
 } = require("../controllers/reviewEventController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();

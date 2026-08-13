@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getUsers,
   getUserById,
@@ -8,13 +7,11 @@ const {
   updateUserAccountStatus,
   resetUserPassword,
 } = require("../controllers/userController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();

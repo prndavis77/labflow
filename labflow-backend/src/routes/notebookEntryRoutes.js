@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getNotebookEntries,
   getNotebookEntryById,
@@ -7,13 +6,11 @@ const {
   updateNotebookEntry,
   deleteNotebookEntry,
 } = require("../controllers/notebookEntryController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();

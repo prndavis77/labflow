@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getProtocols,
   getProtocolById,
@@ -7,13 +6,11 @@ const {
   updateProtocol,
   deleteProtocol,
 } = require("../controllers/protocolController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();

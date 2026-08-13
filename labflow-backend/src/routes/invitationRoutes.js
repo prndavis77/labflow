@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   listInvitations,
   createInvitation,
@@ -8,13 +7,11 @@ const {
   getInvitationForAcceptance,
   acceptInvitation,
 } = require("../controllers/invitationController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES } = require("../constants/roles");
 
 const router = express.Router();

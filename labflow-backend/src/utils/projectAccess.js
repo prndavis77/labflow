@@ -18,6 +18,22 @@ const isAdminOrSupervisor = (user) => {
   return ["admin", "supervisor"].includes(user?.role);
 };
 
+const projectBelongsToUserOrganization = async (user, projectId) => {
+  if (!user?.organizationId || !projectId) {
+    return false;
+  }
+
+  const project = await Project.findOne({
+    where: {
+      id: projectId,
+      organizationId: user.organizationId,
+    },
+    attributes: ["id"],
+  });
+
+  return Boolean(project);
+};
+
 const canAccessProjectAsSupervisor = async (user, projectId) => {
   if (!user || !user.id || !projectId) {
     return false;
@@ -27,7 +43,11 @@ const canAccessProjectAsSupervisor = async (user, projectId) => {
     return false;
   }
 
-  const project = await Project.findByPk(projectId, {
+  const project = await Project.findOne({
+    where: {
+      id: projectId,
+      organizationId: user.organizationId,
+    },
     attributes: ["id", "supervisorId"],
   });
 
@@ -38,13 +58,17 @@ const canAccessProjectAsSupervisor = async (user, projectId) => {
   return Number(project?.supervisorId) === Number(user.id);
 };
 
-const getProjectMembership = async (userId, projectId) => {
-  if (!userId || !projectId) {
+const getProjectMembership = async (userId, projectId, organizationId) => {
+  if (!userId || !projectId || !organizationId) {
     return null;
   }
 
   return ProjectMember.findOne({
-    where: { userId, projectId },
+    where: {
+      userId,
+      projectId,
+      organizationId,
+    },
   });
 };
 
@@ -55,6 +79,9 @@ const getAccessibleProjectIds = async (user) => {
 
   if (isAdmin(user)) {
     const projects = await Project.findAll({
+      where: {
+        organizationId: user.organizationId,
+      },
       attributes: ["id"],
     });
 
@@ -65,6 +92,7 @@ const getAccessibleProjectIds = async (user) => {
     const projects = await Project.findAll({
       where: {
         supervisorId: user.id,
+        organizationId: user.organizationId,
       },
       attributes: ["id"],
     });
@@ -73,7 +101,7 @@ const getAccessibleProjectIds = async (user) => {
   }
 
   const memberships = await ProjectMember.findAll({
-    where: { userId: user.id },
+    where: { userId: user.id, organizationId: user.organizationId },
     attributes: ["projectId"],
   });
 
@@ -86,7 +114,15 @@ const canViewProject = async (user, projectId) => {
   }
 
   if (isAdmin(user)) {
-    return true;
+    const project = await Project.findOne({
+      where: {
+        id: projectId,
+        organizationId: user.organizationId,
+      },
+      attributes: ["id"],
+    });
+
+    return Boolean(project);
   }
 
   if (isSupervisor(user)) {
@@ -97,6 +133,7 @@ const canViewProject = async (user, projectId) => {
     where: {
       userId: user.id,
       projectId,
+      organizationId: user.organizationId,
     },
   });
 
@@ -116,6 +153,7 @@ const getProjectMemberRole = async (user, projectId) => {
     where: {
       userId: user.id,
       projectId,
+      organizationId: user.organizationId,
     },
   });
 
@@ -148,7 +186,7 @@ const canViewProjectLinkedRecord = async (user, projectId) => {
   }
 
   if (isAdmin(user)) {
-    return true;
+    return projectBelongsToUserOrganization(user, projectId);
   }
 
   if (isSupervisor(user)) {
@@ -165,11 +203,11 @@ const canUseProjectForResearchWork = async (user, projectId) => {
     return false;
   }
 
-  if (user.role === "admin") {
-    return true;
+  if (isAdmin(user)) {
+    return projectBelongsToUserOrganization(user, projectId);
   }
 
-  if (user.role === "supervisor") {
+  if (isSupervisor(user)) {
     return canAccessProjectAsSupervisor(user, projectId);
   }
 
@@ -182,7 +220,7 @@ const canEditProjectLinkedWork = async (user, projectId) => {
   }
 
   if (isAdmin(user)) {
-    return true;
+    return projectBelongsToUserOrganization(user, projectId);
   }
 
   if (isSupervisor(user)) {
@@ -205,11 +243,11 @@ const canAssignProjectTask = async (user, projectId) => {
     return false;
   }
 
-  if (user.role === "admin") {
-    return true;
+  if (isAdmin(user)) {
+    return projectBelongsToUserOrganization(user, projectId);
   }
 
-  if (user.role === "supervisor") {
+  if (isSupervisor(user)) {
     return canAccessProjectAsSupervisor(user, projectId);
   }
 
@@ -223,11 +261,11 @@ const canManageProjectMembers = async (user, projectId) => {
     return false;
   }
 
-  if (user.role === "admin") {
-    return true;
+  if (isAdmin(user)) {
+    return projectBelongsToUserOrganization(user, projectId);
   }
 
-  if (user.role === "supervisor") {
+  if (isSupervisor(user)) {
     return canAccessProjectAsSupervisor(user, projectId);
   }
 
@@ -239,11 +277,11 @@ const canReviewProjectLinkedRecord = async (user, projectId) => {
     return false;
   }
 
-  if (user.role === "admin") {
-    return true;
+  if (isAdmin(user)) {
+    return projectBelongsToUserOrganization(user, projectId);
   }
 
-  if (user.role === "supervisor") {
+  if (isSupervisor(user)) {
     return canAccessProjectAsSupervisor(user, projectId);
   }
 

@@ -1,21 +1,16 @@
 const express = require("express");
-
 const {
   getArchivedItems,
   restoreArchivedItem,
 } = require("../controllers/archivedItemController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES } = require("../constants/roles");
 
 const router = express.Router();
-
-router.use(protect);
 
 router.use(protect);
 

@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getExperiments,
   getExperimentById,
@@ -7,13 +6,11 @@ const {
   updateExperiment,
   deleteExperiment,
 } = require("../controllers/experimentController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();

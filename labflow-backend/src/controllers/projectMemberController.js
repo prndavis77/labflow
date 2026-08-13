@@ -69,7 +69,7 @@ const getProjectMembers = async (req, res) => {
   try {
     const { projectId, userId, projectRole } = req.query;
 
-    const where = {};
+    const where = { organizationId: req.user.organizationId };
 
     if (projectId) {
       where.projectId = projectId;
@@ -229,6 +229,17 @@ const createProjectMember = async (req, res) => {
       });
     }
 
+    if (
+      req.user.role === "supervisor" &&
+      project.supervisorId !== req.user.id
+    ) {
+      return res.status(403).json({
+        status: "error",
+        message:
+          "You do not have permission to manage this project's membership.",
+      });
+    }
+
     const user = await User.findOne({
       where: {
         id: userId,
@@ -329,6 +340,25 @@ const updateProjectMember = async (req, res) => {
       });
     }
 
+    if (req.user.role === "supervisor") {
+      const project = await Project.findOne({
+        where: {
+          id: projectMember.projectId,
+          organizationId: req.user.organizationId,
+          supervisorId: req.user.id,
+          isArchived: false,
+        },
+      });
+
+      if (!project) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You do not have permission to manage this project's membership.",
+        });
+      }
+    }
+
     await projectMember.update({
       projectRole,
     });
@@ -380,6 +410,25 @@ const deleteProjectMember = async (req, res) => {
         status: "error",
         message: "Project member not found.",
       });
+    }
+
+    if (req.user.role === "supervisor") {
+      const project = await Project.findOne({
+        where: {
+          id: projectMember.projectId,
+          organizationId: req.user.organizationId,
+          supervisorId: req.user.id,
+          isArchived: false,
+        },
+      });
+
+      if (!project) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You do not have permission to manage this project's membership.",
+        });
+      }
     }
 
     await projectMember.destroy();

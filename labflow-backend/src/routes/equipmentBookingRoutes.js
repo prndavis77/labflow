@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getEquipmentBookings,
   getEquipmentBookingById,
@@ -7,9 +6,7 @@ const {
   updateEquipmentBooking,
   deleteEquipmentBooking,
 } = require("../controllers/equipmentBookingController");
-
 const { ROLE_GROUPS } = require("../constants/roles");
-
 const {
   protect,
   requireVerifiedEmail,

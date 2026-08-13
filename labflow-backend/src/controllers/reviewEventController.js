@@ -189,7 +189,9 @@ const getReviewEvents = async (req, res) => {
       }
     }
 
-    const where = {};
+    const where = {
+      organizationId: req.user.organizationId,
+    };
 
     if (targetType) {
       where.targetType = targetType;

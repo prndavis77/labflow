@@ -1,7 +1,5 @@
 const express = require("express");
-
 const { getDashboardSummary } = require("../controllers/dashboardController");
-
 const {
   protect,
   requireVerifiedEmail,

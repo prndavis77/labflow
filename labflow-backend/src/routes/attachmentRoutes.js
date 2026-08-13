@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   archiveAttachment,
   completeAttachmentUpload,
@@ -9,7 +8,6 @@ const {
   listAttachments,
   updateAttachmentMetadata,
 } = require("../controllers/attachmentController");
-
 const {
   protect,
   requireVerifiedEmail,

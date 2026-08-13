@@ -1,5 +1,4 @@
 const express = require("express");
-
 const {
   getProjectMembers,
   getProjectMemberById,
@@ -7,13 +6,11 @@ const {
   updateProjectMember,
   deleteProjectMember,
 } = require("../controllers/projectMemberController");
-
 const {
   protect,
   requireVerifiedEmail,
   authorizeRoles,
 } = require("../middleware/authMiddleware");
-
 const { ROLES, ROLE_GROUPS } = require("../constants/roles");
 
 const router = express.Router();
