@@ -581,7 +581,7 @@ const updateNotebookEntry = async (req, res) => {
     if (experimentId !== undefined) {
       const experiment = await Experiment.findOne({
         where: {
-          id: parsedExperimentId,
+          id: experimentId,
           organizationId: req.user.organizationId,
         },
       });

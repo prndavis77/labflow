@@ -167,6 +167,7 @@ const findConflictingBooking = async ({
   organizationId,
 }) => {
   const where = {
+    organizationId,
     equipmentId,
     status: "confirmed",
     startTime: {
@@ -616,6 +617,7 @@ const createEquipmentBooking = async (req, res) => {
         equipmentId,
         startDate: timeValidation.startDate,
         endDate: timeValidation.endDate,
+        organizationId: req.user.organizationId,
       });
 
       if (conflict) {
@@ -964,6 +966,7 @@ const updateEquipmentBooking = async (req, res) => {
         startDate: timeValidation.startDate,
         endDate: timeValidation.endDate,
         ignoredBookingId: booking.id,
+        organizationId: req.user.organizationId,
       });
 
       if (conflict) {
