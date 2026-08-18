@@ -1,7 +1,5 @@
 const { ReviewEvent, Experiment, Protocol, Task, User } = require("../models");
-
 const { canViewProjectLinkedRecord } = require("../utils/projectAccess");
-
 const { logError } = require("../utils/errorLogger");
 
 // Formats user data safely for review event responses.
@@ -43,6 +41,30 @@ const reviewEventInclude = [
     attributes: ["id", "name", "email", "role", "department"],
   },
 ];
+
+const parsePositiveIntegerId = (value) => {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) ? id : null;
+};
+
+const parsePositiveIntegerBodyId = (value) => {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+};
+
+const VALID_REVIEW_TARGET_TYPES = ["experiment", "protocol", "task"];
+
+const VALID_REVIEW_ACTIONS = ["submitted", "approved", "changes_requested"];
+
+const VALID_MANUAL_REVIEW_ACTIONS = ["approved", "changes_requested"];
 
 // Validates that the review target exists
 // Because ReviewEvent can point to either an experiment or a protocol
@@ -154,16 +176,49 @@ const getReviewEvents = async (req, res) => {
   try {
     const { targetType, targetId, action, reviewerId } = req.query;
 
-    const validTargetTypes = ["experiment", "protocol", "task"];
+    let parsedTargetId = null;
+    let parsedReviewerId = null;
 
-    if (targetType && !validTargetTypes.includes(targetType)) {
+    if (
+      targetType !== undefined &&
+      !VALID_REVIEW_TARGET_TYPES.includes(targetType)
+    ) {
       return res.status(400).json({
         status: "error",
         message: "Target type must be experiment, protocol or task.",
       });
     }
 
-    if (req.user.role !== "admin" && (!targetType || !targetId)) {
+    if (targetId !== undefined) {
+      parsedTargetId = parsePositiveIntegerId(targetId);
+
+      if (parsedTargetId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid target ID.",
+        });
+      }
+    }
+
+    if (reviewerId !== undefined) {
+      parsedReviewerId = parsePositiveIntegerId(reviewerId);
+
+      if (parsedReviewerId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid reviewer ID.",
+        });
+      }
+    }
+
+    if (action !== undefined && !VALID_REVIEW_ACTIONS.includes(action)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid review action.",
+      });
+    }
+
+    if (req.user.role !== "admin" && (!targetType || parsedTargetId === null)) {
       return res.status(400).json({
         status: "error",
         message:
@@ -172,7 +227,11 @@ const getReviewEvents = async (req, res) => {
     }
 
     if (req.user.role !== "admin") {
-      const canView = await canViewReviewTarget(req.user, targetType, targetId);
+      const canView = await canViewReviewTarget(
+        req.user,
+        targetType,
+        parsedTargetId,
+      );
 
       if (canView === null) {
         return res.status(404).json({
@@ -193,20 +252,20 @@ const getReviewEvents = async (req, res) => {
       organizationId: req.user.organizationId,
     };
 
-    if (targetType) {
+    if (targetType !== undefined) {
       where.targetType = targetType;
     }
 
-    if (targetId) {
-      where.targetId = targetId;
+    if (parsedTargetId !== null) {
+      where.targetId = parsedTargetId;
     }
 
-    if (action) {
+    if (action !== undefined) {
       where.action = action;
     }
 
-    if (reviewerId) {
-      where.reviewerId = reviewerId;
+    if (parsedReviewerId !== null) {
+      where.reviewerId = parsedReviewerId;
     }
 
     const reviewEvents = await ReviewEvent.findAll({
@@ -239,7 +298,14 @@ const getReviewEvents = async (req, res) => {
 // Returns one review event by ID
 const getReviewEventById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid review event ID.",
+      });
+    }
 
     const reviewEvent = await ReviewEvent.findOne({
       where: {
@@ -296,12 +362,73 @@ const getReviewEventById = async (req, res) => {
 // In Phase 13B, experiment/protocol update actions will create these automatically
 const createReviewEvent = async (req, res) => {
   try {
-    const { targetType, targetId, action, comment } = req.body;
+    const {
+      targetType: rawTargetType,
+      targetId: rawTargetId,
+      action: rawAction,
+      comment: rawComment,
+    } = req.body;
 
-    if (!targetType || !targetId || !action) {
+    if (typeof rawTargetType !== "string") {
       return res.status(400).json({
         status: "error",
-        message: "Target type, target ID, and action are required.",
+        message: "Target type must be a string.",
+      });
+    }
+
+    if (typeof rawAction !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Review action must be a string.",
+      });
+    }
+
+    if (
+      rawComment !== undefined &&
+      rawComment !== null &&
+      typeof rawComment !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Review comment must be a string or null.",
+      });
+    }
+
+    const targetId = parsePositiveIntegerBodyId(rawTargetId);
+
+    if (targetId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid target ID.",
+      });
+    }
+
+    const targetType = rawTargetType.trim();
+    const action = rawAction.trim();
+
+    const comment =
+      rawComment === undefined || rawComment === null
+        ? null
+        : rawComment.trim();
+
+    if (!VALID_REVIEW_TARGET_TYPES.includes(targetType)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Target type must be either experiment, protocol or task.",
+      });
+    }
+
+    if (!VALID_MANUAL_REVIEW_ACTIONS.includes(action)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Action must be either approved or changes_requested.",
+      });
+    }
+
+    if (action === "changes_requested" && !comment) {
+      return res.status(400).json({
+        status: "error",
+        message: "A review comment is required when requesting changes.",
       });
     }
 
@@ -312,28 +439,7 @@ const createReviewEvent = async (req, res) => {
       });
     }
 
-    if (!["experiment", "protocol", "task"].includes(targetType)) {
-      return res.status(400).json({
-        status: "error",
-        message: "Target type must be either experiment, protocol or task.",
-      });
-    }
-
-    if (!["approved", "changes_requested"].includes(action)) {
-      return res.status(400).json({
-        status: "error",
-        message: "Action must be either approved or changes_requested.",
-      });
-    }
-
-    if (action === "changes_requested" && !comment?.trim()) {
-      return res.status(400).json({
-        status: "error",
-        message: "A review comment is required when requesting changes.",
-      });
-    }
-
-    const target = await getReviewTarget({
+    const target = await findReviewTarget({
       targetType,
       targetId,
       organizationId: req.user.organizationId,
@@ -362,7 +468,7 @@ const createReviewEvent = async (req, res) => {
       targetType,
       targetId,
       action,
-      comment: comment?.trim() || null,
+      comment: comment || null,
       reviewerId: req.user.id,
       organizationId: req.user.organizationId,
     });
@@ -407,7 +513,14 @@ const deleteReviewEvent = async (req, res) => {
         message: "Only admins can delete review events.",
       });
     }
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid review event ID.",
+      });
+    }
 
     const reviewEvent = await ReviewEvent.findOne({
       where: {

@@ -1,28 +1,21 @@
 const crypto = require("crypto");
-
 const { Attachment, User } = require("../models");
-
-const sequelize = Attachment.sequelize;
-
 const attachmentConfig = require("../config/attachmentConfig");
-
 const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
-
 const { logError } = require("../utils/errorLogger");
-
 const {
+  validateAttachmentCategory,
+  validateAttachmentEntityType,
   validateAttachmentId,
   validateAttachmentMetadataUpdate,
   validateAttachmentUploadMetadata,
 } = require("../utils/attachmentValidation");
-
 const { createAttachmentStorageKey } = require("../storage/utils/storageKey");
-
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
-
 const { formatAttachmentResponse } = require("../utils/attachmentResponse");
-
 const { writeAuditLog } = require("../utils/auditLogger");
+
+const sequelize = Attachment.sequelize;
 
 const DEFAULT_ATTACHMENT_PAGE = 1;
 const DEFAULT_ATTACHMENT_LIMIT = 20;
@@ -33,21 +26,13 @@ const parsePositiveIntegerQuery = (value, fallback) => {
     return fallback;
   }
 
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
   const parsedValue = Number(value);
 
-  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
-    return null;
-  }
-
-  return parsedValue;
-};
-
-const normalizeAttachmentCategory = (value) => {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
-  return String(value).trim().toLowerCase();
+  return Number.isSafeInteger(parsedValue) ? parsedValue : null;
 };
 
 const attachmentInclude = [
@@ -570,20 +555,29 @@ const canManageAttachmentRecord = ({ user, attachment }) => {
 
 const listAttachments = async (req, res) => {
   try {
-    const entityType = String(req.query.entityType || "")
-      .trim()
-      .toLowerCase();
-
-    const entityId = Number(req.query.entityId);
-
-    if (!entityType) {
+    if (req.query.entityType === undefined || req.query.entityType === "") {
       return res.status(400).json({
         status: "error",
         message: "entityType is required.",
       });
     }
 
-    if (!Number.isSafeInteger(entityId) || entityId <= 0) {
+    const entityTypeValidation = validateAttachmentEntityType(
+      req.query.entityType,
+    );
+
+    if (!entityTypeValidation.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: entityTypeValidation.error,
+      });
+    }
+
+    const entityType = entityTypeValidation.value;
+
+    const entityId = parsePositiveIntegerQuery(req.query.entityId, null);
+
+    if (entityId === null) {
       return res.status(400).json({
         status: "error",
         message: "entityId must be a positive integer.",
@@ -618,7 +612,24 @@ const listAttachments = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    const category = normalizeAttachmentCategory(req.query.category);
+    let category = null;
+
+    if (
+      req.query.category !== undefined &&
+      req.query.category !== null &&
+      req.query.category !== ""
+    ) {
+      const categoryValidation = validateAttachmentCategory(req.query.category);
+
+      if (!categoryValidation.valid) {
+        return res.status(400).json({
+          status: "error",
+          message: categoryValidation.error,
+        });
+      }
+
+      category = categoryValidation.value;
+    }
 
     const access = await authorizeAttachmentTarget({
       user: req.user,

@@ -221,6 +221,36 @@ const getProtocols = async (req, res) => {
   try {
     const { projectId, equipmentId, approvalStatus } = req.query;
 
+    if (
+      projectId !== undefined &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol project ID must be a positive integer.",
+      });
+    }
+
+    if (
+      equipmentId !== undefined &&
+      (!Number.isInteger(Number(equipmentId)) || Number(equipmentId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol equipment ID must be a positive integer.",
+      });
+    }
+
+    if (
+      approvalStatus !== undefined &&
+      !VALID_APPROVAL_STATUSES.includes(approvalStatus)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid approval status.",
+      });
+    }
+
     const where = {
       organizationId: req.user.organizationId,
       isArchived: false,
@@ -367,12 +397,110 @@ const createProtocol = async (req, res) => {
       equipmentId,
     } = req.body;
 
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol title must be a string.",
+      });
+    }
+
+    const trimmedTitle = typeof title === "string" ? title.trim() : "";
+
+    if (!trimmedTitle) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol title is required.",
+      });
+    }
+
+    if (
+      trimmedTitle &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (content !== undefined && typeof content !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol content must be a string.",
+      });
+    }
+
+    const trimmedContent = typeof content === "string" ? content.trim() : "";
+
+    if (!trimmedContent) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol content is required.",
+      });
+    }
+
     if (!title || !content) {
       return res.status(400).json({
         status: "error",
         message: "Protocol title and content are required.",
       });
     }
+
+    if (
+      version !== undefined &&
+      version !== null &&
+      typeof version !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol version must be a string or null.",
+      });
+    }
+
+    if (
+      version !== undefined &&
+      version !== null &&
+      version.trim().length > 50
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol version must be 50 characters or fewer.",
+      });
+    }
+
+    if (
+      purpose !== undefined &&
+      purpose !== null &&
+      typeof purpose !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol purpose must be a string or null.",
+      });
+    }
+
+    if (
+      reviewComment !== undefined &&
+      reviewComment !== null &&
+      typeof reviewComment !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol review comment must be a string or null.",
+      });
+    }
+
+    if (
+      approvalStatus !== undefined &&
+      approvalStatus !== null &&
+      typeof approvalStatus !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol approval status must be a string or null.",
+      });
+    }
+
     if (
       approvalStatus !== undefined &&
       !VALID_APPROVAL_STATUSES.includes(approvalStatus)
@@ -380,6 +508,30 @@ const createProtocol = async (req, res) => {
       return res.status(400).json({
         status: "error",
         message: "Invalid approval status.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      projectId !== null &&
+      projectId !== "" &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol project ID must be a positive integer or null.",
+      });
+    }
+
+    if (
+      equipmentId !== undefined &&
+      equipmentId !== null &&
+      equipmentId !== "" &&
+      (!Number.isInteger(Number(equipmentId)) || Number(equipmentId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol equipment ID must be a positive integer or null.",
       });
     }
 
@@ -556,6 +708,152 @@ const updateProtocol = async (req, res) => {
       equipmentId,
     } = req.body;
 
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol title must be a string.",
+      });
+    }
+
+    const trimmedTitle =
+      title !== undefined && typeof title === "string" ? title.trim() : null;
+
+    if (title !== undefined && !trimmedTitle) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol title is required.",
+      });
+    }
+
+    if (
+      title !== undefined &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (content !== undefined && typeof content !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol content must be a string.",
+      });
+    }
+
+    const trimmedContent =
+      content !== undefined && typeof content === "string"
+        ? content.trim()
+        : null;
+
+    if (content !== undefined && !trimmedContent) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol content is required.",
+      });
+    }
+
+    if (
+      version !== undefined &&
+      version !== null &&
+      typeof version !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol version must be a string or null.",
+      });
+    }
+
+    if (
+      version !== undefined &&
+      version !== null &&
+      version.trim().length === 0
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol version is required.",
+      });
+    }
+
+    if (
+      version !== undefined &&
+      version !== null &&
+      version.trim().length > 50
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol version must be 50 characters or fewer.",
+      });
+    }
+
+    if (
+      purpose !== undefined &&
+      purpose !== null &&
+      typeof purpose !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol purpose must be a string or null.",
+      });
+    }
+
+    if (
+      reviewComment !== undefined &&
+      reviewComment !== null &&
+      typeof reviewComment !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol review comment must be a string or null.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      projectId !== null &&
+      projectId !== "" &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol project ID must be a positive integer or null.",
+      });
+    }
+
+    if (
+      equipmentId !== undefined &&
+      equipmentId !== null &&
+      equipmentId !== "" &&
+      (!Number.isInteger(Number(equipmentId)) || Number(equipmentId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol equipment ID must be a positive integer or null.",
+      });
+    }
+
+    if (
+      approvalStatus !== undefined &&
+      approvalStatus !== null &&
+      typeof approvalStatus !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol approval status must be a string or null.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol project ID must be a positive integer.",
+      });
+    }
+
     const protocol = await Protocol.findOne({
       where: {
         id: req.params.id,
@@ -713,7 +1011,12 @@ const updateProtocol = async (req, res) => {
 
     await protocol.update({
       title: title !== undefined ? title.trim() : protocol.title,
-      version: version !== undefined ? version.trim() : protocol.version,
+      version:
+        version !== undefined
+          ? version === null
+            ? protocol.version
+            : version.trim()
+          : protocol.version,
       purpose:
         purpose !== undefined ? purpose?.trim() || null : protocol.purpose,
       content: content !== undefined ? content.trim() : protocol.content,
@@ -885,8 +1188,23 @@ const deleteProtocol = async (req, res) => {
       });
     }
 
-    const archiveReason =
-      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+    const rawArchiveReason =
+      req.body?.archiveReason !== undefined
+        ? req.body.archiveReason
+        : req.body?.reason;
+
+    if (
+      rawArchiveReason !== undefined &&
+      rawArchiveReason !== null &&
+      typeof rawArchiveReason !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Protocol archive reason must be a string or null.",
+      });
+    }
+
+    const archiveReason = rawArchiveReason?.trim() || null;
 
     await protocol.update({
       isArchived: true,

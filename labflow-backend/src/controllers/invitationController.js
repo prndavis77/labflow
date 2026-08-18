@@ -1,29 +1,37 @@
 const bcrypt = require("bcrypt");
-
 const { Op } = require("sequelize");
-
 const { sequelize } = require("../config/database");
-
 const { Invitation, User, Organization } = require("../models");
-
 const {
   generateInvitationToken,
   hashInvitationToken,
   getInvitationExpiryDate,
 } = require("../utils/invitationTokens");
-
 const { writeAuditLog } = require("../utils/auditLogger");
-
 const { logError } = require("../utils/errorLogger");
-
+const { validatePassword } = require("../utils/passwordPolicy");
 const { sendInvitationEmail } = require("../services/invitationEmailService");
-
 const { emailConfig } = require("../config/emailConfig");
-
 const {
   INVITATION_EMAIL_DELIVERY_STATUSES,
 } = require("../constants/invitationEmail");
 const { AUDIT_ACTIONS } = require("../constants/auditActions");
+
+const VALID_INVITATION_STATUSES = ["pending", "accepted", "revoked", "expired"];
+
+const parsePositiveIntegerId = (value) => {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) ? id : null;
+};
+
+const isValidInvitationTokenFormat = (token) => {
+  return typeof token === "string" && /^[a-f0-9]{64}$/i.test(token);
+};
 
 const normalizeEmail = (email) => {
   return String(email || "")
@@ -203,6 +211,15 @@ const persistInvitationEmailTracking = async ({
 };
 
 const listInvitations = async (req, res) => {
+  const { status } = req.query;
+
+  if (status && !VALID_INVITATION_STATUSES.includes(status)) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invalid invitation status.",
+    });
+  }
+
   const where = {
     organizationId: req.user.organizationId,
   };
@@ -242,16 +259,67 @@ const listInvitations = async (req, res) => {
 };
 
 const createInvitation = async (req, res) => {
-  const email = normalizeEmail(req.body.email);
-  const name = String(req.body.name || "").trim();
-  const role = req.body.role || "researcher";
+  const {
+    email: rawEmail,
+    name: rawName,
+    role: rawRole,
+    department: rawDepartment,
+  } = req.body;
 
-  const department = req.body.department
-    ? String(req.body.department).trim()
-    : null;
+  // Type validation
+  if (
+    rawEmail !== undefined &&
+    rawEmail !== null &&
+    typeof rawEmail !== "string"
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Email must be a string.",
+    });
+  }
+
+  if (
+    rawName !== undefined &&
+    rawName !== null &&
+    typeof rawName !== "string"
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Name must be a string.",
+    });
+  }
+
+  if (
+    rawRole !== undefined &&
+    rawRole !== null &&
+    typeof rawRole !== "string"
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Role must be a string.",
+    });
+  }
+
+  if (
+    rawDepartment !== undefined &&
+    rawDepartment !== null &&
+    typeof rawDepartment !== "string"
+  ) {
+    return res.status(400).json({
+      status: "error",
+      message: "Department must be a string or null.",
+    });
+  }
+
+  // Normalize
+  const email = normalizeEmail(rawEmail);
+  const name = rawName?.trim() || "";
+  const role = rawRole || "researcher";
+  const department = rawDepartment?.trim() || null;
 
   const allowedRoles = ["admin", "supervisor", "researcher"];
 
+  // Required/value validation
   if (!name) {
     return res.status(400).json({
       status: "error",
@@ -271,6 +339,52 @@ const createInvitation = async (req, res) => {
       status: "error",
       message: "Invalid role.",
     });
+  }
+
+  // Length/format validation
+  if (name.length > 150) {
+    return res.status(400).json({
+      status: "error",
+      message: "Name must be 150 characters or fewer.",
+    });
+  }
+
+  if (email.length > 255) {
+    return res.status(400).json({
+      status: "error",
+      message: "Email must be 255 characters or fewer.",
+    });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({
+      status: "error",
+      message: "Please provide a valid email address.",
+    });
+  }
+
+  if (department && department.length > 150) {
+    return res.status(400).json({
+      status: "error",
+      message: "Department must be 150 characters or fewer.",
+    });
+  }
+
+  // Permission validation
+  const permissionFields = [
+    "canCreateExperiments",
+    "canEditExperiments",
+    "canCreateProtocols",
+    "canEditProtocols",
+  ];
+
+  for (const field of permissionFields) {
+    if (req.body[field] !== undefined && typeof req.body[field] !== "boolean") {
+      return res.status(400).json({
+        status: "error",
+        message: `${field} must be a boolean value.`,
+      });
+    }
   }
 
   const existingUser = await User.findOne({
@@ -339,18 +453,20 @@ const createInvitation = async (req, res) => {
     invitedById: req.user.id,
 
     canCreateExperiments: isResearcher
-      ? Boolean(req.body.canCreateExperiments)
+      ? (req.body.canCreateExperiments ?? false)
       : false,
 
     canEditExperiments: isResearcher
-      ? Boolean(req.body.canEditExperiments)
+      ? (req.body.canEditExperiments ?? false)
       : false,
 
     canCreateProtocols: isResearcher
-      ? Boolean(req.body.canCreateProtocols)
+      ? (req.body.canCreateProtocols ?? false)
       : false,
 
-    canEditProtocols: isResearcher ? Boolean(req.body.canEditProtocols) : false,
+    canEditProtocols: isResearcher
+      ? (req.body.canEditProtocols ?? false)
+      : false,
   });
 
   await writeAuditLog({
@@ -423,9 +539,9 @@ const createInvitation = async (req, res) => {
 };
 
 const resendInvitation = async (req, res) => {
-  const invitationId = Number.parseInt(req.params.id, 10);
+  const invitationId = parsePositiveIntegerId(req.params.id);
 
-  if (!Number.isInteger(invitationId)) {
+  if (invitationId === null) {
     return res.status(400).json({
       status: "error",
       message: "Invalid invitation ID.",
@@ -621,9 +737,18 @@ const resendInvitation = async (req, res) => {
 };
 
 const revokeInvitation = async (req, res) => {
+  const invitationId = parsePositiveIntegerId(req.params.id);
+
+  if (invitationId === null) {
+    return res.status(400).json({
+      status: "error",
+      message: "Invalid invitation ID.",
+    });
+  }
+
   const invitation = await Invitation.findOne({
     where: {
-      id: req.params.id,
+      id: invitationId,
       organizationId: req.user.organizationId,
     },
   });
@@ -669,10 +794,10 @@ const revokeInvitation = async (req, res) => {
 const getInvitationForAcceptance = async (req, res) => {
   const token = req.params.token;
 
-  if (!token) {
+  if (!isValidInvitationTokenFormat(token)) {
     return res.status(400).json({
       status: "error",
-      message: "Invitation token is required.",
+      message: "Invitation not found or no longer valid.",
     });
   }
 
@@ -712,22 +837,38 @@ const getInvitationForAcceptance = async (req, res) => {
 
 const acceptInvitation = async (req, res) => {
   const token = req.params.token;
-  const password = String(req.body.password || "");
+  const password = req.body.password;
 
   let transaction;
 
   try {
-    if (!token) {
+    if (!isValidInvitationTokenFormat(token)) {
       return res.status(400).json({
         status: "error",
-        message: "Invitation token is required.",
+        message: "Invitation not found or no longer valid.",
       });
     }
 
-    if (password.length < 8) {
+    if (password === undefined || password === null || password === "") {
       return res.status(400).json({
         status: "error",
-        message: "Password must be at least 8 characters long.",
+        message: "Password is required.",
+      });
+    }
+
+    if (typeof password !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Password must be a string.",
+      });
+    }
+
+    const passwordValidation = validatePassword(password);
+
+    if (!passwordValidation.valid) {
+      return res.status(400).json({
+        status: "error",
+        message: passwordValidation.message,
       });
     }
 

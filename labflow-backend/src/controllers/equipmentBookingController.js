@@ -1,5 +1,4 @@
 const { Op } = require("sequelize");
-
 const {
   EquipmentBooking,
   Equipment,
@@ -7,9 +6,7 @@ const {
   Project,
   Experiment,
 } = require("../models");
-
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
-
 const { logError } = require("../utils/errorLogger");
 
 // Formats user data safely for API responses
@@ -114,6 +111,26 @@ const bookingInclude = [
   },
 ];
 
+const VALID_BOOKING_STATUSES = ["confirmed", "cancelled", "completed"];
+
+const parsePositiveIntegerId = (value) => {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) ? id : null;
+};
+
+const parsePositiveIntegerBodyId = (value) => {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+};
+
 // Validates that the booking time range is usable
 const validateBookingTimeRange = (startTime, endTime) => {
   const startDate = new Date(startTime);
@@ -179,42 +196,84 @@ const getEquipmentBookings = async (req, res) => {
   try {
     const { equipmentId, userId, projectId, status } = req.query;
 
+    let parsedEquipmentId = null;
+    let parsedUserId = null;
+    let parsedProjectId = null;
+
+    if (equipmentId !== undefined) {
+      parsedEquipmentId = parsePositiveIntegerId(equipmentId);
+
+      if (parsedEquipmentId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid equipment ID.",
+        });
+      }
+    }
+
+    if (userId !== undefined) {
+      parsedUserId = parsePositiveIntegerId(userId);
+
+      if (parsedUserId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid user ID.",
+        });
+      }
+    }
+
+    if (projectId !== undefined) {
+      parsedProjectId = parsePositiveIntegerId(projectId);
+
+      if (parsedProjectId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid project ID.",
+        });
+      }
+    }
+
+    if (status !== undefined && !VALID_BOOKING_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid booking status.",
+      });
+    }
+
     const where = {
       organizationId: req.user.organizationId,
     };
 
-    if (equipmentId) {
-      where.equipmentId = equipmentId;
+    if (parsedEquipmentId !== null) {
+      where.equipmentId = parsedEquipmentId;
     }
 
-    if (userId) {
-      where.userId = userId;
+    if (parsedUserId !== null) {
+      where.userId = parsedUserId;
     }
 
-    if (status) {
+    if (status !== undefined) {
       where.status = status;
     }
 
     if (req.user.role === "admin") {
-      if (projectId) {
-        where.projectId = Number(projectId);
+      if (parsedProjectId !== null) {
+        where.projectId = parsedProjectId;
       }
     } else {
       const accessibleProjectIds = (
         await getAccessibleProjectIds(req.user)
       ).map(Number);
 
-      if (projectId) {
-        const requestedProjectId = Number(projectId);
-
-        if (!accessibleProjectIds.includes(requestedProjectId)) {
+      if (parsedProjectId !== null) {
+        if (!accessibleProjectIds.includes(parsedProjectId)) {
           return res.status(403).json({
             status: "error",
             message: "You do not have access to bookings for this project.",
           });
         }
 
-        where.projectId = requestedProjectId;
+        where.projectId = parsedProjectId;
       } else {
         where[Op.or] = [
           {
@@ -260,11 +319,18 @@ const getEquipmentBookings = async (req, res) => {
 // Returns one booking by ID
 const getEquipmentBookingById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment booking ID.",
+      });
+    }
 
     const booking = await EquipmentBooking.findOne({
       where: {
-        id: req.params.id,
+        id,
         organizationId: req.user.organizationId,
       },
       include: bookingInclude,
@@ -302,21 +368,156 @@ const getEquipmentBookingById = async (req, res) => {
 const createEquipmentBooking = async (req, res) => {
   try {
     const {
-      title,
-      startTime,
-      endTime,
-      status,
-      purpose,
-      equipmentId,
-      userId,
-      projectId,
-      experimentId,
+      title: rawTitle,
+      startTime: rawStartTime,
+      endTime: rawEndTime,
+      status: rawStatus,
+      purpose: rawPurpose,
+      equipmentId: rawEquipmentId,
+      userId: rawUserId,
+      projectId: rawProjectId,
+      experimentId: rawExperimentId,
     } = req.body;
 
-    if (!title || !startTime || !endTime || !equipmentId) {
+    if (
+      rawTitle !== undefined &&
+      rawTitle !== null &&
+      typeof rawTitle !== "string"
+    ) {
       return res.status(400).json({
         status: "error",
-        message: "Title, start time, end time, and equipment are required.",
+        message: "Booking title must be a string.",
+      });
+    }
+
+    if (
+      rawStartTime !== undefined &&
+      rawStartTime !== null &&
+      typeof rawStartTime !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Start time must be a string.",
+      });
+    }
+
+    if (
+      rawEndTime !== undefined &&
+      rawEndTime !== null &&
+      typeof rawEndTime !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "End time must be a string.",
+      });
+    }
+
+    if (
+      rawStatus !== undefined &&
+      rawStatus !== null &&
+      typeof rawStatus !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking status must be a string.",
+      });
+    }
+
+    if (
+      rawPurpose !== undefined &&
+      rawPurpose !== null &&
+      typeof rawPurpose !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking purpose must be a string or null.",
+      });
+    }
+
+    const equipmentId = parsePositiveIntegerBodyId(rawEquipmentId);
+
+    const userId =
+      rawUserId === undefined || rawUserId === null
+        ? null
+        : parsePositiveIntegerBodyId(rawUserId);
+
+    const projectId =
+      rawProjectId === undefined || rawProjectId === null
+        ? null
+        : parsePositiveIntegerBodyId(rawProjectId);
+
+    const experimentId =
+      rawExperimentId === undefined || rawExperimentId === null
+        ? null
+        : parsePositiveIntegerBodyId(rawExperimentId);
+
+    if (equipmentId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment ID.",
+      });
+    }
+
+    if (rawUserId !== undefined && rawUserId !== null && userId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid user ID.",
+      });
+    }
+
+    if (
+      rawProjectId !== undefined &&
+      rawProjectId !== null &&
+      projectId === null
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid project ID.",
+      });
+    }
+
+    if (
+      rawExperimentId !== undefined &&
+      rawExperimentId !== null &&
+      experimentId === null
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid experiment ID.",
+      });
+    }
+
+    const title = rawTitle?.trim() || "";
+    const startTime = rawStartTime;
+    const endTime = rawEndTime;
+    const status = rawStatus || "confirmed";
+    const purpose = rawPurpose?.trim() || null;
+
+    if (!title) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking title is required.",
+      });
+    }
+
+    if (title.length < 3 || title.length > 200) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (!startTime || !endTime) {
+      return res.status(400).json({
+        status: "error",
+        message: "Start time and end time are required.",
+      });
+    }
+
+    if (!VALID_BOOKING_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid booking status.",
       });
     }
 
@@ -351,7 +552,7 @@ const createEquipmentBooking = async (req, res) => {
     }
 
     // If no userId is provided, assign the booking to the logged-in user
-    const resolvedUserId = userId || req.user.id;
+    const resolvedUserId = userId ?? req.user.id;
 
     const user = await User.findOne({
       where: {
@@ -433,8 +634,8 @@ const createEquipmentBooking = async (req, res) => {
       purpose: purpose?.trim() || null,
       equipmentId,
       userId: resolvedUserId,
-      projectId: projectId || null,
-      experimentId: experimentId || null,
+      projectId: projectId ?? null,
+      experimentId: experimentId ?? null,
       organizationId: equipment.organizationId || req.user.organizationId,
     });
 
@@ -471,23 +672,145 @@ const createEquipmentBooking = async (req, res) => {
 // Updates an equipment booking and prevents overlapping confirmed bookings
 const updateEquipmentBooking = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment booking ID.",
+      });
+    }
 
     const {
-      title,
-      startTime,
-      endTime,
-      status,
-      purpose,
-      equipmentId,
-      userId,
-      projectId,
-      experimentId,
+      title: rawTitle,
+      startTime: rawStartTime,
+      endTime: rawEndTime,
+      status: rawStatus,
+      purpose: rawPurpose,
+      equipmentId: rawEquipmentId,
+      userId: rawUserId,
+      projectId: rawProjectId,
+      experimentId: rawExperimentId,
     } = req.body;
+
+    if (
+      rawTitle !== undefined &&
+      rawTitle !== null &&
+      typeof rawTitle !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking title must be a string.",
+      });
+    }
+
+    if (
+      rawStartTime !== undefined &&
+      rawStartTime !== null &&
+      typeof rawStartTime !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Start time must be a string.",
+      });
+    }
+
+    if (
+      rawEndTime !== undefined &&
+      rawEndTime !== null &&
+      typeof rawEndTime !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "End time must be a string.",
+      });
+    }
+
+    if (
+      rawStatus !== undefined &&
+      rawStatus !== null &&
+      typeof rawStatus !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking status must be a string.",
+      });
+    }
+
+    if (
+      rawPurpose !== undefined &&
+      rawPurpose !== null &&
+      typeof rawPurpose !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking purpose must be a string or null.",
+      });
+    }
+
+    const equipmentId =
+      rawEquipmentId === undefined
+        ? undefined
+        : parsePositiveIntegerBodyId(rawEquipmentId);
+
+    const userId =
+      rawUserId === undefined
+        ? undefined
+        : parsePositiveIntegerBodyId(rawUserId);
+
+    const projectId =
+      rawProjectId === undefined
+        ? undefined
+        : rawProjectId === null
+          ? null
+          : parsePositiveIntegerBodyId(rawProjectId);
+
+    const experimentId =
+      rawExperimentId === undefined
+        ? undefined
+        : rawExperimentId === null
+          ? null
+          : parsePositiveIntegerBodyId(rawExperimentId);
+
+    if (rawEquipmentId !== undefined && equipmentId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment ID.",
+      });
+    }
+
+    if (rawUserId !== undefined && userId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid user ID.",
+      });
+    }
+
+    if (
+      rawProjectId !== undefined &&
+      rawProjectId !== null &&
+      projectId === null
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid project ID.",
+      });
+    }
+
+    if (
+      rawExperimentId !== undefined &&
+      rawExperimentId !== null &&
+      experimentId === null
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid experiment ID.",
+      });
+    }
 
     const booking = await EquipmentBooking.findOne({
       where: {
-        id: req.params.id,
+        id,
         organizationId: req.user.organizationId,
       },
     });
@@ -499,20 +822,47 @@ const updateEquipmentBooking = async (req, res) => {
       });
     }
 
-    const resolvedEquipmentId =
-      equipmentId !== undefined ? equipmentId : booking.equipmentId;
+    const title = rawTitle !== undefined ? rawTitle.trim() : booking.title;
+
+    const purpose =
+      rawPurpose !== undefined ? rawPurpose?.trim() || null : booking.purpose;
 
     const resolvedStartTime =
-      startTime !== undefined ? startTime : booking.startTime;
+      rawStartTime !== undefined ? rawStartTime : booking.startTime;
 
-    const resolvedEndTime = endTime !== undefined ? endTime : booking.endTime;
+    const resolvedEndTime =
+      rawEndTime !== undefined ? rawEndTime : booking.endTime;
 
-    const resolvedStatus = status !== undefined ? status : booking.status;
+    const resolvedStatus = rawStatus !== undefined ? rawStatus : booking.status;
+
+    const resolvedEquipmentId =
+      equipmentId !== undefined ? equipmentId : booking.equipmentId;
 
     const timeValidation = validateBookingTimeRange(
       resolvedStartTime,
       resolvedEndTime,
     );
+
+    if (!title) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking title is required.",
+      });
+    }
+
+    if (title.length < 3 || title.length > 200) {
+      return res.status(400).json({
+        status: "error",
+        message: "Booking title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (!VALID_BOOKING_STATUSES.includes(resolvedStatus)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid booking status.",
+      });
+    }
 
     if (!timeValidation.isValid) {
       return res.status(400).json({
@@ -520,6 +870,12 @@ const updateEquipmentBooking = async (req, res) => {
         message: timeValidation.message,
       });
     }
+
+    const resolvedProjectId =
+      projectId !== undefined ? projectId : booking.projectId;
+
+    const resolvedExperimentId =
+      experimentId !== undefined ? experimentId : booking.experimentId;
 
     const equipment = await Equipment.findOne({
       where: {
@@ -542,7 +898,7 @@ const updateEquipmentBooking = async (req, res) => {
       });
     }
 
-    if (userId) {
+    if (userId !== undefined) {
       const user = await User.findOne({
         where: {
           id: userId,
@@ -558,10 +914,10 @@ const updateEquipmentBooking = async (req, res) => {
       }
     }
 
-    if (projectId) {
+    if (resolvedProjectId !== null) {
       const project = await Project.findOne({
         where: {
-          id: projectId,
+          id: resolvedProjectId,
           organizationId: req.user.organizationId,
           isArchived: false,
         },
@@ -575,10 +931,10 @@ const updateEquipmentBooking = async (req, res) => {
       }
     }
 
-    if (experimentId) {
+    if (resolvedExperimentId !== null) {
       const experiment = await Experiment.findOne({
         where: {
-          id: experimentId,
+          id: resolvedExperimentId,
           organizationId: req.user.organizationId,
           isArchived: false,
         },
@@ -591,11 +947,8 @@ const updateEquipmentBooking = async (req, res) => {
         });
       }
 
-      const resolvedProjectId =
-        projectId !== undefined ? projectId : booking.projectId;
-
       if (
-        resolvedProjectId &&
+        resolvedProjectId !== null &&
         Number(experiment.projectId) !== Number(resolvedProjectId)
       ) {
         return res.status(400).json({
@@ -622,23 +975,17 @@ const updateEquipmentBooking = async (req, res) => {
     }
 
     await booking.update({
-      title: title !== undefined ? title.trim() : booking.title,
+      title,
       startTime: timeValidation.startDate,
       endTime: timeValidation.endDate,
       status: resolvedStatus,
-      purpose:
-        purpose !== undefined ? purpose?.trim() || null : booking.purpose,
+      purpose,
       equipmentId: resolvedEquipmentId,
       userId: userId !== undefined ? userId : booking.userId,
-      projectId:
-        projectId !== undefined ? projectId || null : booking.projectId,
-      experimentId:
-        experimentId !== undefined
-          ? experimentId || null
-          : booking.experimentId,
+      projectId: resolvedProjectId,
+      experimentId: resolvedExperimentId,
       organizationId: equipment.organizationId || req.user.organizationId,
     });
-
     const updatedBooking = await EquipmentBooking.findOne({
       where: {
         id: booking.id,
@@ -673,11 +1020,18 @@ const updateEquipmentBooking = async (req, res) => {
 // Later, cancelling bookings may be better than hard deletion.
 const deleteEquipmentBooking = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment booking ID.",
+      });
+    }
 
     const booking = await EquipmentBooking.findOne({
       where: {
-        id: req.params.id,
+        id,
         organizationId: req.user.organizationId,
       },
     });

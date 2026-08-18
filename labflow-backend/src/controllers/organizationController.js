@@ -1,7 +1,5 @@
 const { Organization } = require("../models");
-
 const { writeAuditLog } = require("../utils/auditLogger");
-
 const { logError } = require("../utils/errorLogger");
 
 const formatOrganizationResponse = (organization) => {
@@ -15,6 +13,14 @@ const formatOrganizationResponse = (organization) => {
     updatedAt: organization.updatedAt,
   };
 };
+
+const VALID_ORGANIZATION_TYPES = [
+  "lab",
+  "department",
+  "institution",
+  "company",
+  "demo",
+];
 
 const getCurrentOrganization = async (req, res) => {
   try {
@@ -58,13 +64,58 @@ const updateCurrentOrganization = async (req, res) => {
       });
     }
 
-    const name = req.body.name ? String(req.body.name).trim() : "";
-    const type = req.body.type ? String(req.body.type).trim() : null;
+    const { name: rawName, type: rawType } = req.body;
+
+    if (
+      rawName !== undefined &&
+      rawName !== null &&
+      typeof rawName !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Organization name must be a string.",
+      });
+    }
+
+    if (
+      rawType !== undefined &&
+      rawType !== null &&
+      typeof rawType !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Organization type must be a string.",
+      });
+    }
+
+    const name = rawName?.trim() || "";
+    const type = rawType?.trim() || null;
 
     if (!name) {
       return res.status(400).json({
         status: "error",
         message: "Organization name is required.",
+      });
+    }
+
+    if (name.length > 150) {
+      return res.status(400).json({
+        status: "error",
+        message: "Organization name must be 150 characters or fewer.",
+      });
+    }
+
+    if (!type) {
+      return res.status(400).json({
+        status: "error",
+        message: "Organization type is required.",
+      });
+    }
+
+    if (!VALID_ORGANIZATION_TYPES.includes(type)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid organization type.",
       });
     }
 

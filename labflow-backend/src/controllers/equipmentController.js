@@ -1,6 +1,12 @@
 const { Equipment } = require("../models");
-
 const { logError } = require("../utils/errorLogger");
+
+const VALID_EQUIPMENT_STATUSES = [
+  "available",
+  "maintenance",
+  "out_of_service",
+  "retired",
+];
 
 // Formats equipment data before sending it to the frontend
 const formatEquipmentResponse = (equipment) => {
@@ -21,6 +27,13 @@ const formatEquipmentResponse = (equipment) => {
 const getEquipment = async (req, res) => {
   try {
     const { status } = req.query;
+
+    if (status && !VALID_EQUIPMENT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment status.",
+      });
+    }
 
     const where = {
       organizationId: req.user.organizationId,
@@ -111,6 +124,74 @@ const createEquipment = async (req, res) => {
       });
     }
 
+    if (typeof name !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment name must be a string.",
+      });
+    }
+
+    if (typeof type !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment type must be a string.",
+      });
+    }
+
+    const trimmedName = name.trim();
+
+    if (trimmedName.length < 2 || trimmedName.length > 200) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment name must be between 2 and 200 characters.",
+      });
+    }
+
+    const trimmedType = type.trim();
+
+    if (trimmedType.length === 0 || trimmedType.length > 100) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment type must be between 1 and 100 characters.",
+      });
+    }
+
+    if (
+      location !== undefined &&
+      location !== null &&
+      typeof location !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment location must be a string or null.",
+      });
+    }
+
+    if (
+      location !== undefined &&
+      location !== null &&
+      location.trim().length > 200
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment location must be 200 characters or fewer.",
+      });
+    }
+
+    if (notes !== undefined && notes !== null && typeof notes !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment notes must be a string or null.",
+      });
+    }
+
+    if (status !== undefined && !VALID_EQUIPMENT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment status.",
+      });
+    }
+
     const equipment = await Equipment.create({
       name: name.trim(),
       type: type.trim(),
@@ -148,6 +229,80 @@ const updateEquipment = async (req, res) => {
     const { id } = req.params;
     const { name, type, location, status, notes } = req.body;
 
+    if (name !== undefined && typeof name !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment name must be a string.",
+      });
+    }
+
+    const trimmedName = name !== undefined ? name.trim() : null;
+
+    if (
+      name !== undefined &&
+      (trimmedName.length < 2 || trimmedName.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment name must be between 2 and 200 characters.",
+      });
+    }
+
+    if (type !== undefined && typeof type !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment type must be a string.",
+      });
+    }
+
+    const trimmedType = type !== undefined ? type.trim() : null;
+
+    if (
+      type !== undefined &&
+      (trimmedType.length === 0 || trimmedType.length > 100)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment type must be between 1 and 100 characters.",
+      });
+    }
+
+    if (
+      location !== undefined &&
+      location !== null &&
+      typeof location !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment location must be a string or null.",
+      });
+    }
+
+    if (
+      location !== undefined &&
+      location !== null &&
+      location.trim().length > 200
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment location must be 200 characters or fewer.",
+      });
+    }
+
+    if (notes !== undefined && notes !== null && typeof notes !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Equipment notes must be a string or null.",
+      });
+    }
+
+    if (status !== undefined && !VALID_EQUIPMENT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid equipment status.",
+      });
+    }
+
     const equipment = await Equipment.findOne({
       where: {
         id: req.params.id,
@@ -163,8 +318,8 @@ const updateEquipment = async (req, res) => {
     }
 
     await equipment.update({
-      name: name !== undefined ? name.trim() : equipment.name,
-      type: type !== undefined ? type.trim() : equipment.type,
+      name: name !== undefined ? trimmedName : equipment.name,
+      type: type !== undefined ? trimmedType : equipment.type,
       location:
         location !== undefined ? location?.trim() || null : equipment.location,
       status: status !== undefined ? status : equipment.status,

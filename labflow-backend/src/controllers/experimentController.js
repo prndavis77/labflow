@@ -6,13 +6,10 @@ const {
   Protocol,
   ReviewEvent,
 } = require("../models");
-
 const { writeAuditLog } = require("../utils/auditLogger");
-
 const { logError } = require("../utils/errorLogger");
-
+const { isValidDateOnly } = require("../utils/dateUtils");
 const { Op } = require("sequelize");
-
 const {
   getAccessibleProjectIds,
   canUseProjectForResearchWork,
@@ -21,7 +18,6 @@ const {
   canReviewProjectLinkedRecord,
   getProjectMemberRole,
 } = require("../utils/projectAccess");
-
 const {
   canCreateExperiment,
   canEditExperiment,
@@ -242,6 +238,53 @@ const getExperiments = async (req, res) => {
   try {
     const { projectId, status, reviewStatus, researcherId, taskId } = req.query;
 
+    if (status !== undefined && !VALID_EXPERIMENT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid experiment status.",
+      });
+    }
+
+    if (
+      reviewStatus !== undefined &&
+      !VALID_REVIEW_STATUSES.includes(reviewStatus)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid review status.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment project ID must be a positive integer.",
+      });
+    }
+
+    if (
+      researcherId !== undefined &&
+      (!Number.isInteger(Number(researcherId)) || Number(researcherId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment researcher ID must be a positive integer.",
+      });
+    }
+
+    if (
+      taskId !== undefined &&
+      (!Number.isInteger(Number(taskId)) || Number(taskId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment task ID must be a positive integer.",
+      });
+    }
+
     const where = {
       organizationId: req.user.organizationId,
       isArchived: false,
@@ -405,10 +448,70 @@ const createExperiment = async (req, res) => {
       protocolId,
     } = req.body;
 
-    if (!title || !projectId) {
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment title must be a string.",
+      });
+    }
+
+    const trimmedTitle = title?.trim();
+
+    if (title !== undefined && !trimmedTitle) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment title is required.",
+      });
+    }
+
+    if (
+      title !== undefined &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (
+      !trimmedTitle ||
+      projectId === undefined ||
+      projectId === null ||
+      projectId === ""
+    ) {
       return res.status(400).json({
         status: "error",
         message: "Experiment title and project are required.",
+      });
+    }
+
+    if (
+      objective !== undefined &&
+      objective !== null &&
+      typeof objective !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment objective must be a string or null.",
+      });
+    }
+
+    if (notes !== undefined && notes !== null && typeof notes !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment notes must be a string or null.",
+      });
+    }
+
+    if (
+      reviewComment !== undefined &&
+      reviewComment !== null &&
+      typeof reviewComment !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment review comment must be a string or null.",
       });
     }
 
@@ -416,6 +519,62 @@ const createExperiment = async (req, res) => {
       return res.status(400).json({
         status: "error",
         message: "Invalid experiment status.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment project ID must be a positive integer.",
+      });
+    }
+
+    if (
+      startedAt !== undefined &&
+      startedAt !== null &&
+      startedAt !== "" &&
+      (typeof startedAt !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(startedAt))
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment start date must use YYYY-MM-DD format.",
+      });
+    }
+
+    if (!isValidDateOnly(startedAt)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment start date must be a valid calendar date.",
+      });
+    }
+
+    if (
+      completedAt !== undefined &&
+      completedAt !== null &&
+      completedAt !== "" &&
+      (typeof completedAt !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(completedAt))
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment completion date must use YYYY-MM-DD format.",
+      });
+    }
+
+    if (!isValidDateOnly(completedAt)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment completion date must be a valid calendar date.",
+      });
+    }
+
+    if (startedAt && completedAt && completedAt < startedAt) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment completion date cannot be before the start date.",
       });
     }
 
@@ -460,6 +619,18 @@ const createExperiment = async (req, res) => {
       });
     }
 
+    if (
+      researcherId !== undefined &&
+      researcherId !== null &&
+      researcherId !== "" &&
+      (!Number.isInteger(Number(researcherId)) || Number(researcherId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment researcher ID must be a positive integer or null.",
+      });
+    }
+
     // If no researcher is provided, default to the logged-in user
     const resolvedResearcherId = researcherId || req.user.id;
 
@@ -474,6 +645,18 @@ const createExperiment = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Researcher not found.",
+      });
+    }
+
+    if (
+      taskId !== undefined &&
+      taskId !== null &&
+      taskId !== "" &&
+      (!Number.isInteger(Number(taskId)) || Number(taskId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment task ID must be a positive integer or null.",
       });
     }
 
@@ -499,6 +682,18 @@ const createExperiment = async (req, res) => {
           message: "Linked task must belong to the selected project.",
         });
       }
+    }
+
+    if (
+      protocolId !== undefined &&
+      protocolId !== null &&
+      protocolId !== "" &&
+      (!Number.isInteger(Number(protocolId)) || Number(protocolId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment protocol ID must be a positive integer or null.",
+      });
     }
 
     if (protocolId) {
@@ -539,7 +734,7 @@ const createExperiment = async (req, res) => {
       : "not_submitted";
 
     const experiment = await Experiment.create({
-      title: title.trim(),
+      title: trimmedTitle,
       objective: objective?.trim() || null,
       notes: notes?.trim() || null,
       status: status || "planned",
@@ -617,6 +812,73 @@ const updateExperiment = async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Experiment not found.",
+      });
+    }
+
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment title must be a string.",
+      });
+    }
+
+    const trimmedTitle = title?.trim();
+
+    if (title !== undefined && !trimmedTitle) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment title is required.",
+      });
+    }
+
+    if (
+      title !== undefined &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (
+      objective !== undefined &&
+      objective !== null &&
+      typeof objective !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment objective must be a string or null.",
+      });
+    }
+
+    if (notes !== undefined && notes !== null && typeof notes !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment notes must be a string or null.",
+      });
+    }
+
+    if (
+      reviewComment !== undefined &&
+      reviewComment !== null &&
+      typeof reviewComment !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment review comment must be a string or null.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      projectId !== null &&
+      projectId !== "" &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment project ID must be a positive integer.",
       });
     }
 
@@ -722,6 +984,18 @@ const updateExperiment = async (req, res) => {
       });
     }
 
+    if (
+      researcherId !== undefined &&
+      researcherId !== null &&
+      researcherId !== "" &&
+      (!Number.isInteger(Number(researcherId)) || Number(researcherId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment researcher ID must be a positive integer or null.",
+      });
+    }
+
     if (researcherId) {
       const researcher = await User.findOne({
         where: {
@@ -736,6 +1010,18 @@ const updateExperiment = async (req, res) => {
           message: "Researcher not found.",
         });
       }
+    }
+
+    if (
+      taskId !== undefined &&
+      taskId !== null &&
+      taskId !== "" &&
+      (!Number.isInteger(Number(taskId)) || Number(taskId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment task ID must be a positive integer or null.",
+      });
     }
 
     if (taskId) {
@@ -760,6 +1046,18 @@ const updateExperiment = async (req, res) => {
           message: "Linked task must belong to the selected project.",
         });
       }
+    }
+
+    if (
+      protocolId !== undefined &&
+      protocolId !== null &&
+      protocolId !== "" &&
+      (!Number.isInteger(Number(protocolId)) || Number(protocolId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment protocol ID must be a positive integer or null.",
+      });
     }
 
     if (protocolId) {
@@ -790,13 +1088,65 @@ const updateExperiment = async (req, res) => {
       }
     }
 
+    if (
+      startedAt !== undefined &&
+      startedAt !== null &&
+      startedAt !== "" &&
+      (typeof startedAt !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(startedAt))
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment start date must use YYYY-MM-DD format.",
+      });
+    }
+
+    if (!isValidDateOnly(startedAt)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment start date must be a valid calendar date.",
+      });
+    }
+
+    if (
+      completedAt !== undefined &&
+      completedAt !== null &&
+      completedAt !== "" &&
+      (typeof completedAt !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(completedAt))
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment completion date must use YYYY-MM-DD format.",
+      });
+    }
+
+    if (!isValidDateOnly(completedAt)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment completion date must be a valid calendar date.",
+      });
+    }
+
+    const nextStartedAt =
+      startedAt !== undefined ? startedAt || null : experiment.startedAt;
+
+    const nextCompletedAt =
+      completedAt !== undefined ? completedAt || null : experiment.completedAt;
+
+    if (nextStartedAt && nextCompletedAt && nextCompletedAt < nextStartedAt) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment completion date cannot be before the start date.",
+      });
+    }
+
     const nextReviewStatus =
       reviewStatus !== undefined ? reviewStatus : experiment.reviewStatus;
 
     const nextStatus = status !== undefined ? status : experiment.status;
 
     await experiment.update({
-      title: title !== undefined ? title.trim() : experiment.title,
+      title: title !== undefined ? trimmedTitle : experiment.title,
       objective:
         objective !== undefined
           ? objective?.trim() || null
@@ -815,7 +1165,11 @@ const updateExperiment = async (req, res) => {
           ? completedAt || null
           : experiment.completedAt,
       researcherId:
-        researcherId !== undefined ? researcherId : experiment.researcherId,
+        researcherId !== undefined &&
+        researcherId !== null &&
+        researcherId !== ""
+          ? Number(researcherId)
+          : experiment.researcherId,
       taskId: taskId !== undefined ? taskId || null : experiment.taskId,
       protocolId:
         protocolId !== undefined ? protocolId || null : experiment.protocolId,
@@ -976,8 +1330,23 @@ const deleteExperiment = async (req, res) => {
       });
     }
 
-    const archiveReason =
-      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+    const rawArchiveReason =
+      req.body?.archiveReason !== undefined
+        ? req.body.archiveReason
+        : req.body?.reason;
+
+    if (
+      rawArchiveReason !== undefined &&
+      rawArchiveReason !== null &&
+      typeof rawArchiveReason !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Experiment archive reason must be a string or null.",
+      });
+    }
+
+    const archiveReason = rawArchiveReason?.trim() || null;
 
     await experiment.update({
       isArchived: true,

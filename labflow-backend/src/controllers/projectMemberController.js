@@ -3,9 +3,7 @@ const {
   getAccessibleProjectIds,
   canViewProject,
 } = require("../utils/projectAccess");
-
 const { Op } = require("sequelize");
-
 const { logError } = require("../utils/errorLogger");
 
 const VALID_PROJECT_ROLES = ["lead", "member", "viewer"];
@@ -63,23 +61,76 @@ const projectMemberInclude = [
   },
 ];
 
+const parsePositiveIntegerId = (value) => {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) ? id : null;
+};
+
+const parsePositiveIntegerBodyId = (value) => {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+};
+
 // GET /api/project-members
 // Optional filters: projectId, userId, projectRole.
 const getProjectMembers = async (req, res) => {
   try {
     const { projectId, userId, projectRole } = req.query;
 
+    let parsedProjectId = null;
+    let parsedUserId = null;
+
+    if (projectId !== undefined) {
+      parsedProjectId = parsePositiveIntegerId(projectId);
+
+      if (parsedProjectId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid project ID.",
+        });
+      }
+    }
+
+    if (userId !== undefined) {
+      parsedUserId = parsePositiveIntegerId(userId);
+
+      if (parsedUserId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid user ID.",
+        });
+      }
+    }
+
+    if (
+      projectRole !== undefined &&
+      !VALID_PROJECT_ROLES.includes(projectRole)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid project role.",
+      });
+    }
+
     const where = { organizationId: req.user.organizationId };
 
-    if (projectId) {
-      where.projectId = projectId;
+    if (parsedProjectId !== null) {
+      where.projectId = parsedProjectId;
     }
 
-    if (userId) {
-      where.userId = userId;
+    if (parsedUserId !== null) {
+      where.userId = parsedUserId;
     }
 
-    if (projectRole) {
+    if (projectRole !== undefined) {
       where.projectRole = projectRole;
     }
 
@@ -95,10 +146,8 @@ const getProjectMembers = async (req, res) => {
         });
       }
 
-      if (projectId) {
-        const requestedProjectId = Number(projectId);
-
-        if (!accessibleProjectIds.map(Number).includes(requestedProjectId)) {
+      if (parsedProjectId !== null) {
+        if (!accessibleProjectIds.map(Number).includes(parsedProjectId)) {
           return res.status(403).json({
             status: "error",
             message: "You do not have access to this project's memberships.",
@@ -106,8 +155,8 @@ const getProjectMembers = async (req, res) => {
         }
       }
 
-      if (projectId) {
-        where.projectId = Number(projectId);
+      if (parsedProjectId !== null) {
+        where.projectId = parsedProjectId;
       } else {
         where.projectId = {
           [Op.in]: accessibleProjectIds,
@@ -148,7 +197,14 @@ const getProjectMembers = async (req, res) => {
 // GET /api/project-members/:id
 const getProjectMemberById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid project member ID.",
+      });
+    }
 
     const projectMember = await ProjectMember.findOne({
       where: {
@@ -198,12 +254,33 @@ const getProjectMemberById = async (req, res) => {
 // Adds a user to a project with a specific role (lead, member, viewer)
 const createProjectMember = async (req, res) => {
   try {
-    const { projectId, userId, projectRole = "member" } = req.body;
+    const {
+      projectId: rawProjectId,
+      userId: rawUserId,
+      projectRole = "member",
+    } = req.body;
 
-    if (!projectId || !userId) {
+    const projectId = parsePositiveIntegerBodyId(rawProjectId);
+    const userId = parsePositiveIntegerBodyId(rawUserId);
+
+    if (projectId === null) {
       return res.status(400).json({
         status: "error",
-        message: "Project ID and user ID are required.",
+        message: "Invalid project ID.",
+      });
+    }
+
+    if (userId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid user ID.",
+      });
+    }
+
+    if (typeof projectRole !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Project role must be a string.",
       });
     }
 
@@ -309,13 +386,28 @@ const createProjectMember = async (req, res) => {
 // Updates a project member's project-specific role
 const updateProjectMember = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid project member ID.",
+      });
+    }
+
     const { projectRole } = req.body;
 
     if (!projectRole) {
       return res.status(400).json({
         status: "error",
         message: "Project role is required.",
+      });
+    }
+
+    if (typeof projectRole !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Project role must be a string.",
       });
     }
 
@@ -396,7 +488,14 @@ const updateProjectMember = async (req, res) => {
 // Removes a user from a project
 const deleteProjectMember = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid project member ID.",
+      });
+    }
 
     const projectMember = await ProjectMember.findOne({
       where: {

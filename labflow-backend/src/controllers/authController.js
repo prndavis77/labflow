@@ -59,6 +59,18 @@ const normalizeRequiredText = (value) => {
   return String(value || "").trim();
 };
 
+const isValidEmail = (email) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const isValidResetTokenFormat = (token) => {
+  return /^[a-f0-9]{64}$/i.test(token);
+};
+
+const isValidVerificationTokenFormat = (token) => {
+  return /^[a-f0-9]{64}$/i.test(token);
+};
+
 const getRequestIp = (req) => {
   const forwardedFor = req.headers["x-forwarded-for"];
 
@@ -139,15 +151,90 @@ const registerUser = async (req, res) => {
   let transaction;
 
   try {
-    const name = normalizeRequiredText(req.body.name);
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || "");
-    const department = normalizeRequiredText(req.body.department) || null;
+    const {
+      name: rawName,
+      email: rawEmail,
+      password: rawPassword,
+      department: rawDepartment,
+      organizationName: rawOrganizationName,
+      organizationType: rawOrganizationType,
+    } = req.body;
 
-    const organizationName = normalizeRequiredText(req.body.organizationName);
+    if (
+      rawName !== undefined &&
+      rawName !== null &&
+      typeof rawName !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Name must be a string.",
+      });
+    }
+
+    if (
+      rawEmail !== undefined &&
+      rawEmail !== null &&
+      typeof rawEmail !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Email must be a string.",
+      });
+    }
+
+    if (
+      rawPassword !== undefined &&
+      rawPassword !== null &&
+      typeof rawPassword !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Password must be a string.",
+      });
+    }
+
+    if (
+      rawDepartment !== undefined &&
+      rawDepartment !== null &&
+      typeof rawDepartment !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Department must be a string or null.",
+      });
+    }
+
+    if (
+      rawOrganizationName !== undefined &&
+      rawOrganizationName !== null &&
+      typeof rawOrganizationName !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Organization name must be a string.",
+      });
+    }
+
+    if (
+      rawOrganizationType !== undefined &&
+      rawOrganizationType !== null &&
+      typeof rawOrganizationType !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Organization type must be a string.",
+      });
+    }
+
+    const name = normalizeRequiredText(rawName);
+    const email = normalizeEmail(rawEmail);
+    const password = rawPassword || "";
+    const department = normalizeRequiredText(rawDepartment) || null;
+
+    const organizationName = normalizeRequiredText(rawOrganizationName);
 
     const organizationType =
-      normalizeRequiredText(req.body.organizationType) || "lab";
+      normalizeRequiredText(rawOrganizationType) || "lab";
 
     if (!name || !email || !password || !organizationName) {
       return res.status(400).json({
@@ -171,6 +258,41 @@ const registerUser = async (req, res) => {
         message: `Organization type must be one of: ${ORGANIZATION_TYPES.join(
           ", ",
         )}.`,
+      });
+    }
+
+    if (name.length < 2 || name.length > 100) {
+      return res.status(400).json({
+        status: "error",
+        message: "Name must be between 2 and 100 characters.",
+      });
+    }
+
+    if (email.length > 150) {
+      return res.status(400).json({
+        status: "error",
+        message: "Email must be 150 characters or fewer.",
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide a valid email address.",
+      });
+    }
+
+    if (department !== null && department.length > 150) {
+      return res.status(400).json({
+        status: "error",
+        message: "Department must be 150 characters or fewer.",
+      });
+    }
+
+    if (organizationName.length > 150) {
+      return res.status(400).json({
+        status: "error",
+        message: "Organization name must be 150 characters or fewer.",
       });
     }
 
@@ -305,14 +427,40 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (
+      email === undefined ||
+      email === null ||
+      password === undefined ||
+      password === null
+    ) {
       return res.status(400).json({
         status: "error",
         message: "Email and password are required.",
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    if (typeof email !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Email must be a string.",
+      });
+    }
+
+    if (typeof password !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Password must be a string.",
+      });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({
+        status: "error",
+        message: "Email and password are required.",
+      });
+    }
 
     const user = await User.findOne({
       where: { email: normalizedEmail },
@@ -374,7 +522,20 @@ const loginUser = async (req, res) => {
 
 const requestPasswordReset = async (req, res) => {
   try {
-    const email = normalizeEmail(req.body.email);
+    const { email: rawEmail } = req.body;
+
+    if (
+      rawEmail !== undefined &&
+      rawEmail !== null &&
+      typeof rawEmail !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Email must be a string.",
+      });
+    }
+
+    const email = normalizeEmail(rawEmail);
 
     if (email) {
       const resetRequest = await createPasswordResetRequest({
@@ -448,6 +609,13 @@ const getPasswordResetStatus = async (req, res) => {
   try {
     const rawToken = String(req.params.token || "").trim();
 
+    if (!isValidResetTokenFormat(rawToken)) {
+      return res.status(400).json({
+        status: "error",
+        message: PASSWORD_RESET_INVALID_MESSAGE,
+      });
+    }
+
     const result = await validatePasswordResetToken({
       rawToken,
     });
@@ -484,16 +652,42 @@ const completePasswordReset = async (req, res) => {
   try {
     const rawToken = String(req.params.token || "").trim();
 
-    const password = String(req.body.password || "");
-
-    const passwordConfirmation = String(req.body.passwordConfirmation || "");
-
-    if (!rawToken) {
+    if (!isValidResetTokenFormat(rawToken)) {
       return res.status(400).json({
         status: "error",
         message: PASSWORD_RESET_INVALID_MESSAGE,
       });
     }
+
+    const {
+      password: rawPassword,
+      passwordConfirmation: rawPasswordConfirmation,
+    } = req.body;
+
+    if (
+      rawPassword !== undefined &&
+      rawPassword !== null &&
+      typeof rawPassword !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Password must be a string.",
+      });
+    }
+
+    if (
+      rawPasswordConfirmation !== undefined &&
+      rawPasswordConfirmation !== null &&
+      typeof rawPasswordConfirmation !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Password confirmation must be a string.",
+      });
+    }
+
+    const password = rawPassword || "";
+    const passwordConfirmation = rawPasswordConfirmation || "";
 
     if (!password) {
       return res.status(400).json({
@@ -511,7 +705,14 @@ const completePasswordReset = async (req, res) => {
       });
     }
 
-    if (passwordConfirmation && password !== passwordConfirmation) {
+    if (!passwordConfirmation) {
+      return res.status(400).json({
+        status: "error",
+        message: "Password confirmation is required.",
+      });
+    }
+
+    if (password !== passwordConfirmation) {
       return res.status(400).json({
         status: "error",
         message: "Password confirmation does not match.",
@@ -657,6 +858,13 @@ const getEmailVerificationStatus = async (req, res) => {
   try {
     const rawToken = String(req.params.token || "").trim();
 
+    if (!isValidVerificationTokenFormat(rawToken)) {
+      return res.status(400).json({
+        status: "error",
+        message: EMAIL_VERIFICATION_INVALID_MESSAGE,
+      });
+    }
+
     const result = await validateEmailVerificationToken({
       rawToken,
     });
@@ -706,7 +914,7 @@ const completeEmailVerification = async (req, res) => {
   try {
     const rawToken = String(req.params.token || "").trim();
 
-    if (!rawToken) {
+    if (!isValidVerificationTokenFormat(rawToken)) {
       return res.status(400).json({
         status: "error",
         message: EMAIL_VERIFICATION_INVALID_MESSAGE,

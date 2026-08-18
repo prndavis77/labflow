@@ -5,13 +5,9 @@ const {
   ProjectMember,
   ReviewEvent,
 } = require("../models");
-
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
-
 const { writeAuditLog } = require("../utils/auditLogger");
-
 const { logError } = require("../utils/errorLogger");
-
 const {
   canUseProjectForResearchWork,
   canEditProjectLinkedWork,
@@ -25,8 +21,18 @@ const {
   isValidDateOnly,
   isEndDateAfterStartDate,
 } = require("../utils/dateUtils");
-
 const { Op } = require("sequelize");
+
+const TASK_STATUSES = [
+  "todo",
+  "in_progress",
+  "blocked",
+  "review",
+  "completion_requested",
+  "done",
+];
+
+const TASK_PRIORITIES = ["low", "medium", "high", "urgent"];
 
 const isAdminOrSupervisor = (user) => {
   return ["admin", "supervisor"].includes(user?.role);
@@ -185,11 +191,28 @@ const getTasks = async (req, res) => {
       isArchived: false,
     };
 
+    if (
+      projectId !== undefined &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task project ID must be a positive integer.",
+      });
+    }
+
     if (projectId) {
       where.projectId = projectId;
     }
 
-    if (status) {
+    if (status !== undefined) {
+      if (!TASK_STATUSES.includes(status)) {
+        return res.status(400).json({
+          status: "error",
+          message: `Task status must be one of: ${TASK_STATUSES.join(", ")}.`,
+        });
+      }
+
       where.status = status;
     }
 
@@ -369,10 +392,85 @@ const createTask = async (req, res) => {
       assignedToId,
     } = req.body;
 
-    if (!title) {
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Task title must be a string.",
+      });
+    }
+
+    const trimmedTitle = title?.trim();
+
+    if (title !== undefined && !trimmedTitle) {
       return res.status(400).json({
         status: "error",
         message: "Task title is required.",
+      });
+    }
+
+    if (
+      title !== undefined &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task description must be a string or null.",
+      });
+    }
+
+    if (status !== undefined && !TASK_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Task status must be one of: ${TASK_STATUSES.join(", ")}.`,
+      });
+    }
+
+    if (priority !== undefined && !TASK_PRIORITIES.includes(priority)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Task priority must be one of: ${TASK_PRIORITIES.join(", ")}.`,
+      });
+    }
+
+    if (!isValidDateOnly(dueDate)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task due date must use YYYY-MM-DD format.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      projectId !== null &&
+      projectId !== "" &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task project ID must be a positive integer or null.",
+      });
+    }
+
+    if (
+      assignedToId !== undefined &&
+      assignedToId !== null &&
+      assignedToId !== "" &&
+      (!Number.isInteger(Number(assignedToId)) || Number(assignedToId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task assignee ID must be a positive integer or null.",
       });
     }
 
@@ -494,7 +592,7 @@ const createTask = async (req, res) => {
     }
 
     const task = await Task.create({
-      title: title.trim(),
+      title: trimmedTitle,
       description: description?.trim() || null,
       status: status || "todo",
       priority: priority || "medium",
@@ -565,6 +663,88 @@ const updateTask = async (req, res) => {
       projectId,
       assignedToId,
     } = req.body;
+
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Task title must be a string.",
+      });
+    }
+
+    const trimmedTitle = title?.trim();
+
+    if (title !== undefined && !trimmedTitle) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task title is required.",
+      });
+    }
+
+    if (
+      title !== undefined &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task description must be a string or null.",
+      });
+    }
+
+    if (status !== undefined && !TASK_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Task status must be one of: ${TASK_STATUSES.join(", ")}.`,
+      });
+    }
+
+    if (priority !== undefined && !TASK_PRIORITIES.includes(priority)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Task priority must be one of: ${TASK_PRIORITIES.join(", ")}.`,
+      });
+    }
+
+    if (!isValidDateOnly(dueDate)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task due date must use YYYY-MM-DD format.",
+      });
+    }
+
+    if (
+      projectId !== undefined &&
+      projectId !== null &&
+      projectId !== "" &&
+      (!Number.isInteger(Number(projectId)) || Number(projectId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task project ID must be a positive integer or null.",
+      });
+    }
+
+    if (
+      assignedToId !== undefined &&
+      assignedToId !== null &&
+      assignedToId !== "" &&
+      (!Number.isInteger(Number(assignedToId)) || Number(assignedToId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task assignee ID must be a positive integer or null.",
+      });
+    }
 
     const task = await Task.findOne({
       where: {
@@ -767,7 +947,7 @@ const updateTask = async (req, res) => {
     const previousStatus = task.status;
 
     await task.update({
-      title: title !== undefined ? title.trim() : task.title,
+      title: title !== undefined ? trimmedTitle : task.title,
       description:
         description !== undefined
           ? description?.trim() || null
@@ -936,9 +1116,23 @@ const deleteTask = async (req, res) => {
       });
     }
 
-    const archiveReason =
-      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+    const rawArchiveReason =
+      req.body?.archiveReason !== undefined
+        ? req.body.archiveReason
+        : req.body?.reason;
 
+    if (
+      rawArchiveReason !== undefined &&
+      rawArchiveReason !== null &&
+      typeof rawArchiveReason !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Task archive reason must be a string or null.",
+      });
+    }
+
+    const archiveReason = rawArchiveReason?.trim() || null;
     await task.update({
       isArchived: true,
       archivedAt: new Date(),

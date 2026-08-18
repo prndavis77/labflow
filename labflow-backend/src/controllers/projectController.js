@@ -8,22 +8,25 @@ const {
   NotebookEntry,
   ProjectMember,
 } = require("../models");
-
 const { Op } = require("sequelize");
-
 const { writeAuditLog } = require("../utils/auditLogger");
-
 const { logError } = require("../utils/errorLogger");
-
 const {
   getAccessibleProjectIds,
   canViewProject,
 } = require("../utils/projectAccess");
-
 const {
   isValidDateOnly,
   isEndDateAfterStartDate,
 } = require("../utils/dateUtils");
+
+const PROJECT_STATUSES = [
+  "planning",
+  "active",
+  "on_hold",
+  "completed",
+  "archived",
+];
 
 // This helper formats project objects before sending them to the frontend
 // It avoids exposing unnecessary Sequelize metadata
@@ -67,35 +70,21 @@ const validateProjectSupervisor = async (supervisorId, organizationId) => {
     },
   });
 
-  const validateProjectSupervisor = async (supervisorId, organizationId) => {
-    const supervisor = await User.findOne({
-      where: {
-        id: supervisorId,
-        organizationId,
-      },
-    });
-
-    if (!supervisor) {
-      return {
-        isValid: false,
-        statusCode: 404,
-        message: "Project supervisor not found.",
-      };
-    }
-
-    if (!["admin", "supervisor"].includes(supervisor.role)) {
-      return {
-        isValid: false,
-        statusCode: 400,
-        message: "Project supervisor must be an admin or supervisor.",
-      };
-    }
-
+  if (!supervisor) {
     return {
-      isValid: true,
-      supervisor,
+      isValid: false,
+      statusCode: 404,
+      message: "Project supervisor not found.",
     };
-  };
+  }
+
+  if (!["admin", "supervisor"].includes(supervisor.role)) {
+    return {
+      isValid: false,
+      statusCode: 400,
+      message: "Project supervisor must be an admin or supervisor.",
+    };
+  }
 
   return {
     isValid: true,
@@ -115,12 +104,31 @@ const getProjects = async (req, res) => {
       isArchived: false,
     };
 
-    if (status) {
+    if (status !== undefined) {
+      if (!PROJECT_STATUSES.includes(status)) {
+        return res.status(400).json({
+          status: "error",
+          message: `Project status must be one of: ${PROJECT_STATUSES.join(", ")}.`,
+        });
+      }
+
       where.status = status;
     }
 
-    if (supervisorId) {
-      where.supervisorId = Number(supervisorId);
+    if (supervisorId !== undefined) {
+      const normalizedSupervisorId = Number(supervisorId);
+
+      if (
+        !Number.isInteger(normalizedSupervisorId) ||
+        normalizedSupervisorId <= 0
+      ) {
+        return res.status(400).json({
+          status: "error",
+          message: "Project supervisor ID must be a positive integer.",
+        });
+      }
+
+      where.supervisorId = normalizedSupervisorId;
     }
 
     if (req.user.role !== "admin") {
@@ -225,10 +233,29 @@ const createProject = async (req, res) => {
       supervisorId,
     } = req.body;
 
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Project title must be a string.",
+      });
+    }
+
     if (!title?.trim()) {
       return res.status(400).json({
         status: "error",
         message: "Project title is required.",
+      });
+    }
+
+    const trimmedTitle = title?.trim();
+
+    if (
+      title !== undefined &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project title must be between 3 and 200 characters.",
       });
     }
 
@@ -247,8 +274,22 @@ const createProject = async (req, res) => {
       });
     }
 
+    if (
+      supervisorId !== undefined &&
+      supervisorId !== null &&
+      (!Number.isInteger(Number(supervisorId)) || Number(supervisorId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project supervisor ID must be a positive integer.",
+      });
+    }
+
     // If no supervisorId is provided, use the logged-in user as the supervisor
-    const resolvedSupervisorId = supervisorId || req.user.id;
+    const resolvedSupervisorId =
+      supervisorId === undefined || supervisorId === null
+        ? req.user.id
+        : Number(supervisorId);
 
     const supervisorValidation = await validateProjectSupervisor(
       resolvedSupervisorId,
@@ -262,8 +303,26 @@ const createProject = async (req, res) => {
       });
     }
 
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project description must be a string or null.",
+      });
+    }
+
+    if (status !== undefined && !PROJECT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Project status must be one of: ${PROJECT_STATUSES.join(", ")}.`,
+      });
+    }
+
     const project = await Project.create({
-      title: title.trim(),
+      title: trimmedTitle,
       description: description ? description.trim() : null,
       status: status || "planning",
       startDate: startDate || null,
@@ -330,10 +389,29 @@ const updateProject = async (req, res) => {
       });
     }
 
-    if (title !== undefined && !title?.trim()) {
+    if (title !== undefined && typeof title !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Project title must be a string.",
+      });
+    }
+
+    const trimmedTitle = title?.trim();
+
+    if (title !== undefined && !trimmedTitle) {
       return res.status(400).json({
         status: "error",
         message: "Project title cannot be empty.",
+      });
+    }
+
+    if (
+      title !== undefined &&
+      (trimmedTitle.length < 3 || trimmedTitle.length > 200)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project title must be between 3 and 200 characters.",
       });
     }
 
@@ -363,6 +441,17 @@ const updateProject = async (req, res) => {
       });
     }
 
+    if (
+      supervisorId !== undefined &&
+      supervisorId !== null &&
+      (!Number.isInteger(Number(supervisorId)) || Number(supervisorId) <= 0)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project supervisor ID must be a positive integer.",
+      });
+    }
+
     let resolvedSupervisorId = project.supervisorId;
 
     if (supervisorId !== undefined) {
@@ -373,8 +462,10 @@ const updateProject = async (req, res) => {
         });
       }
 
+      const normalizedSupervisorId = Number(supervisorId);
+
       const supervisorValidation = await validateProjectSupervisor(
-        supervisorId,
+        normalizedSupervisorId,
         req.user.organizationId,
       );
 
@@ -385,11 +476,29 @@ const updateProject = async (req, res) => {
         });
       }
 
-      resolvedSupervisorId = supervisorId;
+      resolvedSupervisorId = normalizedSupervisorId;
+    }
+
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project description must be a string or null.",
+      });
+    }
+
+    if (status !== undefined && !PROJECT_STATUSES.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Project status must be one of: ${PROJECT_STATUSES.join(", ")}.`,
+      });
     }
 
     await project.update({
-      title: title !== undefined ? title.trim() : project.title,
+      title: title !== undefined ? trimmedTitle : project.title,
       description:
         description !== undefined
           ? description?.trim() || null
@@ -475,8 +584,23 @@ const deleteProject = async (req, res) => {
       });
     }
 
-    const archiveReason =
-      req.body?.archiveReason?.trim() || req.body?.reason?.trim() || null;
+    const rawArchiveReason =
+      req.body?.archiveReason !== undefined
+        ? req.body.archiveReason
+        : req.body?.reason;
+
+    if (
+      rawArchiveReason !== undefined &&
+      rawArchiveReason !== null &&
+      typeof rawArchiveReason !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Project archive reason must be a string or null.",
+      });
+    }
+
+    const archiveReason = rawArchiveReason?.trim() || null;
 
     await project.update({
       isArchived: true,

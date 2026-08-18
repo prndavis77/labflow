@@ -607,4 +607,292 @@ describe("Experiment and protocol review workflows", () => {
 
     expect(returnedProtocolIds).not.toContain(protocol.id);
   });
+
+  it("rejects a non-string protocol title", async () => {
+    const response = await request(app)
+      .post("/api/protocols")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: 123,
+        content: "Valid protocol content",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe("Protocol title must be a string.");
+  });
+
+  it("rejects a non-string protocol content", async () => {
+    const response = await request(app)
+      .post("/api/protocols")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Valid protocol title",
+        content: 123,
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe("Protocol content must be a string.");
+  });
+
+  it("rejects an invalid protocol project ID", async () => {
+    const response = await request(app)
+      .post("/api/protocols")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Valid protocol title",
+        content: "Valid protocol content",
+        projectId: "abc",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Protocol project ID must be a positive integer or null.",
+    );
+  });
+
+  it("rejects an overlong protocol version on create", async () => {
+    const response = await request(app)
+      .post("/api/protocols")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Valid protocol title",
+        content: "Valid protocol content",
+        version: "123456789012345678901234567890123456789012345678901",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Protocol version must be 50 characters or fewer.",
+    );
+  });
+
+  it("rejects an invalid protocol project ID query filter", async () => {
+    const response = await request(app)
+      .get("/api/protocols?projectId=abc")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Protocol project ID must be a positive integer.",
+    );
+  });
+
+  it("rejects a non-string protocol version on update", async () => {
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        version: 123,
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Protocol version must be a string or null.",
+    );
+  });
+
+  it("rejects a blank protocol version on update", async () => {
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        version: "   ",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe("Protocol version is required.");
+  });
+
+  it("rejects an overlong protocol version on update", async () => {
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        version: "123456789012345678901234567890123456789012345678901",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Protocol version must be 50 characters or fewer.",
+    );
+  });
+
+  it("rejects a non-string protocol archive reason", async () => {
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .delete(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        archiveReason: 123,
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Protocol archive reason must be a string or null.",
+    );
+  });
+
+  it("keeps the existing protocol version when update version is null", async () => {
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        version: null,
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.protocol.version).toBe("1.0");
+  });
+
+  it("rejects a non-string experiment title", async () => {
+    const response = await request(app)
+      .post("/api/experiments")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: 123,
+        projectId: supervisedProject.id,
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe("Experiment title must be a string.");
+  });
+
+  it("rejects a whitespace-only experiment title", async () => {
+    const response = await request(app)
+      .post("/api/experiments")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "   ",
+        projectId: supervisedProject.id,
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe("Experiment title is required.");
+  });
+
+  it("rejects an invalid experiment start calendar date", async () => {
+    const response = await request(app)
+      .post("/api/experiments")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Invalid date experiment",
+        projectId: supervisedProject.id,
+        startedAt: "2026-02-31",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Experiment start date must be a valid calendar date.",
+    );
+  });
+
+  it("preserves the existing researcher when experiment researcherId is null", async () => {
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_submitted",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        researcherId: null,
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.experiment.researcherId).toBe(researcher.id);
+  });
+
+  it("rejects experiment completion before the start date on update", async () => {
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_submitted",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        startedAt: "2026-08-20",
+        completedAt: "2026-08-19",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Experiment completion date cannot be before the start date.",
+    );
+  });
+
+  it("rejects a non-string experiment archive reason", async () => {
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_submitted",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .delete(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        archiveReason: 123,
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Experiment archive reason must be a string or null.",
+    );
+  });
 });

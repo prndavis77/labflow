@@ -19,8 +19,6 @@ router.use(protect);
 
 router.use(requireVerifiedEmail);
 
-router.use(protect);
-
 router.get("/", listAttachments);
 
 router.post("/uploads", initiateAttachmentUpload);

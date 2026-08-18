@@ -1,5 +1,4 @@
 const { Op } = require("sequelize");
-
 const {
   Attachment,
   AuditLog,
@@ -10,32 +9,25 @@ const {
   Task,
   User,
 } = require("../models");
-
 const { sequelize } = require("../config/database");
-
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
-
 const { validateAttachmentId } = require("../utils/attachmentValidation");
-
 const { formatAttachmentResponse } = require("../utils/attachmentResponse");
-
+const { isValidDateOnly } = require("../utils/dateUtils");
 const { logError } = require("../utils/errorLogger");
-
 const { AUDIT_ACTIONS } = require("../constants/auditActions");
-
 const {
   ARCHIVED_ITEM_DEFAULT_PAGE_SIZE,
   ARCHIVED_ITEM_ENTITY_TYPES,
   ARCHIVED_ITEM_MAX_PAGE_SIZE,
 } = require("../constants/archivedItems");
-
 const STATUS_CODES = require("../constants/statusCodes");
 
 const userAttributes = ["id", "name", "email", "role"];
 const projectSummaryAttributes = ["id", "title", "status", "isArchived"];
 
 const isPositiveIntegerString = (value) =>
-  /^\d+$/.test(String(value)) && Number(value) > 0;
+  typeof value === "string" && /^[1-9]\d*$/.test(value);
 
 const parsePositiveInteger = ({ value, fallback, maximum, fieldName }) => {
   if (value === undefined || value === "") {
@@ -52,6 +44,12 @@ const parsePositiveInteger = ({ value, fallback, maximum, fieldName }) => {
 
   const parsedValue = Number(value);
 
+  if (!Number.isSafeInteger(parsedValue)) {
+    return {
+      error: `${fieldName} must be a positive integer.`,
+    };
+  }
+
   if (maximum !== undefined && parsedValue > maximum) {
     return {
       error: `${fieldName} cannot be greater than ${maximum}.`,
@@ -64,30 +62,32 @@ const parsePositiveInteger = ({ value, fallback, maximum, fieldName }) => {
 };
 
 const parseDate = ({ value, fieldName, endOfDay = false }) => {
-  if (!value) {
+  if (value === undefined || value === "") {
     return {};
   }
 
-  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-  if (!datePattern.test(value)) {
+  if (typeof value !== "string") {
     return {
       error: `${fieldName} must use the YYYY-MM-DD format.`,
     };
   }
 
-  const date = new Date(
-    `${value}${endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z"}`,
-  );
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return {
+      error: `${fieldName} must use the YYYY-MM-DD format.`,
+    };
+  }
 
-  if (Number.isNaN(date.getTime())) {
+  if (!isValidDateOnly(value)) {
     return {
       error: `${fieldName} must be a valid date.`,
     };
   }
 
   return {
-    value: date,
+    value: new Date(
+      `${value}${endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z"}`,
+    ),
   };
 };
 
@@ -98,8 +98,16 @@ const parseEntityId = (value) => {
     };
   }
 
+  const parsedValue = Number(value);
+
+  if (!Number.isSafeInteger(parsedValue)) {
+    return {
+      error: "The archived item ID must be a positive integer.",
+    };
+  }
+
   return {
-    value: Number(value),
+    value: parsedValue,
   };
 };
 
@@ -875,7 +883,23 @@ const getArchivedItems = async (req, res) => {
     const parsedLimit = parsedLimitResult.value;
     const offset = (parsedPage - 1) * parsedLimit;
 
-    const normalizedSearch = typeof search === "string" ? search.trim() : "";
+    if (!Number.isSafeInteger(offset)) {
+      return res.status(STATUS_CODES.BAD_REQUEST).json({
+        status: "error",
+        message: "page is too large.",
+        code: "INVALID_PAGE",
+      });
+    }
+
+    if (search !== undefined && typeof search !== "string") {
+      return res.status(STATUS_CODES.BAD_REQUEST).json({
+        status: "error",
+        message: "search must be a string.",
+        code: "INVALID_SEARCH",
+      });
+    }
+
+    const normalizedSearch = search !== undefined ? search.trim() : "";
 
     const entityConfig = buildEntityConfig({
       entityType,
@@ -959,13 +983,15 @@ const restoreArchivedAttachment = async (req, res) => {
       });
     }
 
+    const attachmentId = attachmentIdValidation.value;
+
     /*
      * Load once without a transaction so the R2 HEAD request does not
      * hold database row locks while waiting on external storage.
      */
     const attachment = await Attachment.findOne({
       where: {
-        id,
+        id: attachmentId,
         organizationId: req.user.organizationId,
       },
     });

@@ -65,6 +65,13 @@ const sanitizeAttachmentFileName = (fileName) => {
 };
 
 const validateOriginalFileName = (fileName) => {
+  if (typeof fileName !== "string") {
+    return {
+      valid: false,
+      error: "File name must be a string.",
+    };
+  }
+
   const normalizedFileName = normalizeString(fileName);
 
   if (!normalizedFileName) {
@@ -139,6 +146,13 @@ const validateFileExtension = (fileName) => {
 };
 
 const validateMimeType = (mimeType) => {
+  if (typeof mimeType !== "string") {
+    return {
+      valid: false,
+      error: "MIME type must be a string.",
+    };
+  }
+
   const normalizedMimeType = normalizeMimeType(mimeType);
 
   if (!normalizedMimeType) {
@@ -187,14 +201,14 @@ const validateExtensionMimeTypePair = ({ fileName, mimeType }) => {
 };
 
 const validateFileSize = (fileSize) => {
-  const normalizedFileSize = Number(fileSize);
-
-  if (!Number.isSafeInteger(normalizedFileSize) || normalizedFileSize <= 0) {
+  if (!Number.isSafeInteger(fileSize) || fileSize <= 0) {
     return {
       valid: false,
       error: "File size must be a positive integer.",
     };
   }
+
+  const normalizedFileSize = fileSize;
 
   const maximumSizeMb = attachmentConfig.maxFileSizeBytes / 1024 / 1024;
 
@@ -212,6 +226,13 @@ const validateFileSize = (fileSize) => {
 };
 
 const validateAttachmentEntityType = (entityType) => {
+  if (typeof entityType !== "string") {
+    return {
+      valid: false,
+      error: "Attachment entity type must be a string.",
+    };
+  }
+
   const normalizedEntityType = normalizeString(entityType).toLowerCase();
 
   if (!ATTACHMENT_ENTITY_TYPES.includes(normalizedEntityType)) {
@@ -228,14 +249,14 @@ const validateAttachmentEntityType = (entityType) => {
 };
 
 const validateAttachmentEntityId = (entityId) => {
-  const normalizedEntityId = Number(entityId);
-
-  if (!Number.isSafeInteger(normalizedEntityId) || normalizedEntityId <= 0) {
+  if (!Number.isSafeInteger(entityId) || entityId <= 0) {
     return {
       valid: false,
       error: "Attachment entity ID must be a positive integer.",
     };
   }
+
+  const normalizedEntityId = entityId;
 
   return {
     valid: true,
@@ -244,6 +265,17 @@ const validateAttachmentEntityId = (entityId) => {
 };
 
 const validateAttachmentCategory = (category) => {
+  if (
+    category !== undefined &&
+    category !== null &&
+    typeof category !== "string"
+  ) {
+    return {
+      valid: false,
+      error: "Attachment category must be a string.",
+    };
+  }
+
   const normalizedCategory = normalizeString(category || "other").toLowerCase();
 
   if (!ATTACHMENT_CATEGORIES.includes(normalizedCategory)) {
@@ -267,7 +299,14 @@ const validateAttachmentDescription = (description) => {
     };
   }
 
-  const normalizedDescription = normalizeString(description);
+  if (typeof description !== "string") {
+    return {
+      valid: false,
+      error: "Attachment description must be a string or null.",
+    };
+  }
+
+  const normalizedDescription = description.trim();
 
   if (!normalizedDescription) {
     return {
@@ -387,9 +426,14 @@ const validateAttachmentMetadataUpdate = ({ category, description }) => {
   const value = {};
 
   if (hasCategory) {
-    const normalizedCategory = String(category || "")
-      .trim()
-      .toLowerCase();
+    if (typeof category !== "string") {
+      return {
+        valid: false,
+        error: "Attachment category must be a string.",
+      };
+    }
+
+    const normalizedCategory = category.trim().toLowerCase();
 
     if (!ATTACHMENT_CATEGORIES.includes(normalizedCategory)) {
       return {
@@ -402,10 +446,17 @@ const validateAttachmentMetadataUpdate = ({ category, description }) => {
   }
 
   if (hasDescription) {
-    if (description === null || String(description).trim() === "") {
+    if (description !== null && typeof description !== "string") {
+      return {
+        valid: false,
+        error: "Attachment description must be a string or null.",
+      };
+    }
+
+    if (description === null || description.trim() === "") {
       value.description = null;
     } else {
-      const normalizedDescription = String(description).trim();
+      const normalizedDescription = description.trim();
 
       if (normalizedDescription.length > ATTACHMENT_MAX_DESCRIPTION_LENGTH) {
         return {

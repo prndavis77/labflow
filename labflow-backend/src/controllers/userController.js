@@ -13,6 +13,16 @@ const WORKFLOW_PERMISSION_FIELDS = [
   "requiresReview",
 ];
 
+const parsePositiveIntegerId = (value) => {
+  const id = Number(value);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
+
+  return id;
+};
+
 // GET /api/users
 // Returns all users who can potentially be assigned to tasks
 const getUsers = async (req, res) => {
@@ -70,7 +80,14 @@ const getUsers = async (req, res) => {
 // Returns one user by ID
 const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid user ID.",
+      });
+    }
 
     const user = await User.findOne({
       where: {
@@ -130,13 +147,28 @@ const getUserById = async (req, res) => {
 // This is intentionally role-specific instead of a generic user update endpoint
 const updateUserRole = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid user ID.",
+      });
+    }
+
     const role = req.body.role;
 
     if (!role) {
       return res.status(400).json({
         status: "error",
         message: "Role is required.",
+      });
+    }
+
+    if (typeof role !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Role must be a string.",
       });
     }
 
@@ -224,7 +256,14 @@ const updateUserRole = async (req, res) => {
 // Admins and supervisors have full workflow access by role.
 const updateUserWorkflowPermissions = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid user ID.",
+      });
+    }
 
     const userToUpdate = await User.findOne({
       where: {
@@ -325,7 +364,15 @@ const updateUserWorkflowPermissions = async (req, res) => {
 
 const updateUserAccountStatus = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID.",
+      });
+    }
+
     const { isActive } = req.body;
 
     if (Number(id) === Number(req.user.id)) {
@@ -407,7 +454,15 @@ const updateUserAccountStatus = async (req, res) => {
 
 const resetUserPassword = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID.",
+      });
+    }
+
     const { newPassword } = req.body;
 
     if (Number(id) === Number(req.user.id)) {
@@ -417,10 +472,21 @@ const resetUserPassword = async (req, res) => {
       });
     }
 
-    if (!newPassword || typeof newPassword !== "string") {
+    if (
+      newPassword === undefined ||
+      newPassword === null ||
+      newPassword === ""
+    ) {
       return res.status(400).json({
         success: false,
         message: "New password is required.",
+      });
+    }
+
+    if (typeof newPassword !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be a string.",
       });
     }
 

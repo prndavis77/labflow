@@ -1,9 +1,6 @@
 const { NotebookEntry, Experiment, Project, User } = require("../models");
-
 const { Op } = require("sequelize");
-
 const { getAccessibleProjectIds } = require("../utils/projectAccess");
-
 const { logError } = require("../utils/errorLogger");
 
 // Formats user data safely for API responses
@@ -86,6 +83,36 @@ const notebookEntryInclude = [
   },
 ];
 
+const VALID_NOTEBOOK_ENTRY_TYPES = [
+  "general_note",
+  "procedure",
+  "observation",
+  "result",
+  "issue",
+  "conclusion",
+  "supervisor_comment",
+];
+
+const VALID_NOTEBOOK_CONTENT_FORMATS = ["plain_text", "rich_text"];
+
+const parsePositiveIntegerId = (value) => {
+  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) ? id : null;
+};
+
+const parsePositiveIntegerBodyId = (value) => {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+};
+
 // Checks whether the current user can modify a notebook entry
 // Admins and supervisors can modify all entries
 // Researchers can modify only their own entries
@@ -107,34 +134,77 @@ const getNotebookEntries = async (req, res) => {
   try {
     const { experimentId, projectId, authorId, entryType } = req.query;
 
+    let parsedExperimentId = null;
+    let parsedProjectId = null;
+    let parsedAuthorId = null;
+
+    if (experimentId !== undefined) {
+      parsedExperimentId = parsePositiveIntegerId(experimentId);
+
+      if (parsedExperimentId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid experiment ID.",
+        });
+      }
+    }
+
+    if (projectId !== undefined) {
+      parsedProjectId = parsePositiveIntegerId(projectId);
+
+      if (parsedProjectId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid project ID.",
+        });
+      }
+    }
+
+    if (authorId !== undefined) {
+      parsedAuthorId = parsePositiveIntegerId(authorId);
+
+      if (parsedAuthorId === null) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid author ID.",
+        });
+      }
+    }
+
+    if (
+      entryType !== undefined &&
+      !VALID_NOTEBOOK_ENTRY_TYPES.includes(entryType)
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook entry type.",
+      });
+    }
+
     // Build a flexible filter object from query parameters.
     const where = { organizationId: req.user.organizationId };
 
-    if (experimentId) {
-      where.experimentId = experimentId;
+    if (parsedExperimentId !== null) {
+      where.experimentId = parsedExperimentId;
     }
-
-    if (authorId) {
-      where.authorId = authorId;
+    if (parsedAuthorId !== null) {
+      where.authorId = parsedAuthorId;
     }
-
-    if (entryType) {
+    if (entryType !== undefined) {
       where.entryType = entryType;
     }
 
     if (req.user.role === "admin") {
-      if (projectId) {
-        where.projectId = Number(projectId);
+      if (parsedProjectId !== null) {
+        where.projectId = parsedProjectId;
       }
     } else {
       const accessibleProjectIds = (
         await getAccessibleProjectIds(req.user)
       ).map(Number);
 
-      if (projectId) {
-        const requestedProjectId = Number(projectId);
-
-        if (!accessibleProjectIds.includes(requestedProjectId)) {
+      if (parsedProjectId !== null) {
+        if (!accessibleProjectIds.includes(parsedProjectId)) {
           return res.status(403).json({
             status: "error",
             message:
@@ -142,7 +212,7 @@ const getNotebookEntries = async (req, res) => {
           });
         }
 
-        where.projectId = requestedProjectId;
+        where.projectId = parsedProjectId;
       } else {
         where.projectId = {
           [Op.in]: accessibleProjectIds,
@@ -183,11 +253,18 @@ const getNotebookEntries = async (req, res) => {
 // Returns one notebook entry by ID
 const getNotebookEntryById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook entry ID.",
+      });
+    }
 
     const entry = await NotebookEntry.findOne({
       where: {
-        id: req.params.id,
+        id,
         organizationId: req.user.organizationId,
       },
       include: notebookEntryInclude,
@@ -225,12 +302,92 @@ const getNotebookEntryById = async (req, res) => {
 // The projectId is derived from the selected experiment to prevent mismatched data
 const createNotebookEntry = async (req, res) => {
   try {
-    const { title, entryType, content, contentFormat, experimentId } = req.body;
+    const {
+      title: rawTitle,
+      entryType: rawEntryType,
+      content: rawContent,
+      contentFormat: rawContentFormat,
+      experimentId: rawExperimentId,
+    } = req.body;
 
-    if (!title || !content || !experimentId) {
+    if (typeof rawTitle !== "string") {
       return res.status(400).json({
         status: "error",
-        message: "Title, content, and experiment are required.",
+        message: "Notebook entry title must be a string.",
+      });
+    }
+
+    if (typeof rawContent !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry content must be a string.",
+      });
+    }
+
+    if (rawEntryType !== undefined && typeof rawEntryType !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry type must be a string.",
+      });
+    }
+
+    if (
+      rawContentFormat !== undefined &&
+      typeof rawContentFormat !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook content format must be a string.",
+      });
+    }
+
+    const experimentId = parsePositiveIntegerBodyId(rawExperimentId);
+
+    if (experimentId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid experiment ID.",
+      });
+    }
+
+    const title = rawTitle.trim();
+    const content = rawContent.trim();
+
+    const entryType = rawEntryType ?? "general_note";
+    const contentFormat = rawContentFormat ?? "plain_text";
+
+    if (!title) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry title is required.",
+      });
+    }
+
+    if (title.length < 3 || title.length > 200) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (!content) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry content is required.",
+      });
+    }
+
+    if (!VALID_NOTEBOOK_ENTRY_TYPES.includes(entryType)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook entry type.",
+      });
+    }
+
+    if (!VALID_NOTEBOOK_CONTENT_FORMATS.includes(contentFormat)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook content format.",
       });
     }
 
@@ -249,16 +406,15 @@ const createNotebookEntry = async (req, res) => {
     }
 
     const entry = await NotebookEntry.create({
-      title: title.trim(),
-      entryType: entryType || "general_note",
-      content: content.trim(),
-      contentFormat: contentFormat || "plain_text",
+      title,
+      entryType,
+      content,
+      contentFormat,
       experimentId: experiment.id,
       projectId: experiment.projectId,
       authorId: req.user.id,
       organizationId: req.user.organizationId,
     });
-
     const createdEntry = await NotebookEntry.findOne({
       where: {
         id: entry.id,
@@ -293,9 +449,65 @@ const createNotebookEntry = async (req, res) => {
 // Experiment can be changed, and projectId will be recalculated from the selected experiment
 const updateNotebookEntry = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
 
-    const { title, entryType, content, contentFormat, experimentId } = req.body;
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook entry ID.",
+      });
+    }
+
+    const {
+      title: rawTitle,
+      entryType: rawEntryType,
+      content: rawContent,
+      contentFormat: rawContentFormat,
+      experimentId: rawExperimentId,
+    } = req.body;
+
+    if (rawTitle !== undefined && typeof rawTitle !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry title must be a string.",
+      });
+    }
+
+    if (rawContent !== undefined && typeof rawContent !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry content must be a string.",
+      });
+    }
+
+    if (rawEntryType !== undefined && typeof rawEntryType !== "string") {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry type must be a string.",
+      });
+    }
+
+    if (
+      rawContentFormat !== undefined &&
+      typeof rawContentFormat !== "string"
+    ) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook content format must be a string.",
+      });
+    }
+
+    const experimentId =
+      rawExperimentId === undefined
+        ? undefined
+        : parsePositiveIntegerBodyId(rawExperimentId);
+
+    if (rawExperimentId !== undefined && experimentId === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid experiment ID.",
+      });
+    }
 
     const entry = await NotebookEntry.findOne({
       where: {
@@ -311,6 +523,52 @@ const updateNotebookEntry = async (req, res) => {
       });
     }
 
+    const title = rawTitle !== undefined ? rawTitle.trim() : entry.title;
+
+    const content =
+      rawContent !== undefined ? rawContent.trim() : entry.content;
+
+    const entryType =
+      rawEntryType !== undefined ? rawEntryType : entry.entryType;
+
+    const contentFormat =
+      rawContentFormat !== undefined ? rawContentFormat : entry.contentFormat;
+
+    if (!title) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry title is required.",
+      });
+    }
+
+    if (title.length < 3 || title.length > 200) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry title must be between 3 and 200 characters.",
+      });
+    }
+
+    if (!content) {
+      return res.status(400).json({
+        status: "error",
+        message: "Notebook entry content is required.",
+      });
+    }
+
+    if (!VALID_NOTEBOOK_ENTRY_TYPES.includes(entryType)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook entry type.",
+      });
+    }
+
+    if (!VALID_NOTEBOOK_CONTENT_FORMATS.includes(contentFormat)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook content format.",
+      });
+    }
+
     if (!canModifyNotebookEntry(req.user, entry)) {
       return res.status(403).json({
         status: "error",
@@ -323,7 +581,7 @@ const updateNotebookEntry = async (req, res) => {
     if (experimentId !== undefined) {
       const experiment = await Experiment.findOne({
         where: {
-          id: experimentId,
+          id: parsedExperimentId,
           organizationId: req.user.organizationId,
         },
       });
@@ -340,11 +598,10 @@ const updateNotebookEntry = async (req, res) => {
     }
 
     await entry.update({
-      title: title !== undefined ? title.trim() : entry.title,
-      entryType: entryType !== undefined ? entryType : entry.entryType,
-      content: content !== undefined ? content.trim() : entry.content,
-      contentFormat:
-        contentFormat !== undefined ? contentFormat : entry.contentFormat,
+      title,
+      entryType,
+      content,
+      contentFormat,
       experimentId: nextExperimentId,
       projectId: nextProjectId,
       organizationId: req.user.organizationId,
@@ -384,11 +641,18 @@ const updateNotebookEntry = async (req, res) => {
 // For a future production version, archiving or audit logging would be safer
 const deleteNotebookEntry = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+
+    if (id === null) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid notebook entry ID.",
+      });
+    }
 
     const entry = await NotebookEntry.findOne({
       where: {
-        id: req.params.id,
+        id,
         organizationId: req.user.organizationId,
       },
     });
