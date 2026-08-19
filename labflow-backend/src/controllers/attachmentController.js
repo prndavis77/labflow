@@ -10,16 +10,27 @@ const {
   validateAttachmentMetadataUpdate,
   validateAttachmentUploadMetadata,
 } = require("../utils/attachmentValidation");
-const { createAttachmentStorageKey } = require("../storage/utils/storageKey");
+const {
+  createAttachmentStagingStorageKey,
+  createAttachmentFinalStorageKey,
+} = require("../storage/utils/storageKey");
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
 const { formatAttachmentResponse } = require("../utils/attachmentResponse");
 const { writeAuditLog } = require("../utils/auditLogger");
+const {
+  validateAttachmentContent,
+} = require("../utils/attachmentContentValidation");
+const {
+  validateOoxmlAttachment,
+} = require("../utils/attachmentOoxmlValidation");
 
 const sequelize = Attachment.sequelize;
 
 const DEFAULT_ATTACHMENT_PAGE = 1;
 const DEFAULT_ATTACHMENT_LIMIT = 20;
 const MAX_ATTACHMENT_LIMIT = 100;
+
+const OOXML_ATTACHMENT_EXTENSIONS = new Set([".docx", ".xlsx", ".pptx"]);
 
 const parsePositiveIntegerQuery = (value, fallback) => {
   if (value === undefined || value === null || value === "") {
@@ -71,6 +82,44 @@ const parseStorageContentLength = (value) => {
   return normalizedValue;
 };
 
+const rejectPendingAttachmentUpload = async ({
+  attachment,
+  attachmentStorage,
+  transaction,
+  req,
+  event,
+  message,
+}) => {
+  try {
+    await attachmentStorage.deleteObject({
+      storageKey: attachment.storageKey,
+    });
+
+    attachment.uploadStatus = "failed";
+    attachment.uploadExpiresAt = null;
+  } catch (cleanupError) {
+    /*
+     * Keep the attachment pending but immediately expired so the scheduled
+     * pending-upload cleanup service can retry deleting the storage object.
+     */
+    attachment.uploadStatus = "pending";
+    attachment.uploadExpiresAt = new Date();
+
+    logError(cleanupError, {
+      req,
+      event,
+      message,
+      context: {
+        attachmentId: attachment.id,
+      },
+    });
+  }
+
+  await attachment.save({
+    transaction,
+  });
+};
+
 const initiateAttachmentUpload = async (req, res) => {
   let transaction;
 
@@ -115,7 +164,7 @@ const initiateAttachmentUpload = async (req, res) => {
 
     const attachmentId = crypto.randomUUID();
 
-    const storageKey = createAttachmentStorageKey({
+    const storageKey = createAttachmentStagingStorageKey({
       organizationId: req.user.organizationId,
       entityType: metadata.entityType,
       entityId: metadata.entityId,
@@ -171,6 +220,7 @@ const initiateAttachmentUpload = async (req, res) => {
       upload = await attachmentStorage.createUploadUrl({
         storageKey,
         mimeType: metadata.mimeType,
+        contentLength: metadata.fileSize,
         expiresInSeconds: attachmentConfig.uploadUrlTtlSeconds,
       });
     } catch (storageError) {
@@ -340,15 +390,20 @@ const completeAttachmentUpload = async (req, res) => {
       });
     }
 
+    const attachmentStorage = getAttachmentStorage();
+
     if (
       !attachment.uploadExpiresAt ||
       new Date(attachment.uploadExpiresAt) < new Date()
     ) {
-      attachment.uploadStatus = "failed";
-      attachment.uploadExpiresAt = null;
-
-      await attachment.save({
+      await rejectPendingAttachmentUpload({
+        attachment,
+        attachmentStorage,
         transaction,
+        req,
+        event: "attachment_expired_upload_cleanup_failed",
+        message:
+          "Failed to delete storage object for expired attachment upload",
       });
 
       await transaction.commit();
@@ -382,8 +437,6 @@ const completeAttachmentUpload = async (req, res) => {
             : "You no longer have permission to upload files to this record.",
       });
     }
-
-    const attachmentStorage = getAttachmentStorage();
 
     let objectMetadata;
 
@@ -425,11 +478,14 @@ const completeAttachmentUpload = async (req, res) => {
     );
 
     if (!verifiedFileSize || verifiedFileSize !== Number(attachment.fileSize)) {
-      attachment.uploadStatus = "failed";
-      attachment.uploadExpiresAt = null;
-
-      await attachment.save({
+      await rejectPendingAttachmentUpload({
+        attachment,
+        attachmentStorage,
         transaction,
+        req,
+        event: "attachment_size_mismatch_cleanup_failed",
+        message:
+          "Failed to delete attachment after file size verification failed",
       });
 
       await transaction.commit();
@@ -446,11 +502,14 @@ const completeAttachmentUpload = async (req, res) => {
     const expectedMimeType = normalizeStorageMimeType(attachment.mimeType);
 
     if (!storedMimeType || storedMimeType !== expectedMimeType) {
-      attachment.uploadStatus = "failed";
-      attachment.uploadExpiresAt = null;
-
-      await attachment.save({
+      await rejectPendingAttachmentUpload({
+        attachment,
+        attachmentStorage,
         transaction,
+        req,
+        event: "attachment_mime_mismatch_cleanup_failed",
+        message:
+          "Failed to delete attachment after MIME type verification failed",
       });
 
       await transaction.commit();
@@ -463,10 +522,267 @@ const completeAttachmentUpload = async (req, res) => {
       });
     }
 
-    attachment.verifiedFileSize = verifiedFileSize;
-    attachment.mimeType = storedMimeType;
-    attachment.etag = objectMetadata.etag || null;
-    attachment.checksum = objectMetadata.checksumSha256 || null;
+    let contentValidation;
+
+    try {
+      if (OOXML_ATTACHMENT_EXTENSIONS.has(attachment.fileExtension)) {
+        contentValidation = await validateOoxmlAttachment({
+          storage: attachmentStorage,
+          storageKey: attachment.storageKey,
+          fileSize: verifiedFileSize,
+          fileExtension: attachment.fileExtension,
+        });
+      } else {
+        const inspectionEnd = Math.min(verifiedFileSize - 1, 4095);
+
+        const contentBuffer = await attachmentStorage.getObjectRange({
+          storageKey: attachment.storageKey,
+          start: 0,
+          end: inspectionEnd,
+        });
+
+        contentValidation = validateAttachmentContent({
+          buffer: contentBuffer,
+          fileExtension: attachment.fileExtension,
+        });
+      }
+    } catch (storageError) {
+      await transaction.rollback();
+      transaction = null;
+
+      logError(storageError, {
+        req,
+        event: "attachment_content_read_failed",
+        message: "Attachment content inspection failed",
+        context: {
+          attachmentId,
+        },
+      });
+
+      return res.status(503).json({
+        status: "error",
+        message: "File storage is temporarily unavailable.",
+      });
+    }
+
+    if (!contentValidation.valid) {
+      await rejectPendingAttachmentUpload({
+        attachment,
+        attachmentStorage,
+        transaction,
+        req,
+        event: "attachment_content_mismatch_cleanup_failed",
+        message:
+          "Failed to delete attachment after content verification failed",
+      });
+
+      await transaction.commit();
+      transaction = null;
+
+      return res.status(422).json({
+        status: "error",
+        message: contentValidation.error,
+      });
+    }
+
+    const stagingStorageKey = attachment.storageKey;
+
+    const verifiedStagingEtag = objectMetadata.etag || null;
+
+    if (!verifiedStagingEtag) {
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(503).json({
+        status: "error",
+        message:
+          "The uploaded file could not be safely finalized because storage verification was incomplete.",
+      });
+    }
+
+    const finalStorageKey = createAttachmentFinalStorageKey({
+      organizationId: req.user.organizationId,
+      entityType: attachment.entityType,
+      entityId: attachment.entityId,
+      attachmentId: attachment.id,
+      fileName: attachment.fileName,
+    });
+
+    let finalizationResult;
+
+    try {
+      finalizationResult = await attachmentStorage.finalizeObject({
+        sourceStorageKey: stagingStorageKey,
+        destinationStorageKey: finalStorageKey,
+        expectedEtag: verifiedStagingEtag,
+        contentType: storedMimeType,
+      });
+    } catch (storageError) {
+      await transaction.rollback();
+      transaction = null;
+
+      const isPreconditionFailure =
+        storageError?.name === "PreconditionFailed" ||
+        storageError?.$metadata?.httpStatusCode === 412;
+
+      logError(storageError, {
+        req,
+        event: "attachment_finalization_failed",
+        message: "Attachment storage finalization failed",
+        context: {
+          attachmentId,
+          stagingStorageKey,
+          finalStorageKey,
+        },
+      });
+
+      return res.status(isPreconditionFailure ? 409 : 503).json({
+        status: "error",
+        message: isPreconditionFailure
+          ? "The uploaded file changed during verification. Please retry the upload."
+          : "File storage is temporarily unavailable.",
+      });
+    }
+
+    let finalObjectMetadata;
+
+    try {
+      finalObjectMetadata = await attachmentStorage.getObjectMetadata({
+        storageKey: finalStorageKey,
+      });
+    } catch (storageError) {
+      /*
+       * The copy succeeded, but we could not verify the final object.
+       * Best-effort cleanup prevents an unreferenced permanent object.
+       */
+      try {
+        await attachmentStorage.deleteObject({
+          storageKey: finalStorageKey,
+        });
+      } catch (cleanupError) {
+        logError(cleanupError, {
+          req,
+          event: "attachment_final_object_cleanup_failed",
+          message: "Failed to delete unverified finalized attachment object",
+          context: {
+            attachmentId,
+            finalStorageKey,
+          },
+        });
+      }
+
+      await transaction.rollback();
+      transaction = null;
+
+      logError(storageError, {
+        req,
+        event: "attachment_final_object_verification_failed",
+        message: "Finalized attachment verification failed",
+        context: {
+          attachmentId,
+          finalStorageKey,
+        },
+      });
+
+      return res.status(503).json({
+        status: "error",
+        message: "File storage is temporarily unavailable.",
+      });
+    }
+
+    const finalVerifiedFileSize = parseStorageContentLength(
+      finalObjectMetadata.contentLength,
+    );
+
+    const finalStoredMimeType = normalizeStorageMimeType(
+      finalObjectMetadata.contentType,
+    );
+
+    if (
+      !finalVerifiedFileSize ||
+      finalVerifiedFileSize !== verifiedFileSize ||
+      !finalStoredMimeType ||
+      finalStoredMimeType !== storedMimeType
+    ) {
+      try {
+        await attachmentStorage.deleteObject({
+          storageKey: finalStorageKey,
+        });
+      } catch (cleanupError) {
+        logError(cleanupError, {
+          req,
+          event: "attachment_invalid_final_object_cleanup_failed",
+          message:
+            "Failed to delete attachment after final object verification failed",
+          context: {
+            attachmentId,
+            finalStorageKey,
+          },
+        });
+      }
+
+      await transaction.rollback();
+      transaction = null;
+
+      return res.status(503).json({
+        status: "error",
+        message: "The finalized file could not be safely verified.",
+      });
+    }
+
+    try {
+      await attachmentStorage.deleteObject({
+        storageKey: stagingStorageKey,
+      });
+    } catch (storageError) {
+      /*
+       * Do not expose the finalized object through LabFlow until the staging
+       * object has been removed. Otherwise the still-valid presigned PUT URL
+       * could continue writing to an abandoned staging object.
+       */
+      try {
+        await attachmentStorage.deleteObject({
+          storageKey: finalStorageKey,
+        });
+      } catch (cleanupError) {
+        logError(cleanupError, {
+          req,
+          event: "attachment_final_object_cleanup_failed",
+          message:
+            "Failed to delete finalized attachment after staging cleanup failed",
+          context: {
+            attachmentId,
+            finalStorageKey,
+          },
+        });
+      }
+
+      await transaction.rollback();
+      transaction = null;
+
+      logError(storageError, {
+        req,
+        event: "attachment_staging_cleanup_failed",
+        message:
+          "Failed to delete attachment staging object after finalization",
+        context: {
+          attachmentId,
+          stagingStorageKey,
+        },
+      });
+
+      return res.status(503).json({
+        status: "error",
+        message: "File storage is temporarily unavailable.",
+      });
+    }
+
+    attachment.storageKey = finalStorageKey;
+    attachment.verifiedFileSize = finalVerifiedFileSize;
+    attachment.mimeType = finalStoredMimeType;
+    attachment.etag =
+      finalObjectMetadata.etag || finalizationResult?.etag || null;
+    attachment.checksum = finalObjectMetadata.checksumSha256 || null;
     attachment.uploadStatus = "available";
     attachment.uploadExpiresAt = null;
 

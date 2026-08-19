@@ -50,6 +50,8 @@ const ALLOWED_ATTACHMENT_EXTENSIONS = [
   ".jpeg",
   ".tif",
   ".tiff",
+  ".ppt",
+  ".pptx",
 ];
 
 const BLOCKED_ATTACHMENT_EXTENSIONS = [
@@ -76,6 +78,11 @@ const MIME_TYPES_BY_EXTENSION = {
   ".xls": ["application/vnd.ms-excel"],
   ".xlsx": [
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ],
+  ".ppt": ["application/vnd.ms-powerpoint"],
+
+  ".pptx": [
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ],
   ".csv": [
     "text/csv",

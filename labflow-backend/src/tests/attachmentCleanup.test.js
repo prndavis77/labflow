@@ -15,18 +15,15 @@ jest.mock("../storage/attachmentStorage", () => ({
 }));
 
 const { Op } = require("sequelize");
-
 const { Attachment } = require("../models");
-
-const sequelize = Attachment.sequelize;
-
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
-
 const {
   cleanupExpiredAttachment,
   cleanupExpiredPendingAttachments,
   isAttachmentStillExpired,
 } = require("../services/attachmentCleanupService");
+
+const sequelize = Attachment.sequelize;
 
 const ATTACHMENT_ID = "7dcf9559-0f93-4fb2-8193-5fda32180592";
 
@@ -34,7 +31,13 @@ const SECOND_ATTACHMENT_ID = "c62a1ab1-5c08-46b8-9416-7ec779d213df";
 
 const ORGANIZATION_ID = 10;
 
+const ENTITY_ID = 42;
+
 const NOW = new Date("2026-07-25T12:00:00.000Z");
+
+const FINAL_STORAGE_KEY =
+  `organizations/${ORGANIZATION_ID}/experiment/${ENTITY_ID}/attachments/` +
+  `${ATTACHMENT_ID}/results.csv`;
 
 const createTransaction = () => ({
   commit: jest.fn().mockResolvedValue(undefined),
@@ -51,11 +54,19 @@ const createAttachment = (overrides = {}) => ({
 
   organizationId: ORGANIZATION_ID,
 
+  entityType: "experiment",
+
+  entityId: ENTITY_ID,
+
+  fileName: "results.csv",
+
   uploadStatus: "pending",
 
   uploadExpiresAt: new Date("2026-07-25T11:00:00.000Z"),
 
-  storageKey: "organizations/10/experiment/42/expired-file.csv",
+  storageKey:
+    `organizations/${ORGANIZATION_ID}/experiment/${ENTITY_ID}/staging/` +
+    `${ATTACHMENT_ID}/results.csv`,
 
   save: jest.fn().mockResolvedValue(undefined),
 
@@ -155,9 +166,15 @@ describe("attachment pending-upload cleanup", () => {
         lock: transaction.LOCK.UPDATE,
       });
 
-      expect(storage.deleteObject).toHaveBeenCalledWith({
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(1, {
         storageKey: attachment.storageKey,
       });
+
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(2, {
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledTimes(2);
 
       expect(attachment.uploadStatus).toBe("failed");
 
@@ -263,6 +280,8 @@ describe("attachment pending-upload cleanup", () => {
         storage,
       });
 
+      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
+
       expect(transaction.rollback).toHaveBeenCalledTimes(1);
 
       expect(transaction.commit).not.toHaveBeenCalled();
@@ -270,6 +289,53 @@ describe("attachment pending-upload cleanup", () => {
       expect(attachment.uploadStatus).toBe("pending");
 
       expect(attachment.save).not.toHaveBeenCalled();
+
+      expect(result.outcome).toBe("failed");
+
+      expect(result.attachmentId).toBe(ATTACHMENT_ID);
+    });
+
+    test("leaves the attachment pending when final object deletion fails", async () => {
+      const transaction = createTransaction();
+
+      const attachment = createAttachment();
+
+      const finalCleanupError = new Error("Final object deletion failed");
+
+      const storage = createStorage({
+        deleteObject: jest
+          .fn()
+          .mockResolvedValueOnce({
+            deleted: true,
+          })
+          .mockRejectedValueOnce(finalCleanupError),
+      });
+
+      sequelize.transaction.mockResolvedValue(transaction);
+
+      Attachment.findOne.mockResolvedValue(attachment);
+
+      const result = await cleanupExpiredAttachment({
+        attachmentId: ATTACHMENT_ID,
+        now: NOW,
+        storage,
+      });
+
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(1, {
+        storageKey: attachment.storageKey,
+      });
+
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(2, {
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(attachment.uploadStatus).toBe("pending");
+
+      expect(attachment.save).not.toHaveBeenCalled();
+
+      expect(transaction.rollback).toHaveBeenCalledTimes(1);
+
+      expect(transaction.commit).not.toHaveBeenCalled();
 
       expect(result.outcome).toBe("failed");
 
@@ -295,7 +361,15 @@ describe("attachment pending-upload cleanup", () => {
         storage,
       });
 
-      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(1, {
+        storageKey: attachment.storageKey,
+      });
+
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(2, {
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledTimes(2);
 
       expect(transaction.rollback).toHaveBeenCalledTimes(1);
 

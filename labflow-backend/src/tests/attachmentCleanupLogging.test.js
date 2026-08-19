@@ -28,8 +28,11 @@ describe("Attachment cleanup logging", () => {
     });
 
     jest.spyOn(Attachment, "findOne").mockResolvedValue({
-      id: 42,
+      id: "7dcf9559-0f93-4fb2-8193-5fda32180592",
       organizationId: 7,
+      entityType: "experiment",
+      entityId: 42,
+      fileName: "secret-file.csv",
       uploadStatus: "pending",
       uploadExpiresAt: new Date("2026-01-01T00:00:00.000Z"),
       storageKey: "private/secret-storage-key",
@@ -40,7 +43,7 @@ describe("Attachment cleanup logging", () => {
     };
 
     const result = await cleanupExpiredAttachment({
-      attachmentId: 42,
+      attachmentId: "7dcf9559-0f93-4fb2-8193-5fda32180592",
       now: new Date("2026-02-01T00:00:00.000Z"),
       storage,
     });
@@ -51,12 +54,12 @@ describe("Attachment cleanup logging", () => {
       event: "attachment_cleanup_item_failed",
       message: "Failed to clean pending attachment",
       context: {
-        attachmentId: 42,
+        attachmentId: "7dcf9559-0f93-4fb2-8193-5fda32180592",
       },
     });
 
     expect(result).toEqual({
-      attachmentId: 42,
+      attachmentId: "7dcf9559-0f93-4fb2-8193-5fda32180592",
       outcome: "failed",
       error: cleanupError,
     });
@@ -80,8 +83,11 @@ describe("Attachment cleanup logging", () => {
     });
 
     jest.spyOn(Attachment, "findOne").mockResolvedValue({
-      id: 84,
+      id: "c62a1ab1-5c08-46b8-9416-7ec779d213df",
       organizationId: 9,
+      entityType: "experiment",
+      entityId: 84,
+      fileName: "another-secret-file.csv",
       uploadStatus: "pending",
       uploadExpiresAt: new Date("2026-01-01T00:00:00.000Z"),
       storageKey: "private/another-secret-key",
@@ -92,7 +98,7 @@ describe("Attachment cleanup logging", () => {
     };
 
     const result = await cleanupExpiredAttachment({
-      attachmentId: 84,
+      attachmentId: "c62a1ab1-5c08-46b8-9416-7ec779d213df",
       now: new Date("2026-02-01T00:00:00.000Z"),
       storage,
     });
@@ -101,7 +107,7 @@ describe("Attachment cleanup logging", () => {
       event: "attachment_cleanup_rollback_failed",
       message: "Attachment cleanup rollback failed",
       context: {
-        attachmentId: 84,
+        attachmentId: "c62a1ab1-5c08-46b8-9416-7ec779d213df",
       },
     });
 
@@ -109,7 +115,7 @@ describe("Attachment cleanup logging", () => {
       event: "attachment_cleanup_item_failed",
       message: "Failed to clean pending attachment",
       context: {
-        attachmentId: 84,
+        attachmentId: "c62a1ab1-5c08-46b8-9416-7ec779d213df",
       },
     });
 

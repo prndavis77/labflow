@@ -46,7 +46,7 @@ const validateStorageKey = (storageKey) => {
   return normalizedStorageKey;
 };
 
-const createAttachmentStorageKey = ({
+const normalizeAttachmentStorageKeyParts = ({
   organizationId,
   entityType,
   entityId,
@@ -84,19 +84,51 @@ const createAttachmentStorageKey = ({
     throw new Error("Attachment file name must already be sanitized.");
   }
 
+  return {
+    organizationId: normalizedOrganizationId,
+    entityType: normalizedEntityType,
+    entityId: normalizedEntityId,
+    attachmentId: normalizedAttachmentId,
+    fileName: normalizedFileName,
+  };
+};
+
+const createAttachmentStagingStorageKey = (options) => {
+  const { organizationId, entityType, entityId, attachmentId, fileName } =
+    normalizeAttachmentStorageKeyParts(options);
+
   const storageKey = [
     "organizations",
-    normalizedOrganizationId,
-    normalizedEntityType,
-    normalizedEntityId,
-    normalizedAttachmentId,
-    normalizedFileName,
+    organizationId,
+    entityType,
+    entityId,
+    "staging",
+    attachmentId,
+    fileName,
+  ].join("/");
+
+  return validateStorageKey(storageKey);
+};
+
+const createAttachmentFinalStorageKey = (options) => {
+  const { organizationId, entityType, entityId, attachmentId, fileName } =
+    normalizeAttachmentStorageKeyParts(options);
+
+  const storageKey = [
+    "organizations",
+    organizationId,
+    entityType,
+    entityId,
+    "attachments",
+    attachmentId,
+    fileName,
   ].join("/");
 
   return validateStorageKey(storageKey);
 };
 
 module.exports = {
-  createAttachmentStorageKey,
+  createAttachmentStagingStorageKey,
+  createAttachmentFinalStorageKey,
   validateStorageKey,
 };

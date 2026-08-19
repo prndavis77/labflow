@@ -1,11 +1,10 @@
 const { Op } = require("sequelize");
-
 const { Attachment } = require("../models");
-
 const attachmentConfig = require("../config/attachmentConfig");
-
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
-
+const {
+  createAttachmentFinalStorageKey,
+} = require("../storage/utils/storageKey");
 const { logError } = require("../utils/errorLogger");
 
 const sequelize = Attachment.sequelize;
@@ -65,8 +64,28 @@ const cleanupExpiredAttachment = async ({ attachmentId, now, storage }) => {
       };
     }
 
+    const stagingStorageKey = attachment.storageKey;
+
+    const finalStorageKey = createAttachmentFinalStorageKey({
+      organizationId: attachment.organizationId,
+      entityType: attachment.entityType,
+      entityId: attachment.entityId,
+      attachmentId: attachment.id,
+      fileName: attachment.fileName,
+    });
+
     await storage.deleteObject({
-      storageKey: attachment.storageKey,
+      storageKey: stagingStorageKey,
+    });
+
+    /*
+     * A previous completion attempt may have successfully copied the staging
+     * object to its permanent key but then failed before updating the database.
+     * Delete that deterministic final object as well so cleanup cannot leave
+     * an untracked permanent attachment behind.
+     */
+    await storage.deleteObject({
+      storageKey: finalStorageKey,
     });
 
     attachment.uploadStatus = "failed";

@@ -504,7 +504,7 @@ describe("Invitations API", () => {
     const response = await request(app)
       .post(`/api/invitations/accept/${token}`)
       .send({
-        password: "password123",
+        password: "password1234",
       });
 
     expect(response.statusCode).toBe(201);
@@ -551,20 +551,21 @@ describe("Invitations API", () => {
     const token = inviteLink.split("/accept-invite/")[1];
 
     await request(app).post(`/api/invitations/accept/${token}`).send({
-      password: "password123",
+      password: "password1234",
     });
 
     const response = await request(app)
       .post(`/api/invitations/accept/${token}`)
       .send({
-        password: "password123",
+        password: "password1234",
       });
 
     expect(response.statusCode).toBe(404);
   });
 
   it("rejects an expired invitation", async () => {
-    const rawToken = "expired-token";
+    const rawToken =
+      "0123456789abcdef0123456789abcdef" + "0123456789abcdef0123456789abcdef";
     const tokenHash = hashInvitationToken(rawToken);
 
     await Invitation.create({
@@ -740,7 +741,7 @@ describe("Invitations API", () => {
     const firstAcceptance = await request(app)
       .post(`/api/invitations/accept/${token}`)
       .send({
-        password: "password123",
+        password: "password1234",
       });
 
     expect(firstAcceptance.status).toBe(201);
@@ -748,7 +749,7 @@ describe("Invitations API", () => {
     const secondAcceptance = await request(app)
       .post(`/api/invitations/accept/${token}`)
       .send({
-        password: "password123",
+        password: "password1234",
       });
 
     expect(secondAcceptance.status).toBe(404);
@@ -796,7 +797,7 @@ describe("Invitations API", () => {
       const response = await request(app)
         .post(`/api/invitations/accept/${token}`)
         .send({
-          password: "password123",
+          password: "password1234",
         });
 
       expect(response.status).toBe(500);

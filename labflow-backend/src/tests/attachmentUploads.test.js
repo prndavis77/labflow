@@ -25,18 +25,19 @@ jest.mock("../utils/auditLogger", () => ({
   writeAuditLog: jest.fn(),
 }));
 
+jest.mock("../utils/attachmentOoxmlValidation", () => ({
+  validateOoxmlAttachment: jest.fn(),
+}));
+
 const crypto = require("crypto");
-
 const { Attachment } = require("../models");
-
 const sequelize = Attachment.sequelize;
-
 const { authorizeAttachmentTarget } = require("../utils/attachmentAccess");
-
 const { getAttachmentStorage } = require("../storage/attachmentStorage");
-
 const { writeAuditLog } = require("../utils/auditLogger");
-
+const {
+  validateOoxmlAttachment,
+} = require("../utils/attachmentOoxmlValidation");
 const {
   completeAttachmentUpload,
   initiateAttachmentUpload,
@@ -50,7 +51,11 @@ const ADMIN_ID = 1;
 const ENTITY_ID = 42;
 
 const STORAGE_KEY =
-  `organizations/${ORGANIZATION_ID}/experiment/${ENTITY_ID}/` +
+  `organizations/${ORGANIZATION_ID}/experiment/${ENTITY_ID}/staging/` +
+  `${ATTACHMENT_ID}/gc-ms-run-04.csv`;
+
+const FINAL_STORAGE_KEY =
+  `organizations/${ORGANIZATION_ID}/experiment/${ENTITY_ID}/attachments/` +
   `${ATTACHMENT_ID}/gc-ms-run-04.csv`;
 
 const createResponse = () => {
@@ -178,10 +183,25 @@ const createCompletionStorage = (overrides = {}) => ({
     contentType: "text/csv",
     etag: "abc123",
     checksumSha256: "checksum-value",
-
     lastModified: new Date("2026-07-24T10:05:00.000Z"),
-
     metadata: {},
+  }),
+
+  getObjectRange: jest
+    .fn()
+    .mockResolvedValue(
+      Buffer.from("sample,retention_time,area\nA,1.23,400\n", "utf8"),
+    ),
+
+  finalizeObject: jest.fn().mockResolvedValue({
+    storageKey: FINAL_STORAGE_KEY,
+    etag: "final-etag",
+    lastModified: new Date("2026-07-24T10:06:00.000Z"),
+  }),
+
+  deleteObject: jest.fn().mockResolvedValue({
+    deleted: true,
+    storageKey: STORAGE_KEY,
   }),
 
   ...overrides,
@@ -198,6 +218,10 @@ describe("attachment upload endpoints", () => {
     writeAuditLog.mockResolvedValue(undefined);
 
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+    validateOoxmlAttachment.mockResolvedValue({
+      valid: true,
+    });
   });
 
   afterEach(() => {
@@ -308,6 +332,7 @@ describe("attachment upload endpoints", () => {
       expect(storage.createUploadUrl).toHaveBeenCalledWith({
         storageKey: STORAGE_KEY,
         mimeType: "text/csv",
+        contentLength: 1024,
         expiresInSeconds: 300,
       });
 
@@ -589,6 +614,14 @@ describe("attachment upload endpoints", () => {
         storageKey: STORAGE_KEY,
       });
 
+      expect(storage.getObjectRange).toHaveBeenCalledWith({
+        storageKey: STORAGE_KEY,
+        start: 0,
+        end: 1023,
+      });
+
+      expect(validateOoxmlAttachment).not.toHaveBeenCalled();
+
       expect(attachment.uploadStatus).toBe("available");
 
       expect(attachment.verifiedFileSize).toBe(1024);
@@ -610,6 +643,311 @@ describe("attachment upload endpoints", () => {
       expect(transaction.rollback).not.toHaveBeenCalled();
 
       expect(res.status).toHaveBeenCalledWith(200);
+
+      expect(storage.finalizeObject).toHaveBeenCalledWith({
+        sourceStorageKey: STORAGE_KEY,
+        destinationStorageKey: FINAL_STORAGE_KEY,
+        expectedEtag: "abc123",
+        contentType: "text/csv",
+      });
+
+      expect(storage.getObjectMetadata).toHaveBeenNthCalledWith(2, {
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledWith({
+        storageKey: STORAGE_KEY,
+      });
+
+      expect(attachment.storageKey).toBe(FINAL_STORAGE_KEY);
+      expect(attachment.uploadStatus).toBe("available");
+    });
+
+    test("returns 409 when the staging object changes before finalization", async () => {
+      const transaction = createTransaction();
+
+      const attachment = createPendingAttachment();
+
+      sequelize.transaction.mockResolvedValue(transaction);
+
+      Attachment.findOne.mockResolvedValue(attachment);
+
+      authorizeAttachmentTarget.mockResolvedValue({
+        allowed: true,
+        target: {
+          id: ENTITY_ID,
+          organizationId: ORGANIZATION_ID,
+        },
+      });
+
+      const preconditionError = new Error("Precondition failed");
+
+      preconditionError.name = "PreconditionFailed";
+      preconditionError.$metadata = {
+        httpStatusCode: 412,
+      };
+
+      const storage = createCompletionStorage({
+        finalizeObject: jest.fn().mockRejectedValue(preconditionError),
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
+
+      const req = createCompletionRequest();
+      const res = createResponse();
+
+      await completeAttachmentUpload(req, res);
+
+      expect(storage.finalizeObject).toHaveBeenCalledWith({
+        sourceStorageKey: STORAGE_KEY,
+        destinationStorageKey: FINAL_STORAGE_KEY,
+        expectedEtag: "abc123",
+        contentType: "text/csv",
+      });
+
+      expect(storage.deleteObject).not.toHaveBeenCalled();
+
+      expect(attachment.uploadStatus).toBe("pending");
+
+      expect(attachment.storageKey).toBe(STORAGE_KEY);
+
+      expect(attachment.save).not.toHaveBeenCalled();
+
+      expect(transaction.rollback).toHaveBeenCalledTimes(1);
+
+      expect(transaction.commit).not.toHaveBeenCalled();
+
+      expect(res.status).toHaveBeenCalledWith(409);
+    });
+
+    test("returns 503 when attachment finalization fails unexpectedly", async () => {
+      const transaction = createTransaction();
+
+      const attachment = createPendingAttachment();
+
+      sequelize.transaction.mockResolvedValue(transaction);
+
+      Attachment.findOne.mockResolvedValue(attachment);
+
+      authorizeAttachmentTarget.mockResolvedValue({
+        allowed: true,
+        target: {
+          id: ENTITY_ID,
+          organizationId: ORGANIZATION_ID,
+        },
+      });
+
+      const storage = createCompletionStorage({
+        finalizeObject: jest
+          .fn()
+          .mockRejectedValue(new Error("R2 copy failed")),
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
+
+      const req = createCompletionRequest();
+      const res = createResponse();
+
+      await completeAttachmentUpload(req, res);
+
+      expect(storage.finalizeObject).toHaveBeenCalledTimes(1);
+
+      expect(storage.deleteObject).not.toHaveBeenCalled();
+
+      expect(attachment.uploadStatus).toBe("pending");
+
+      expect(attachment.storageKey).toBe(STORAGE_KEY);
+
+      expect(attachment.save).not.toHaveBeenCalled();
+
+      expect(transaction.rollback).toHaveBeenCalledTimes(1);
+
+      expect(transaction.commit).not.toHaveBeenCalled();
+
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    test("deletes the finalized object when final metadata verification cannot be performed", async () => {
+      const transaction = createTransaction();
+
+      const attachment = createPendingAttachment();
+
+      sequelize.transaction.mockResolvedValue(transaction);
+
+      Attachment.findOne.mockResolvedValue(attachment);
+
+      authorizeAttachmentTarget.mockResolvedValue({
+        allowed: true,
+        target: {
+          id: ENTITY_ID,
+          organizationId: ORGANIZATION_ID,
+        },
+      });
+
+      const storage = createCompletionStorage({
+        getObjectMetadata: jest
+          .fn()
+          .mockResolvedValueOnce({
+            contentLength: 1024,
+            contentType: "text/csv",
+            etag: "abc123",
+            checksumSha256: "checksum-value",
+            metadata: {},
+          })
+          .mockRejectedValueOnce(new Error("Final HEAD failed")),
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
+
+      const req = createCompletionRequest();
+      const res = createResponse();
+
+      await completeAttachmentUpload(req, res);
+
+      expect(storage.getObjectMetadata).toHaveBeenNthCalledWith(1, {
+        storageKey: STORAGE_KEY,
+      });
+
+      expect(storage.getObjectMetadata).toHaveBeenNthCalledWith(2, {
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledWith({
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
+
+      expect(attachment.uploadStatus).toBe("pending");
+
+      expect(attachment.storageKey).toBe(STORAGE_KEY);
+
+      expect(attachment.save).not.toHaveBeenCalled();
+
+      expect(transaction.rollback).toHaveBeenCalledTimes(1);
+
+      expect(transaction.commit).not.toHaveBeenCalled();
+
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    test("deletes the finalized object when final size verification fails", async () => {
+      const transaction = createTransaction();
+
+      const attachment = createPendingAttachment();
+
+      sequelize.transaction.mockResolvedValue(transaction);
+
+      Attachment.findOne.mockResolvedValue(attachment);
+
+      authorizeAttachmentTarget.mockResolvedValue({
+        allowed: true,
+        target: {
+          id: ENTITY_ID,
+          organizationId: ORGANIZATION_ID,
+        },
+      });
+
+      const storage = createCompletionStorage({
+        getObjectMetadata: jest
+          .fn()
+          .mockResolvedValueOnce({
+            contentLength: 1024,
+            contentType: "text/csv",
+            etag: "abc123",
+            checksumSha256: "checksum-value",
+            metadata: {},
+          })
+          .mockResolvedValueOnce({
+            contentLength: 2048,
+            contentType: "text/csv",
+            etag: "final-etag",
+            checksumSha256: "final-checksum",
+            metadata: {},
+          }),
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
+
+      const req = createCompletionRequest();
+      const res = createResponse();
+
+      await completeAttachmentUpload(req, res);
+
+      expect(storage.deleteObject).toHaveBeenCalledWith({
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
+
+      expect(attachment.uploadStatus).toBe("pending");
+
+      expect(attachment.storageKey).toBe(STORAGE_KEY);
+
+      expect(attachment.save).not.toHaveBeenCalled();
+
+      expect(transaction.rollback).toHaveBeenCalledTimes(1);
+
+      expect(transaction.commit).not.toHaveBeenCalled();
+
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    test("removes the finalized object and returns 503 when staging cleanup fails", async () => {
+      const transaction = createTransaction();
+
+      const attachment = createPendingAttachment();
+
+      sequelize.transaction.mockResolvedValue(transaction);
+
+      Attachment.findOne.mockResolvedValue(attachment);
+
+      authorizeAttachmentTarget.mockResolvedValue({
+        allowed: true,
+        target: {
+          id: ENTITY_ID,
+          organizationId: ORGANIZATION_ID,
+        },
+      });
+
+      const stagingCleanupError = new Error("Staging delete failed");
+
+      const storage = createCompletionStorage({
+        deleteObject: jest
+          .fn()
+          .mockRejectedValueOnce(stagingCleanupError)
+          .mockResolvedValueOnce({
+            deleted: true,
+            storageKey: FINAL_STORAGE_KEY,
+          }),
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
+
+      const req = createCompletionRequest();
+      const res = createResponse();
+
+      await completeAttachmentUpload(req, res);
+
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(1, {
+        storageKey: STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenNthCalledWith(2, {
+        storageKey: FINAL_STORAGE_KEY,
+      });
+
+      expect(attachment.uploadStatus).toBe("pending");
+
+      expect(attachment.storageKey).toBe(STORAGE_KEY);
+
+      expect(attachment.save).not.toHaveBeenCalled();
+
+      expect(transaction.rollback).toHaveBeenCalledTimes(1);
+
+      expect(transaction.commit).not.toHaveBeenCalled();
+
+      expect(res.status).toHaveBeenCalledWith(503);
     });
 
     test("returns 400 for an invalid attachment UUID", async () => {
@@ -818,11 +1156,21 @@ describe("attachment upload endpoints", () => {
 
       Attachment.findOne.mockResolvedValue(attachment);
 
+      const storage = createCompletionStorage();
+
+      getAttachmentStorage.mockReturnValue(storage);
+
       const req = createCompletionRequest();
 
       const res = createResponse();
 
       await completeAttachmentUpload(req, res);
+
+      expect(storage.deleteObject).toHaveBeenCalledWith({
+        storageKey: STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
 
       expect(attachment.uploadStatus).toBe("failed");
 
@@ -995,24 +1343,28 @@ describe("attachment upload endpoints", () => {
         },
       });
 
-      getAttachmentStorage.mockReturnValue(
-        createCompletionStorage({
-          getObjectMetadata: jest.fn().mockResolvedValue({
-            contentLength: 2048,
-            contentType: "text/csv",
-
-            etag: "abc123",
-
-            checksumSha256: null,
-          }),
+      const storage = createCompletionStorage({
+        getObjectMetadata: jest.fn().mockResolvedValue({
+          contentLength: 2048,
+          contentType: "text/csv",
+          etag: "abc123",
+          checksumSha256: null,
         }),
-      );
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
 
       const req = createCompletionRequest();
 
       const res = createResponse();
 
       await completeAttachmentUpload(req, res);
+
+      expect(storage.deleteObject).toHaveBeenCalledWith({
+        storageKey: STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
 
       expect(attachment.uploadStatus).toBe("failed");
 
@@ -1046,25 +1398,28 @@ describe("attachment upload endpoints", () => {
         },
       });
 
-      getAttachmentStorage.mockReturnValue(
-        createCompletionStorage({
-          getObjectMetadata: jest.fn().mockResolvedValue({
-            contentLength: 1024,
-
-            contentType: "application/pdf",
-
-            etag: "abc123",
-
-            checksumSha256: null,
-          }),
+      const storage = createCompletionStorage({
+        getObjectMetadata: jest.fn().mockResolvedValue({
+          contentLength: 1024,
+          contentType: "application/pdf",
+          etag: "abc123",
+          checksumSha256: null,
         }),
-      );
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
 
       const req = createCompletionRequest();
 
       const res = createResponse();
 
       await completeAttachmentUpload(req, res);
+
+      expect(storage.deleteObject).toHaveBeenCalledWith({
+        storageKey: STORAGE_KEY,
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
 
       expect(attachment.uploadStatus).toBe("failed");
 
@@ -1167,6 +1522,394 @@ describe("attachment upload endpoints", () => {
       expect(res.status).toHaveBeenCalledWith(500);
 
       expect(writeAuditLog).not.toHaveBeenCalled();
+    });
+
+    test("rejects an OOXML attachment when structural validation fails", async () => {
+      const transaction = createTransaction();
+
+      const attachment = createPendingAttachment({
+        originalFileName: "results.xlsx",
+        fileName: "results.xlsx",
+        fileExtension: ".xlsx",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      sequelize.transaction.mockResolvedValue(transaction);
+
+      Attachment.findOne.mockResolvedValue(attachment);
+
+      authorizeAttachmentTarget.mockResolvedValue({
+        allowed: true,
+        target: {
+          id: ENTITY_ID,
+          organizationId: ORGANIZATION_ID,
+        },
+      });
+
+      const storage = createCompletionStorage({
+        getObjectMetadata: jest.fn().mockResolvedValue({
+          contentLength: 1024,
+          contentType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          etag: "xlsx-etag",
+          checksumSha256: "xlsx-checksum",
+          metadata: {},
+        }),
+      });
+
+      getAttachmentStorage.mockReturnValue(storage);
+
+      validateOoxmlAttachment.mockResolvedValue({
+        valid: false,
+        error:
+          "The uploaded Office document does not match the expected file type.",
+      });
+
+      const req = createCompletionRequest();
+      const res = createResponse();
+
+      await completeAttachmentUpload(req, res);
+
+      expect(validateOoxmlAttachment).toHaveBeenCalledWith({
+        storage,
+        storageKey: STORAGE_KEY,
+        fileSize: 1024,
+        fileExtension: ".xlsx",
+      });
+
+      expect(storage.deleteObject).toHaveBeenCalledWith({
+        storageKey: STORAGE_KEY,
+      });
+
+      expect(attachment.uploadStatus).toBe("failed");
+      expect(attachment.uploadExpiresAt).toBeNull();
+
+      expect(transaction.commit).toHaveBeenCalledTimes(1);
+      expect(transaction.rollback).not.toHaveBeenCalled();
+
+      expect(res.status).toHaveBeenCalledWith(422);
+
+      expect(res.json).toHaveBeenCalledWith({
+        status: "error",
+        message:
+          "The uploaded Office document does not match the expected file type.",
+      });
+    });
+  });
+
+  test("keeps a rejected upload pending and immediately expired when storage cleanup fails", async () => {
+    const transaction = createTransaction();
+
+    const attachment = createPendingAttachment();
+
+    sequelize.transaction.mockResolvedValue(transaction);
+
+    Attachment.findOne.mockResolvedValue(attachment);
+
+    authorizeAttachmentTarget.mockResolvedValue({
+      allowed: true,
+      target: {
+        id: ENTITY_ID,
+        organizationId: ORGANIZATION_ID,
+      },
+    });
+
+    const cleanupError = new Error("Delete failed");
+
+    const storage = createCompletionStorage({
+      getObjectMetadata: jest.fn().mockResolvedValue({
+        contentLength: 2048,
+        contentType: "text/csv",
+        etag: "abc123",
+        checksumSha256: null,
+      }),
+      deleteObject: jest.fn().mockRejectedValue(cleanupError),
+    });
+
+    getAttachmentStorage.mockReturnValue(storage);
+
+    const beforeRequest = Date.now();
+
+    const req = createCompletionRequest();
+
+    const res = createResponse();
+
+    await completeAttachmentUpload(req, res);
+
+    expect(storage.deleteObject).toHaveBeenCalledWith({
+      storageKey: STORAGE_KEY,
+    });
+
+    expect(attachment.uploadStatus).toBe("pending");
+
+    expect(attachment.uploadExpiresAt).toBeInstanceOf(Date);
+
+    expect(attachment.uploadExpiresAt.getTime()).toBeGreaterThanOrEqual(
+      beforeRequest,
+    );
+
+    expect(attachment.uploadExpiresAt.getTime()).toBeLessThanOrEqual(
+      Date.now(),
+    );
+
+    expect(attachment.save).toHaveBeenCalledWith({
+      transaction,
+    });
+
+    expect(transaction.commit).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(422);
+  });
+
+  test("rejects an upload whose content does not match the file extension", async () => {
+    const transaction = createTransaction();
+
+    const attachment = createPendingAttachment({
+      originalFileName: "results.csv",
+      fileName: "results.csv",
+      fileExtension: ".csv",
+      mimeType: "text/csv",
+    });
+
+    sequelize.transaction.mockResolvedValue(transaction);
+
+    Attachment.findOne.mockResolvedValue(attachment);
+
+    authorizeAttachmentTarget.mockResolvedValue({
+      allowed: true,
+      target: {
+        id: ENTITY_ID,
+        organizationId: ORGANIZATION_ID,
+      },
+    });
+
+    const storage = createCompletionStorage({
+      getObjectRange: jest
+        .fn()
+        .mockResolvedValue(
+          Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        ),
+    });
+
+    getAttachmentStorage.mockReturnValue(storage);
+
+    const req = createCompletionRequest();
+    const res = createResponse();
+
+    await completeAttachmentUpload(req, res);
+
+    expect(storage.getObjectRange).toHaveBeenCalledWith({
+      storageKey: STORAGE_KEY,
+      start: 0,
+      end: 1023,
+    });
+
+    expect(storage.deleteObject).toHaveBeenCalledWith({
+      storageKey: STORAGE_KEY,
+    });
+
+    expect(attachment.uploadStatus).toBe("failed");
+    expect(attachment.uploadExpiresAt).toBeNull();
+
+    expect(transaction.commit).toHaveBeenCalledTimes(1);
+
+    expect(res.status).toHaveBeenCalledWith(422);
+  });
+
+  test("returns 503 when attachment content cannot be read from storage", async () => {
+    const transaction = createTransaction();
+
+    const attachment = createPendingAttachment();
+
+    sequelize.transaction.mockResolvedValue(transaction);
+
+    Attachment.findOne.mockResolvedValue(attachment);
+
+    authorizeAttachmentTarget.mockResolvedValue({
+      allowed: true,
+      target: {
+        id: ENTITY_ID,
+        organizationId: ORGANIZATION_ID,
+      },
+    });
+
+    const storage = createCompletionStorage({
+      getObjectRange: jest
+        .fn()
+        .mockRejectedValue(new Error("Range read failed")),
+    });
+
+    getAttachmentStorage.mockReturnValue(storage);
+
+    const req = createCompletionRequest();
+    const res = createResponse();
+
+    await completeAttachmentUpload(req, res);
+
+    expect(transaction.rollback).toHaveBeenCalledTimes(1);
+
+    expect(transaction.commit).not.toHaveBeenCalled();
+
+    expect(storage.deleteObject).not.toHaveBeenCalled();
+
+    expect(attachment.uploadStatus).toBe("pending");
+
+    expect(res.status).toHaveBeenCalledWith(503);
+  });
+
+  test("completes an OOXML attachment after structural validation succeeds", async () => {
+    const transaction = createTransaction();
+
+    const attachment = createPendingAttachment({
+      originalFileName: "results.docx",
+      fileName: "results.docx",
+      fileExtension: ".docx",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    sequelize.transaction.mockResolvedValue(transaction);
+
+    Attachment.findOne
+      .mockResolvedValueOnce(attachment)
+      .mockResolvedValueOnce(attachment);
+
+    authorizeAttachmentTarget.mockResolvedValue({
+      allowed: true,
+      target: {
+        id: ENTITY_ID,
+        organizationId: ORGANIZATION_ID,
+      },
+    });
+
+    const storage = createCompletionStorage({
+      getObjectMetadata: jest.fn().mockResolvedValue({
+        contentLength: 1024,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        etag: "docx-etag",
+        checksumSha256: "docx-checksum",
+        metadata: {},
+      }),
+    });
+
+    getAttachmentStorage.mockReturnValue(storage);
+
+    validateOoxmlAttachment.mockResolvedValue({
+      valid: true,
+    });
+
+    const req = createCompletionRequest();
+    const res = createResponse();
+
+    await completeAttachmentUpload(req, res);
+
+    expect(validateOoxmlAttachment).toHaveBeenCalledWith({
+      storage,
+      storageKey: STORAGE_KEY,
+      fileSize: 1024,
+      fileExtension: ".docx",
+    });
+
+    expect(storage.finalizeObject).toHaveBeenCalledWith({
+      sourceStorageKey: STORAGE_KEY,
+      destinationStorageKey:
+        `organizations/${ORGANIZATION_ID}/experiment/${ENTITY_ID}/attachments/` +
+        `${ATTACHMENT_ID}/results.docx`,
+      expectedEtag: "docx-etag",
+      contentType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    /*
+     * OOXML should use yauzl's ranged reads internally instead of the
+     * ordinary 4 KB prefix-validation branch in the controller.
+     *
+     * Because validateOoxmlAttachment is mocked here, the storage range
+     * method itself should not be called by the controller.
+     */
+    expect(storage.getObjectRange).not.toHaveBeenCalled();
+
+    expect(storage.deleteObject).toHaveBeenCalledWith({
+      storageKey: STORAGE_KEY,
+    });
+
+    expect(storage.deleteObject).toHaveBeenCalledTimes(1);
+
+    expect(attachment.uploadStatus).toBe("available");
+    expect(attachment.verifiedFileSize).toBe(1024);
+
+    expect(transaction.commit).toHaveBeenCalledTimes(1);
+    expect(transaction.rollback).not.toHaveBeenCalled();
+  });
+
+  test("keeps an OOXML attachment pending when structural validation fails because storage is unavailable", async () => {
+    const transaction = createTransaction();
+
+    const attachment = createPendingAttachment({
+      originalFileName: "slides.pptx",
+      fileName: "slides.pptx",
+      fileExtension: ".pptx",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    });
+
+    sequelize.transaction.mockResolvedValue(transaction);
+
+    Attachment.findOne.mockResolvedValue(attachment);
+
+    authorizeAttachmentTarget.mockResolvedValue({
+      allowed: true,
+      target: {
+        id: ENTITY_ID,
+        organizationId: ORGANIZATION_ID,
+      },
+    });
+
+    const storage = createCompletionStorage({
+      getObjectMetadata: jest.fn().mockResolvedValue({
+        contentLength: 1024,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        etag: "pptx-etag",
+        checksumSha256: "pptx-checksum",
+        metadata: {},
+      }),
+    });
+
+    getAttachmentStorage.mockReturnValue(storage);
+
+    const storageError = new Error("R2 range read failed");
+
+    storageError.code = "ATTACHMENT_STORAGE_RANGE_READ_FAILED";
+
+    validateOoxmlAttachment.mockRejectedValue(storageError);
+
+    const req = createCompletionRequest();
+    const res = createResponse();
+
+    await completeAttachmentUpload(req, res);
+
+    expect(validateOoxmlAttachment).toHaveBeenCalledWith({
+      storage,
+      storageKey: STORAGE_KEY,
+      fileSize: 1024,
+      fileExtension: ".pptx",
+    });
+
+    expect(storage.deleteObject).not.toHaveBeenCalled();
+
+    expect(attachment.uploadStatus).toBe("pending");
+
+    expect(transaction.rollback).toHaveBeenCalledTimes(1);
+    expect(transaction.commit).not.toHaveBeenCalled();
+
+    expect(res.status).toHaveBeenCalledWith(503);
+
+    expect(res.json).toHaveBeenCalledWith({
+      status: "error",
+      message: "File storage is temporarily unavailable.",
     });
   });
 });

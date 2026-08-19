@@ -35,7 +35,8 @@
     "pg": "^8.20.0",
     "pg-hstore": "^2.3.4",
     "pino": "^10.3.1",
-    "sequelize": "^6.37.8"
+    "sequelize": "^6.37.8",
+    "yauzl": "^3.4.0"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
