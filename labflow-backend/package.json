@@ -2,6 +2,11 @@
   "name": "labflow-backend",
   "version": "1.0.0",
   "description": "Backend API for LabFlow university laboratory project management app",
+  "packageManager": "npm@10.9.1",
+  "engines": {
+    "node": ">=24.14.1 <25",
+    "npm": ">=10.9.1 <11"
+  },
   "main": "src/server.js",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon src/server.js",
