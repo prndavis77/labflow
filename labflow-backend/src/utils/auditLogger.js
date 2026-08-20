@@ -4,9 +4,9 @@ const { logError } = require("./errorLogger");
 
 const getRequestIp = (req) => {
   return (
-    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    req.socket?.remoteAddress ||
-    null
+    String(req?.ip || req?.socket?.remoteAddress || "")
+      .trim()
+      .slice(0, 45) || null
   );
 };
 

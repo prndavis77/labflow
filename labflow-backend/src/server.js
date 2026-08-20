@@ -3,14 +3,16 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
-
 const { connectDatabase, sequelize } = require("./config/database");
-
 const logger = require("./config/logger");
 const { logError } = require("./utils/errorLogger");
 const requestContext = require("./middleware/requestContext");
 const requestLogger = require("./middleware/requestLogger");
 const errorHandler = require("./middleware/errorHandler");
+const {
+  validateProductionConfig,
+} = require("./config/validateProductionConfig");
+const { parseTrustProxy } = require("./config/proxyConfig");
 
 // Import routes
 const authRoutes = require("./routes/authRoutes");
@@ -31,9 +33,11 @@ const organizationRoutes = require("./routes/organizationRoutes");
 const attachmentRoutes = require("./routes/attachmentRoutes");
 const archivedItemRoutes = require("./routes/archivedItemRoutes");
 
+validateProductionConfig();
+
 const app = express();
 
-app.set("trust proxy", 1);
+app.set("trust proxy", parseTrustProxy());
 
 app.use(requestContext);
 app.use(requestLogger);
@@ -47,10 +51,6 @@ const developmentOrigins = [
 ];
 
 const isProductionCors = process.env.NODE_ENV === "production";
-
-if (isProductionCors && !process.env.FRONTEND_URL) {
-  throw new Error("FRONTEND_URL is required for production CORS.");
-}
 
 const allowedOrigins = isProductionCors
   ? [process.env.FRONTEND_URL].filter(Boolean)

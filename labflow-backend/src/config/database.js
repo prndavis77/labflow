@@ -3,9 +3,10 @@ require("dotenv").config({
   quiet: process.env.NODE_ENV === "test",
 });
 const logger = require("./logger");
+const { getDatabaseSslOptions } = require("./databaseSsl");
 const { logError } = require("../utils/errorLogger");
 
-const isProduction = process.env.NODE_ENV === "production";
+const databaseSslOptions = getDatabaseSslOptions();
 
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: "postgres",
@@ -20,12 +21,9 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
           );
         }
       : false,
-  dialectOptions: isProduction
+  dialectOptions: databaseSslOptions
     ? {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false,
-        },
+        ssl: databaseSslOptions,
       }
     : {},
 });

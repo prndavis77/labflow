@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 require("dotenv").config();
-
 const { sequelize } = require("../config/database");
+const { logError } = require("../utils/errorLogger");
 const {
   User,
   Project,
@@ -1013,7 +1013,11 @@ const seedDemoData = async () => {
       await transaction.rollback();
     }
 
-    console.error("Seed script failed:", error);
+    logError(error, {
+      event: "demo_seed_failed",
+      message: "Demo seed script failed",
+    });
+
     process.exitCode = 1;
   } finally {
     await sequelize.close();

@@ -2,41 +2,30 @@ require("dotenv").config({
   quiet: process.env.NODE_ENV === "test",
 });
 
-const isHostedDatabase =
-  process.env.DATABASE_URL &&
-  !process.env.DATABASE_URL.includes("localhost") &&
-  !process.env.DATABASE_URL.includes("127.0.0.1");
+const { getDatabaseSslOptions } = require("./databaseSsl");
 
-const sslOptions = isHostedDatabase
-  ? {
-      dialectOptions: {
-        ssl: {
-          require: true,
-          rejectUnauthorized: false,
-        },
-      },
-    }
-  : {};
+const buildDatabaseConfig = (nodeEnv) => {
+  const sslOptions = getDatabaseSslOptions({
+    nodeEnv,
+  });
+
+  return {
+    url: process.env.DATABASE_URL,
+    dialect: "postgres",
+    ...(sslOptions
+      ? {
+          dialectOptions: {
+            ssl: sslOptions,
+          },
+        }
+      : {}),
+  };
+};
 
 module.exports = {
-  development: {
-    url: process.env.DATABASE_URL,
-    dialect: "postgres",
-    ...sslOptions,
-  },
-  test: {
-    url: process.env.DATABASE_URL,
-    dialect: "postgres",
-    ...sslOptions,
-  },
-  production: {
-    url: process.env.DATABASE_URL,
-    dialect: "postgres",
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    },
-  },
+  development: buildDatabaseConfig("development"),
+
+  test: buildDatabaseConfig("test"),
+
+  production: buildDatabaseConfig("production"),
 };
