@@ -11,6 +11,7 @@ The project is designed around a common academic lab problem: research work is o
 - Live demo: `https://labflow-brown.vercel.app`
 - Backend health check: `https://labflow-backend-p7im.onrender.com/api/health`
 - Portfolio case study: `docs/case-study.md`
+- Security documentation: [SECURITY.md](SECURITY.md)
 - Backend tests: `cd labflow-backend && npm test`
 
 Demo accounts are listed below. The live demo uses seeded test data and should not be used with real laboratory, research, customer, or institutional data.
@@ -45,7 +46,7 @@ Completed:
 - Added `tokenVersion` to JWTs and invalidated stale sessions after self-service or administrator password resets.
 - Added frontend handling for `SESSION_INVALIDATED`, including token removal, redirect to login, and a one-time notice.
 - Added focused and regression tests for password reset, email verification, unverified-account restrictions, and JWT invalidation.
-- Verified the complete backend suite with 32 suites and 514 tests.
+- Verified the complete backend suite with 44 suites and 642 tests.
 - Verified production workspace registration, verification delivery, resend, verification completion, and immediate post-verification access without another login.
 
 ### Phase 23A: Invitation Email Delivery
@@ -146,7 +147,7 @@ Key technical areas include:
 - Sequelize migrations for database schema management
 - Jest and Supertest backend test coverage
 - Demo deployment using Vercel, Render, and Neon PostgreSQL
-- Basic backend hardening with Helmet, authentication rate limiting, and restricted CORS
+- Comprehensive backend security hardening covering HTTP headers, rate limiting, authentication, authorization, tenant isolation, request validation, attachment security, logging/redaction, dependency review, and production configuration
 
 ---
 
@@ -1117,8 +1118,12 @@ labflow/
       config/
         attachmentConfig.js
         database.js
+        databaseSsl.js
         emailConfig.js
+        logger.js
+        proxyConfig.js
         sequelize-cli.js
+        validateProductionConfig.js
       constants/
         archivedItems.js
         attachments.js
@@ -1149,10 +1154,15 @@ labflow/
           disabledEmailProvider.js
           mailgunEmailProvider.js
         templates/
+          emailVerificationEmail.js
           invitationEmail.js
+          passwordResetEmail.js
         createEmailProvider.js
       middleware/
         authMiddleware.js
+        errorHandler.js
+        requestContext.js
+        requestLogger.js
       migrations/
         20260622122950-initial-labflow-schema.js
         20260625133918-add-user-account-status.js
@@ -1167,9 +1177,11 @@ labflow/
         20260711225539-add-review-status-to-protocols.js
         20260724101117-create-attachments.js
         20260801183056-add-invitation-email-delivery-tracking.js
+        20260803135024-add-password-reset-and-email-verification.js
       models/
         Attachment.js
         AuditLog.js
+        EmailVerificationToken.js
         Equipment.js
         EquipmentBooking.js
         Experiment.js
@@ -1177,6 +1189,7 @@ labflow/
         Invitation.js
         NotebookEntry.js
         Organization.js
+        PasswordResetToken.js
         Project.js
         ProjectMember.js
         Protocol.js
@@ -1209,7 +1222,11 @@ labflow/
       services/
         attachmentCleanupService.js
         emailService.js
+        emailVerificationEmailService.js
+        emailVerificationService.js
         invitationEmailService.js
+        passwordResetEmailService.js
+        passwordResetService.js
       storage/
         providers/
           r2AttachmentStorage.js
@@ -1225,8 +1242,11 @@ labflow/
         archivedItems.test.js
         attachmentAccess.test.js
         attachmentCleanup.test.js
+        attachmentCleanupLogging.test.js
+        attachmentContentValidation.test.js
         attachmentDownloads.test.js
         attachmentMutations.test.js
+        attachmentOoxmlValidation.test.js
         attachmentReads.test.js
         attachmentStorage.test.js
         attachmentUploads.test.js
@@ -1234,29 +1254,44 @@ labflow/
         auditLogs.test.js
         auth.test.js
         authorization.test.js
+        databaseSsl.test.js
         emailConfig.test.js
         emailService.test.js
+        emailServiceLogging.test.js
+        emailVerification.test.js
+        emailVerificationRestriction.test.js
         equipmentBookingConflict.test.js
+        errorHandler.test.js
+        errorLogger.test.js
         health.test.js
         invitationControllerEmail.test.js
         invitationEmail.test.js
         invitationEmailService.test.js
         invitationEmailTracking.test.js
         invitations.test.js
+        jwtSessionInvalidation.test.js
         organizationIsolation.test.js
         organizationSettings.test.js
         organizationSlug.test.js
+        passwordReset.test.js
+        productionConfig.test.js
         projectMembershipAccess.test.js
+        proxyConfig.test.js
         reviewWorkflow.test.js
+        securityMiddleware.test.js
+        setupDatabaseSafety.test.js
         setupTests.js
         taskCompletionReview.test.js
         workspaceRegistration.test.js
       utils/
         attachmentAccess.js
+        attachmentContentValidation.js
+        attachmentOoxmlValidation.js
         attachmentResponse.js
         attachmentValidation.js
         auditLogger.js
         dateUtils.js
+        errorLogger.js
         formatUserResponse.js
         generateToken.js
         invitationTokens.js
@@ -1334,9 +1369,11 @@ labflow/
         ProtocolDetailPage.jsx
         ProtocolsPage.jsx
         RegisterPage.jsx
+        ResetPasswordPage.jsx
         ReviewQueuePage.jsx
         TaskDetailPage.jsx
         TasksPage.jsx
+        VerifyEmailPage.jsx
       routes/
         AppRoutes.jsx
         ProtectedRoute.jsx
@@ -1686,41 +1723,74 @@ Attachment restoration verifies that the stored object exists in Cloudflare R2 b
 
 ## Security and Deployment Notes
 
-LabFlow is currently prepared for portfolio/demo deployment. It should not be used with real laboratory or research data without additional production hardening.
+LabFlow is deployed primarily as a portfolio/demo application and the public demo uses seeded test data. The application now includes a substantial backend security-hardening layer, but the public demo should still not be used for real laboratory, research, customer, or institutional data.
 
-Production environment variables should be stored only in the hosting provider's environment variable settings. Do not commit real `.env` files, database URLs, JWT secrets, or production credentials to Git.
+For the complete security model, production requirements, dependency-risk notes, and security-testing coverage, see [SECURITY.md](SECURITY.md).
 
-Mailgun production credentials should be stored only in the Render backend service environment. Use a separate Mailgun Domain Sending Key for each environment. Do not expose the key to the Vite frontend, prefix it with `VITE_`, print it in logs, or store it in committed configuration.
+Production environment variables must be stored only in the hosting provider's environment or secret-management system. Do not commit real `.env` files, database URLs, JWT secrets, email-provider credentials, Cloudflare R2 credentials, or other production secrets to Git.
 
-In the current local development environment, Mailgun repeatedly disabled keys stored in the local `.env` file. A key injected only into the PowerShell process remained usable during testing. Local Mailgun keys should therefore be supplied through a temporary process environment variable or an operating-system secret store until the local `.env` exposure source is identified.
+Mailgun production credentials must remain backend-only. Do not expose the API key to the Vite frontend, prefix it with `VITE_`, print it in logs, or place it in committed configuration.
 
-LabFlow includes basic backend hardening for the demo API, including security headers with Helmet, authentication rate limiting, restricted CORS origins, JWT authentication, password hashing, protected routes, role-based authorization, and project-scoped backend access checks.
+LabFlow's backend security controls include:
 
-Public registration creates a new organization workspace and its first administrator. Additional admins, supervisors, and researchers must be invited by an administrator from within the organization.
+- Helmet HTTP security headers
+- Restricted production CORS
+- Global API rate limiting
+- Stricter rate limiting for authentication-sensitive endpoints
+- JWT bearer authentication
+- bcrypt password hashing
+- Session invalidation through JWT `tokenVersion`
+- Email-verification and password-reset token hashing and expiration
+- Role-based authorization
+- Organization-level tenant isolation
+- Project-membership-aware resource access
+- Explicit request validation
+- Mutable-field allowlisting to reduce mass-assignment risk
+- Sanitized structured logging and error handling
+- Credential and token redaction
+- Private Cloudflare R2 attachment storage
+- Attachment filename, MIME, signature, and OOXML structural validation
+- Short-lived signed attachment upload and download URLs
+- ETag-conditioned attachment finalization
+- Production environment validation
+- PostgreSQL TLS with certificate verification enabled by default
+- Configurable reverse-proxy trust
+- Production protection against automatic Sequelize schema synchronization
+- Production protection against accidental demo seeding
+- Automated security regression tests
+
+Health and readiness endpoints are intentionally excluded from the global API rate limiter so hosting-platform and load-balancer health probes are not throttled.
+
+Public registration creates a new organization workspace and its first administrator. Additional admins, supervisors, and researchers must be invited by an administrator from within that organization.
 
 The included demo seed data uses shared demo credentials for portfolio testing. These credentials are not suitable for real production use.
 
-The `npm run seed` command is intended for local and demo setup only. The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization. It does not delete data from other organizations. It should not be run against a real production database with customer or research records.
+The `npm run seed` command is intended for local and demo setup. The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization and does not delete records from other organizations. Production execution is refused unless `ALLOW_PRODUCTION_SEED=true` is explicitly configured.
 
-LabFlow now includes a Sequelize migration baseline for the current MVP schema. New databases should be initialized with migrations instead of relying on Sequelize schema sync.
+LabFlow uses Sequelize migrations as the production schema-management mechanism.
 
-The `npm run setup:db` command is kept only as a legacy/demo fallback from the original MVP deployment path. It uses Sequelize schema sync and should not be run casually against a live database containing real user data.
-
-Before LabFlow is used as real production software, additional hardening would still be required, including centralized logging, monitoring, stricter secrets management, account lockout rules, expanded tenant administration, immutable audit controls, and a more complete automated production deployment process.
+The legacy `npm run setup:db` workflow uses Sequelize schema synchronization for local development and demo setup. Automatic schema synchronization is explicitly refused when `NODE_ENV=production`.
 
 ### Production Deployment Safety
 
-Production migrations should be run intentionally and only after local backend tests pass.
+Production startup validates required security-sensitive configuration, including `NODE_ENV`, `DATABASE_URL`, `JWT_SECRET`, and `FRONTEND_URL`.
 
 Before running production migrations:
 
-- Confirm `npm test` passes locally against the test database.
-- Confirm the production database URL is used only in the current terminal session.
-- Check migration status before and after running migrations.
-- Do not run `npm test` or `npm run seed` against production.
-- Clear production environment variables after migration commands.
+- Confirm the backend test suite passes locally.
+- Confirm `NODE_ENV=production`.
+- Store the production database URL only in the deployment platform's secret or environment configuration.
+- Verify PostgreSQL TLS certificate validation is enabled.
+- Check migration status before and after applying migrations.
+- Do not run the backend test suite against the production database.
+- Do not enable production demo seeding for normal deployments.
+- Keep Cloudflare R2 buckets private.
+- Restrict production CORS to the deployed frontend origin.
+- Configure `TRUST_PROXY` for the actual deployment topology.
+- Run `npm ci` from the committed lockfile.
+- Review `npm audit` results before security-sensitive releases.
 
-See `docs/production-deployment.md` for the full deployment checklist.
+See `docs/production-deployment.md` for the full deployment checklist and [SECURITY.md](SECURITY.md) for the security architecture and currently accepted dependency risk.
 
 ---
 
@@ -2330,7 +2400,7 @@ Current limitations include:
 - Attachment malware scanning, content inspection, large multipart uploads, organization storage quotas, and physical deletion policies are not yet included.
 - Notebook entries use plain text and do not yet support rich text or PDF export.
 - Frontend automated tests are not yet included.
-- Production-grade monitoring, centralized logging, account lockout, and automated deployment/migration orchestration are not yet complete.
+- Production-grade monitoring, alerting, account lockout, and automated deployment/migration orchestration are not yet complete.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 - Demo accounts use shared credentials and are not suitable for real production use.
 
@@ -2367,7 +2437,7 @@ Recommended Version 2 improvements:
 - Subscription and billing support
 - Notification preferences, overdue-task alerts, booking reminders, and review notifications
 - Secure local secret storage through Windows Credential Manager or PowerShell SecretManagement
-- Production monitoring, centralized logging, alerting, and automated migration/deployment workflows
+- Production monitoring, alerting, log aggregation/retention, and automated migration/deployment workflows
 - More granular project-specific permissions and supervisor assignment rules
 - Project invitation and membership approval workflows
 - Equipment access rules for organization-wide, project-specific, or restricted instruments
