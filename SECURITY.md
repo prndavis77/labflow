@@ -121,6 +121,8 @@ The API uses:
 
 Health and readiness endpoints are intentionally mounted before the global API rate limiter so infrastructure health probes are not throttled.
 
+Reverse-proxy trust is configured with `TRUST_PROXY`. Production defaults to one trusted proxy hop when the variable is unset. The configured value must match the actual deployment topology so client IP addresses and rate limiting cannot be influenced by untrusted forwarding headers.
+
 Production `FRONTEND_URL` must use HTTPS.
 
 ## PostgreSQL security
