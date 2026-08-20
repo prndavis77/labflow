@@ -1,4 +1,9 @@
+jest.mock("../utils/errorLogger", () => ({
+  logError: jest.fn(),
+}));
+
 const { Invitation } = require("../models");
+const { logError } = require("../utils/errorLogger");
 
 const {
   buildInvitationEmailTracking,
@@ -7,6 +12,10 @@ const {
 
 describe("Invitation email delivery tracking", () => {
   const attemptedAt = new Date("2026-08-01T18:00:00.000Z");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it("maps accepted delivery to sent", () => {
     const result = buildInvitationEmailTracking({
@@ -108,11 +117,12 @@ describe("Invitation email delivery tracking", () => {
     expect(result.persisted).toBe(true);
   });
 
-  it("does not throw when tracking persistence fails", async () => {
+  it("logs safely and does not throw when tracking persistence fails", async () => {
+    const persistenceError = new Error("Simulated tracking failure");
+
     const invitation = {
-      update: jest
-        .fn()
-        .mockRejectedValue(new Error("Simulated tracking failure")),
+      id: 42,
+      update: jest.fn().mockRejectedValue(persistenceError),
     };
 
     await expect(
@@ -130,6 +140,14 @@ describe("Invitation email delivery tracking", () => {
       }),
     ).resolves.toMatchObject({
       persisted: false,
+    });
+
+    expect(logError).toHaveBeenCalledWith(persistenceError, {
+      event: "invitation_email_tracking_persist_failed",
+      message: "Failed to persist invitation email tracking",
+      context: {
+        invitationId: 42,
+      },
     });
   });
 

@@ -631,8 +631,6 @@ const completeAttachmentUpload = async (req, res) => {
         message: "Attachment storage finalization failed",
         context: {
           attachmentId,
-          stagingStorageKey,
-          finalStorageKey,
         },
       });
 
@@ -666,7 +664,6 @@ const completeAttachmentUpload = async (req, res) => {
           message: "Failed to delete unverified finalized attachment object",
           context: {
             attachmentId,
-            finalStorageKey,
           },
         });
       }
@@ -680,7 +677,6 @@ const completeAttachmentUpload = async (req, res) => {
         message: "Finalized attachment verification failed",
         context: {
           attachmentId,
-          finalStorageKey,
         },
       });
 
@@ -716,7 +712,6 @@ const completeAttachmentUpload = async (req, res) => {
             "Failed to delete attachment after final object verification failed",
           context: {
             attachmentId,
-            finalStorageKey,
           },
         });
       }
@@ -752,7 +747,6 @@ const completeAttachmentUpload = async (req, res) => {
             "Failed to delete finalized attachment after staging cleanup failed",
           context: {
             attachmentId,
-            finalStorageKey,
           },
         });
       }
@@ -767,7 +761,6 @@ const completeAttachmentUpload = async (req, res) => {
           "Failed to delete attachment staging object after finalization",
         context: {
           attachmentId,
-          stagingStorageKey,
         },
       });
 

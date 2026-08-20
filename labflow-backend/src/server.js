@@ -185,11 +185,12 @@ app.use("/api/attachments", attachmentRoutes);
 // Admin archived-item routes
 app.use("/api/admin/archived-items", archivedItemRoutes);
 
-// Handles unknown API routes with a clear JSON response
+// Handles unknown routes without reflecting user-controlled URL data.
 app.use((req, res) => {
   return res.status(404).json({
     status: "error",
-    message: `Route not found: ${req.method} ${req.originalUrl}`,
+    message: "Route not found.",
+    requestId: req.requestId,
   });
 });
 
@@ -211,13 +212,8 @@ async function startServer() {
         "LabFlow API server started",
       );
     });
-  } catch (error) {
-    logger.fatal(
-      {
-        err: error,
-      },
-      "Failed to start LabFlow API server",
-    );
+  } catch {
+    logger.fatal("LabFlow API server startup aborted");
     process.exit(1);
   }
 }

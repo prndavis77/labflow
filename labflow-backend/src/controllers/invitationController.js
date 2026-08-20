@@ -203,6 +203,14 @@ const persistInvitationEmailTracking = async ({
       trackingValues,
     };
   } catch (error) {
+    logError(error, {
+      event: "invitation_email_tracking_persist_failed",
+      message: "Failed to persist invitation email tracking",
+      context: {
+        invitationId: invitation.id || null,
+      },
+    });
+
     return {
       persisted: false,
       trackingValues,

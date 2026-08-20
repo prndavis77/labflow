@@ -1,10 +1,9 @@
 const { Sequelize } = require("sequelize");
-
 require("dotenv").config({
   quiet: process.env.NODE_ENV === "test",
 });
-
 const logger = require("./logger");
+const { logError } = require("../utils/errorLogger");
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -37,12 +36,10 @@ async function connectDatabase() {
 
     logger.info("Database connection established successfully");
   } catch (error) {
-    logger.error(
-      {
-        err: error,
-      },
-      "Unable to connect to the database",
-    );
+    logError(error, {
+      event: "database_connection_failed",
+      message: "Unable to connect to the database",
+    });
 
     throw error;
   }
