@@ -1,14 +1,5 @@
 require("dotenv").config();
 
-const databaseUrl = String(process.env.DATABASE_URL || "");
-
-console.log("Attachment cleanup database configuration", {
-  hasDatabaseUrl: Boolean(databaseUrl),
-  containsSslMode: databaseUrl.includes("sslmode="),
-  nodeEnv: process.env.NODE_ENV || null,
-  isRender: process.env.RENDER === "true",
-});
-
 const logger = require("../config/logger");
 const { logError } = require("../utils/errorLogger");
 const { Attachment } = require("../models");
