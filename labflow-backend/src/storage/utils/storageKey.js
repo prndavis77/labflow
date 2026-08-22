@@ -46,6 +46,47 @@ const validateStorageKey = (storageKey) => {
   return normalizedStorageKey;
 };
 
+const validateStoragePrefix = (storagePrefix) => {
+  const normalizedStoragePrefix = String(storagePrefix || "").trim();
+
+  if (!normalizedStoragePrefix) {
+    throw new Error("Storage prefix is required.");
+  }
+
+  if (normalizedStoragePrefix.length > 1024) {
+    throw new Error("Storage prefix cannot exceed 1024 characters.");
+  }
+
+  if (
+    normalizedStoragePrefix.startsWith("/") ||
+    !normalizedStoragePrefix.endsWith("/") ||
+    normalizedStoragePrefix.includes("\\") ||
+    normalizedStoragePrefix.includes("//")
+  ) {
+    throw new Error("Storage prefix format is invalid.");
+  }
+
+  const pathWithoutTrailingSlash = normalizedStoragePrefix.slice(0, -1);
+  const segments = pathWithoutTrailingSlash.split("/");
+
+  if (
+    segments.some((segment) => !segment || segment === "." || segment === "..")
+  ) {
+    throw new Error("Storage prefix contains an invalid path segment.");
+  }
+
+  return normalizedStoragePrefix;
+};
+
+const createOrganizationStoragePrefix = ({ organizationId }) => {
+  const normalizedOrganizationId = validatePositiveInteger(
+    organizationId,
+    "Organization ID",
+  );
+
+  return validateStoragePrefix(`organizations/${normalizedOrganizationId}/`);
+};
+
 const normalizeAttachmentStorageKeyParts = ({
   organizationId,
   entityType,
@@ -130,5 +171,7 @@ const createAttachmentFinalStorageKey = (options) => {
 module.exports = {
   createAttachmentStagingStorageKey,
   createAttachmentFinalStorageKey,
+  createOrganizationStoragePrefix,
   validateStorageKey,
+  validateStoragePrefix,
 };
