@@ -1,15 +1,43 @@
 const { Sequelize } = require("sequelize");
+
 require("dotenv").config({
   quiet: process.env.NODE_ENV === "test",
 });
+
 const logger = require("./logger");
 const { getDatabaseSslOptions } = require("./databaseSsl");
 const { logError } = require("../utils/errorLogger");
 
-const databaseSslOptions = getDatabaseSslOptions();
+const getRuntimeDatabaseUrl = () => {
+  if (process.env.NODE_ENV === "test") {
+    const testDatabaseUrl = String(process.env.TEST_DATABASE_URL || "").trim();
 
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
+    if (!testDatabaseUrl) {
+      throw new Error("TEST_DATABASE_URL is required when NODE_ENV is test.");
+    }
+
+    return testDatabaseUrl;
+  }
+
+  const databaseUrl = String(process.env.DATABASE_URL || "").trim();
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required.");
+  }
+
+  return databaseUrl;
+};
+
+const databaseUrl = getRuntimeDatabaseUrl();
+
+const databaseSslOptions = getDatabaseSslOptions({
+  nodeEnv: process.env.NODE_ENV,
+  databaseUrl,
+});
+
+const sequelize = new Sequelize(databaseUrl, {
   dialect: "postgres",
+
   logging:
     process.env.NODE_ENV === "development"
       ? (message) => {
@@ -21,6 +49,7 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
           );
         }
       : false,
+
   dialectOptions: databaseSslOptions
     ? {
         ssl: databaseSslOptions,
@@ -43,4 +72,7 @@ async function connectDatabase() {
   }
 }
 
-module.exports = { sequelize, connectDatabase };
+module.exports = {
+  sequelize,
+  connectDatabase,
+};
