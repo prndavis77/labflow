@@ -5,10 +5,9 @@ jest.mock("../services/invitationEmailService", () => ({
 }));
 
 const { sendInvitationEmail } = require("../services/invitationEmailService");
-
 const app = require("../server");
 const { sequelize } = require("../config/database");
-const { Invitation, User, AuditLog } = require("../models");
+const { Invitation, User, AuditLog, Organization } = require("../models");
 const {
   TEST_PASSWORD,
   createTestUser,
@@ -16,6 +15,9 @@ const {
   createSecondTestOrganization,
 } = require("./helpers/testHelpers");
 const { hashInvitationToken } = require("../utils/invitationTokens");
+const {
+  freezeOrganizationAccess,
+} = require("../services/organizationAccessFreezeService");
 
 const loginAndGetToken = async (email) => {
   const response = await request(app).post("/api/auth/login").send({
@@ -539,6 +541,232 @@ describe("Invitations API", () => {
     expect(user.emailVerifiedAt.getTime()).toBe(
       invitation.acceptedAt.getTime(),
     );
+  });
+
+  it("prevents invitation acceptance when the organization becomes inactive before the acceptance transaction", async () => {
+    const inviteEmail = "freeze-during-acceptance@test.com";
+
+    const createResponse = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(
+        createInvitationPayload({
+          email: inviteEmail,
+        }),
+      );
+
+    expect(createResponse.status).toBe(201);
+
+    const inviteLink = createResponse.body.data.inviteLink;
+    const token = inviteLink.split("/accept-invite/")[1];
+
+    /*
+     * findPendingInvitationByToken() loads the invitation and currently-active
+     * organization before the acceptance transaction begins.
+     *
+     * Mock only the new Organization.findByPk() call inside the transaction so
+     * the organization appears inactive at the authoritative recheck.
+     *
+     * This simulates the organization being frozen after the initial invitation
+     * lookup but before user creation.
+     */
+    const organizationLockSpy = jest
+      .spyOn(Organization, "findByPk")
+      .mockResolvedValueOnce({
+        id: organization.id,
+        isActive: false,
+      });
+
+    try {
+      const response = await request(app)
+        .post(`/api/invitations/accept/${token}`)
+        .send({
+          password: "password1234",
+        });
+
+      expect(response.status).toBe(400);
+
+      expect(response.body).toEqual({
+        status: "error",
+        message: "Invitation organization is not active.",
+      });
+    } finally {
+      organizationLockSpy.mockRestore();
+    }
+
+    const createdUser = await User.findOne({
+      where: {
+        email: inviteEmail,
+      },
+    });
+
+    expect(createdUser).toBeNull();
+
+    const invitation = await Invitation.findOne({
+      where: {
+        email: inviteEmail,
+        organizationId: organization.id,
+      },
+    });
+
+    expect(invitation).toBeTruthy();
+    expect(invitation.status).toBe("pending");
+    expect(invitation.acceptedAt).toBeNull();
+    expect(invitation.acceptedUserId).toBeNull();
+  });
+
+  it("freezes one organization's invitation acceptance without affecting a neighboring organization's invitation", async () => {
+    const targetEmail = "frozen-org-invite@test.com";
+    const neighborEmail = "neighbor-org-invite@test.com";
+
+    /*
+     * Create one invitation in each organization through the real API.
+     */
+    const targetCreateResponse = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(
+        createInvitationPayload({
+          email: targetEmail,
+          name: "Frozen Organization Invitee",
+        }),
+      );
+
+    expect(targetCreateResponse.statusCode).toBe(201);
+
+    const neighborCreateResponse = await request(app)
+      .post("/api/invitations")
+      .set("Authorization", `Bearer ${secondAdminToken}`)
+      .send(
+        createInvitationPayload({
+          email: neighborEmail,
+          name: "Neighbor Organization Invitee",
+        }),
+      );
+
+    expect(neighborCreateResponse.statusCode).toBe(201);
+
+    const targetToken =
+      targetCreateResponse.body.data.inviteLink.split("/accept-invite/")[1];
+
+    const neighborToken =
+      neighborCreateResponse.body.data.inviteLink.split("/accept-invite/")[1];
+
+    const targetInvitationBeforeFreeze = await Invitation.findOne({
+      where: {
+        email: targetEmail,
+        organizationId: organization.id,
+      },
+    });
+
+    const neighborInvitationBeforeFreeze = await Invitation.findOne({
+      where: {
+        email: neighborEmail,
+        organizationId: secondOrganization.id,
+      },
+    });
+
+    expect(targetInvitationBeforeFreeze).toBeTruthy();
+    expect(neighborInvitationBeforeFreeze).toBeTruthy();
+
+    expect(targetInvitationBeforeFreeze.status).toBe("pending");
+    expect(neighborInvitationBeforeFreeze.status).toBe("pending");
+
+    /*
+     * Freeze only the primary organization.
+     */
+    await freezeOrganizationAccess({
+      organizationId: organization.id,
+    });
+
+    /*
+     * The frozen organization's invitation must no longer be usable.
+     */
+    const frozenInspectionResponse = await request(app).get(
+      `/api/invitations/accept/${targetToken}`,
+    );
+
+    expect([400, 404]).toContain(frozenInspectionResponse.statusCode);
+
+    const frozenAcceptanceResponse = await request(app)
+      .post(`/api/invitations/accept/${targetToken}`)
+      .send({
+        password: "password1234",
+      });
+
+    expect([400, 404]).toContain(frozenAcceptanceResponse.statusCode);
+
+    const frozenCreatedUser = await User.findOne({
+      where: {
+        email: targetEmail,
+        organizationId: organization.id,
+      },
+    });
+
+    expect(frozenCreatedUser).toBeNull();
+
+    const targetInvitationAfterFreeze = await Invitation.findOne({
+      where: {
+        id: targetInvitationBeforeFreeze.id,
+      },
+    });
+
+    /*
+     * Freezing the organization should not falsely mark the invitation accepted.
+     */
+    expect(targetInvitationAfterFreeze).toBeTruthy();
+    expect(targetInvitationAfterFreeze.status).toBe("pending");
+    expect(targetInvitationAfterFreeze.acceptedAt).toBeNull();
+    expect(targetInvitationAfterFreeze.acceptedUserId).toBeNull();
+
+    /*
+     * The neighboring invitation must remain fully usable.
+     */
+    const neighborInspectionResponse = await request(app).get(
+      `/api/invitations/accept/${neighborToken}`,
+    );
+
+    expect(neighborInspectionResponse.statusCode).toBe(200);
+
+    expect(neighborInspectionResponse.body.data.invitation.email).toBe(
+      neighborEmail,
+    );
+
+    const neighborAcceptanceResponse = await request(app)
+      .post(`/api/invitations/accept/${neighborToken}`)
+      .send({
+        password: "password1234",
+      });
+
+    expect(neighborAcceptanceResponse.statusCode).toBe(201);
+    expect(neighborAcceptanceResponse.body.status).toBe("success");
+
+    const neighborCreatedUser = await User.findOne({
+      where: {
+        email: neighborEmail,
+        organizationId: secondOrganization.id,
+      },
+    });
+
+    expect(neighborCreatedUser).toBeTruthy();
+
+    const neighborInvitationAfterAcceptance = await Invitation.findOne({
+      where: {
+        id: neighborInvitationBeforeFreeze.id,
+      },
+    });
+
+    expect(neighborInvitationAfterAcceptance.status).toBe("accepted");
+    expect(neighborInvitationAfterAcceptance.acceptedAt).toBeInstanceOf(Date);
+    expect(neighborInvitationAfterAcceptance.acceptedUserId).toBe(
+      neighborCreatedUser.id,
+    );
+
+    const reloadedNeighborOrganization = await Organization.findByPk(
+      secondOrganization.id,
+    );
+
+    expect(reloadedNeighborOrganization.isActive).toBe(true);
   });
 
   it("prevents an accepted invitation from being reused", async () => {

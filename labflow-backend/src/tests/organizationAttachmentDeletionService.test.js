@@ -151,6 +151,70 @@ describe("organizationAttachmentDeletionService", () => {
       });
     });
 
+    it("deletes only the exact organization prefix and preserves neighboring organization prefixes", async () => {
+      const objects = new Set([
+        "organizations/17/project/1/attachments/a/file.pdf",
+        "organizations/17/project/1/staging/b/pending.csv",
+        "organizations/170/project/1/attachments/c/neighbor.pdf",
+        "organizations/171/project/1/attachments/d/neighbor.pdf",
+        "organizations/99/project/1/attachments/e/neighbor.pdf",
+      ]);
+
+      const storage = {
+        listObjects: jest.fn(async ({ prefix }) => {
+          const matchingObjects = [...objects]
+            .filter((storageKey) => storageKey.startsWith(prefix))
+            .map((storageKey) => createObject(storageKey));
+
+          return {
+            objects: matchingObjects,
+            isTruncated: false,
+            nextContinuationToken: null,
+          };
+        }),
+
+        deleteObjects: jest.fn(async ({ storageKeys }) => {
+          for (const storageKey of storageKeys) {
+            objects.delete(storageKey);
+          }
+
+          return {
+            deleted: true,
+          };
+        }),
+      };
+
+      const result = await deleteOrganizationAttachmentObjects({
+        organizationId: 17,
+        storage,
+      });
+
+      expect(result).toEqual({
+        organizationId: 17,
+        prefix: "organizations/17/",
+        deletedObjectCount: 2,
+        deletionRounds: 1,
+        verifiedEmpty: true,
+      });
+
+      expect([...objects].sort()).toEqual(
+        [
+          "organizations/170/project/1/attachments/c/neighbor.pdf",
+          "organizations/171/project/1/attachments/d/neighbor.pdf",
+          "organizations/99/project/1/attachments/e/neighbor.pdf",
+        ].sort(),
+      );
+
+      expect(storage.deleteObjects).toHaveBeenCalledTimes(1);
+
+      expect(storage.deleteObjects).toHaveBeenCalledWith({
+        storageKeys: [
+          "organizations/17/project/1/attachments/a/file.pdf",
+          "organizations/17/project/1/staging/b/pending.csv",
+        ],
+      });
+    });
+
     it("is safely idempotent when the organization prefix is already empty", async () => {
       const storage = {
         listObjects: jest.fn().mockResolvedValue({

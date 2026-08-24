@@ -462,7 +462,7 @@ const loginUser = async (req, res) => {
         {
           model: Organization,
           as: "organization",
-          attributes: ["id", "name", "slug", "type"],
+          attributes: ["id", "name", "slug", "type", "isActive"],
         },
       ],
     });
@@ -490,8 +490,15 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const token = generateToken(user);
+    if (!user.organization || !user.organization.isActive) {
+      return res.status(403).json({
+        status: "error",
+        code: "ORGANIZATION_INACTIVE",
+        message: "This workspace is no longer active.",
+      });
+    }
 
+    const token = generateToken(user);
     return res.json({
       status: "success",
       message: "Login successful.",

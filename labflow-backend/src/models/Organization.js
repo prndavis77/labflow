@@ -45,6 +45,12 @@ const Organization = sequelize.define(
       defaultValue: true,
       field: "is_active",
     },
+
+    offboardingFrozenAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "offboarding_frozen_at",
+    },
   },
   {
     tableName: "organizations",

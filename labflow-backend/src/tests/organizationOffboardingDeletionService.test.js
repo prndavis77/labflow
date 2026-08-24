@@ -7,6 +7,8 @@ const {
 
 const ORGANIZATION_ID = 17;
 const PREFIX = "organizations/17/";
+const FROZEN_AT = new Date("2026-08-24T09:00:00.000Z");
+const DELETION_NOW = new Date("2026-08-24T09:10:00.000Z");
 
 const createStorageHarness = (initialStorageKeys = []) => {
   let storageKeys = [...initialStorageKeys];
@@ -53,8 +55,13 @@ const createStorageHarness = (initialStorageKeys = []) => {
   };
 };
 
-const createOrganizationModelHarness = ({ databasePresent = true } = {}) => {
+const createOrganizationModelHarness = ({
+  databasePresent = true,
+  isActive = false,
+  offboardingFrozenAt = FROZEN_AT,
+} = {}) => {
   let present = databasePresent;
+  let active = isActive;
 
   return {
     organizationModel: {
@@ -62,6 +69,8 @@ const createOrganizationModelHarness = ({ databasePresent = true } = {}) => {
         return present
           ? {
               id: ORGANIZATION_ID,
+              isActive: active,
+              offboardingFrozenAt,
             }
           : null;
       }),
@@ -69,6 +78,10 @@ const createOrganizationModelHarness = ({ databasePresent = true } = {}) => {
 
     setDatabasePresent(value) {
       present = value;
+    },
+
+    setOrganizationActive(value) {
+      active = value;
     },
 
     isDatabasePresent() {
@@ -169,10 +182,15 @@ describe("organizationOffboardingDeletionService", () => {
   });
 
   describe("deleteOrganizationWithReconciliation", () => {
-    it("refuses destructive deletion unless writes are frozen", async () => {
-      const { storage } = createStorageHarness([]);
+    it("refuses destructive deletion when the organization is still active", async () => {
+      const { storage } = createStorageHarness([
+        `${PREFIX}project/1/attachments/a/file.pdf`,
+      ]);
 
-      const { organizationModel } = createOrganizationModelHarness();
+      const { organizationModel } = createOrganizationModelHarness({
+        databasePresent: true,
+        isActive: true,
+      });
 
       const deleteStorageObjects = jest.fn();
       const deleteDatabaseData = jest.fn();
@@ -190,8 +208,53 @@ describe("organizationOffboardingDeletionService", () => {
         stage: "precondition",
       });
 
+      /*
+       * This is the critical safety guarantee. No irreversible R2 operation may
+       * begin while PostgreSQL still says the organization is active.
+       */
       expect(deleteStorageObjects).not.toHaveBeenCalled();
       expect(deleteDatabaseData).not.toHaveBeenCalled();
+    });
+
+    it("allows deletion to proceed when the organization is authoritatively inactive", async () => {
+      const { storage } = createStorageHarness([]);
+
+      const database = createOrganizationModelHarness({
+        databasePresent: true,
+        isActive: false,
+      });
+
+      const deleteStorageObjects = jest.fn().mockResolvedValue({
+        organizationId: ORGANIZATION_ID,
+        prefix: PREFIX,
+        deletedObjectCount: 0,
+        deletionRounds: 0,
+        verifiedEmpty: true,
+      });
+
+      const deleteDatabaseData = jest.fn(async () => {
+        database.setDatabasePresent(false);
+
+        return {
+          organizationId: ORGANIZATION_ID,
+          deleted: {
+            organizations: 1,
+          },
+        };
+      });
+
+      const result = await deleteOrganizationWithReconciliation({
+        organizationId: ORGANIZATION_ID,
+        storage,
+        organizationModel: database.organizationModel,
+        deleteStorageObjects,
+        deleteDatabaseData,
+      });
+
+      expect(result.outcome).toBe("deleted");
+
+      expect(deleteStorageObjects).toHaveBeenCalledTimes(1);
+      expect(deleteDatabaseData).toHaveBeenCalledTimes(1);
     });
 
     it("returns idempotent success when deletion is already complete", async () => {
@@ -206,7 +269,6 @@ describe("organizationOffboardingDeletionService", () => {
 
       const result = await deleteOrganizationWithReconciliation({
         organizationId: ORGANIZATION_ID,
-        writesFrozenConfirmed: true,
         storage,
         organizationModel,
         deleteStorageObjects,
@@ -238,7 +300,6 @@ describe("organizationOffboardingDeletionService", () => {
       await expect(
         deleteOrganizationWithReconciliation({
           organizationId: ORGANIZATION_ID,
-          writesFrozenConfirmed: true,
           storage,
           organizationModel,
           deleteStorageObjects,
@@ -293,7 +354,6 @@ describe("organizationOffboardingDeletionService", () => {
 
       const result = await deleteOrganizationWithReconciliation({
         organizationId: ORGANIZATION_ID,
-        writesFrozenConfirmed: true,
         storage,
         organizationModel: database.organizationModel,
         deleteStorageObjects,
@@ -331,7 +391,6 @@ describe("organizationOffboardingDeletionService", () => {
       await expect(
         deleteOrganizationWithReconciliation({
           organizationId: ORGANIZATION_ID,
-          writesFrozenConfirmed: true,
           storage,
           organizationModel: database.organizationModel,
           deleteStorageObjects,
@@ -375,7 +434,6 @@ describe("organizationOffboardingDeletionService", () => {
 
       const result = await deleteOrganizationWithReconciliation({
         organizationId: ORGANIZATION_ID,
-        writesFrozenConfirmed: true,
         storage,
         organizationModel: database.organizationModel,
         deleteStorageObjects,
@@ -426,7 +484,6 @@ describe("organizationOffboardingDeletionService", () => {
 
       const result = await deleteOrganizationWithReconciliation({
         organizationId: ORGANIZATION_ID,
-        writesFrozenConfirmed: true,
         storage: storageHarness.storage,
         organizationModel: database.organizationModel,
         deleteStorageObjects,
@@ -461,7 +518,6 @@ describe("organizationOffboardingDeletionService", () => {
       await expect(
         deleteOrganizationWithReconciliation({
           organizationId: ORGANIZATION_ID,
-          writesFrozenConfirmed: true,
           storage,
           organizationModel: database.organizationModel,
           deleteStorageObjects,
@@ -473,6 +529,118 @@ describe("organizationOffboardingDeletionService", () => {
       });
 
       expect(deleteDatabaseData).not.toHaveBeenCalled();
+    });
+
+    it("refuses deletion when the offboarding freeze timestamp is missing", async () => {
+      const { storage } = createStorageHarness([
+        `${PREFIX}project/1/attachments/a/file.pdf`,
+      ]);
+
+      const { organizationModel } = createOrganizationModelHarness({
+        databasePresent: true,
+        isActive: false,
+        offboardingFrozenAt: null,
+      });
+
+      const deleteStorageObjects = jest.fn();
+      const deleteDatabaseData = jest.fn();
+
+      await expect(
+        deleteOrganizationWithReconciliation({
+          organizationId: ORGANIZATION_ID,
+          now: DELETION_NOW,
+          storage,
+          organizationModel,
+          deleteStorageObjects,
+          deleteDatabaseData,
+        }),
+      ).rejects.toMatchObject({
+        code: "ORGANIZATION_FREEZE_TIMESTAMP_MISSING",
+        stage: "precondition",
+      });
+
+      expect(deleteStorageObjects).not.toHaveBeenCalled();
+      expect(deleteDatabaseData).not.toHaveBeenCalled();
+    });
+
+    it("refuses deletion before signed upload URL quiescence has elapsed", async () => {
+      const frozenAt = new Date("2026-08-24T09:00:00.000Z");
+      const tooEarly = new Date("2026-08-24T09:05:59.000Z");
+
+      const { storage } = createStorageHarness([
+        `${PREFIX}project/1/attachments/a/file.pdf`,
+      ]);
+
+      const { organizationModel } = createOrganizationModelHarness({
+        databasePresent: true,
+        isActive: false,
+        offboardingFrozenAt: frozenAt,
+      });
+
+      const deleteStorageObjects = jest.fn();
+      const deleteDatabaseData = jest.fn();
+
+      await expect(
+        deleteOrganizationWithReconciliation({
+          organizationId: ORGANIZATION_ID,
+          now: tooEarly,
+          storage,
+          organizationModel,
+          deleteStorageObjects,
+          deleteDatabaseData,
+        }),
+      ).rejects.toMatchObject({
+        code: "ORGANIZATION_UPLOAD_QUIESCENCE_PENDING",
+        stage: "precondition",
+      });
+
+      expect(deleteStorageObjects).not.toHaveBeenCalled();
+      expect(deleteDatabaseData).not.toHaveBeenCalled();
+    });
+
+    it("allows deletion once the six-minute upload quiescence period has elapsed", async () => {
+      const frozenAt = new Date("2026-08-24T09:00:00.000Z");
+      const quiescenceBoundary = new Date("2026-08-24T09:06:00.000Z");
+
+      const { storage } = createStorageHarness([]);
+
+      const database = createOrganizationModelHarness({
+        databasePresent: true,
+        isActive: false,
+        offboardingFrozenAt: frozenAt,
+      });
+
+      const deleteStorageObjects = jest.fn().mockResolvedValue({
+        organizationId: ORGANIZATION_ID,
+        prefix: PREFIX,
+        deletedObjectCount: 0,
+        deletionRounds: 0,
+        verifiedEmpty: true,
+      });
+
+      const deleteDatabaseData = jest.fn(async () => {
+        database.setDatabasePresent(false);
+
+        return {
+          organizationId: ORGANIZATION_ID,
+          deleted: {
+            organizations: 1,
+          },
+        };
+      });
+
+      const result = await deleteOrganizationWithReconciliation({
+        organizationId: ORGANIZATION_ID,
+        now: quiescenceBoundary,
+        storage,
+        organizationModel: database.organizationModel,
+        deleteStorageObjects,
+        deleteDatabaseData,
+      });
+
+      expect(result.outcome).toBe("deleted");
+      expect(deleteStorageObjects).toHaveBeenCalledTimes(1);
+      expect(deleteDatabaseData).toHaveBeenCalledTimes(1);
     });
   });
 

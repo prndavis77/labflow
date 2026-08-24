@@ -1,6 +1,7 @@
 "use strict";
 
 const { Organization } = require("../models");
+const attachmentConfig = require("../config/attachmentConfig");
 const {
   deleteOrganizationAttachmentObjects,
   verifyOrganizationAttachmentStorageEmpty,
@@ -19,6 +20,8 @@ const ORGANIZATION_DELETION_STATES = Object.freeze({
   COMPLETE: "complete",
 });
 
+const ORGANIZATION_UPLOAD_QUIESCENCE_SAFETY_MARGIN_SECONDS = 60;
+
 class OrganizationOffboardingDeletionError extends Error {
   constructor(message, code, options = {}) {
     super(message);
@@ -35,6 +38,134 @@ class OrganizationOffboardingDeletionError extends Error {
     }
   }
 }
+
+const verifyOrganizationDeletionAccessFrozen = async ({
+  organizationId,
+  organizationModel = Organization,
+} = {}) => {
+  const normalizedOrganizationId = validateOrganizationId(organizationId);
+
+  const organization = await organizationModel.findByPk(
+    normalizedOrganizationId,
+    {
+      attributes: ["id", "isActive", "offboardingFrozenAt"],
+    },
+  );
+
+  /*
+   * An absent organization is valid here.
+   *
+   * PostgreSQL may already have been deleted while R2 objects remain. That
+   * partial-failure state still needs storage-only reconciliation.
+   */
+  if (!organization) {
+    return {
+      organizationId: normalizedOrganizationId,
+      databasePresent: false,
+      accessFrozen: true,
+      offboardingFrozenAt: null,
+    };
+  }
+
+  if (organization.isActive !== false) {
+    throw new OrganizationOffboardingDeletionError(
+      "Organization must be inactive before permanent deletion.",
+      "ORGANIZATION_WRITES_NOT_FROZEN",
+      {
+        stage: "precondition",
+      },
+    );
+  }
+
+  return {
+    organizationId: normalizedOrganizationId,
+    databasePresent: true,
+    accessFrozen: true,
+    offboardingFrozenAt: organization.offboardingFrozenAt || null,
+  };
+};
+
+const verifyOrganizationDeletionUploadQuiescence = ({
+  freezeState,
+  now = new Date(),
+  uploadUrlTtlSeconds = attachmentConfig.uploadUrlTtlSeconds,
+  safetyMarginSeconds = ORGANIZATION_UPLOAD_QUIESCENCE_SAFETY_MARGIN_SECONDS,
+} = {}) => {
+  /*
+   * PostgreSQL may already be absent while storage remains. In that
+   * reconciliation-only state there is no active organization capable of
+   * obtaining new signed URLs, so the normal freeze timestamp requirement
+   * cannot be applied.
+   */
+  if (freezeState?.databasePresent === false) {
+    return {
+      quiescenceSatisfied: true,
+      databasePresent: false,
+      quiescenceEndsAt: null,
+    };
+  }
+
+  if (!freezeState?.offboardingFrozenAt) {
+    throw new OrganizationOffboardingDeletionError(
+      "Organization offboarding freeze timestamp is missing.",
+      "ORGANIZATION_FREEZE_TIMESTAMP_MISSING",
+      {
+        stage: "precondition",
+      },
+    );
+  }
+
+  const frozenAt = new Date(freezeState.offboardingFrozenAt);
+
+  if (Number.isNaN(frozenAt.getTime())) {
+    throw new OrganizationOffboardingDeletionError(
+      "Organization offboarding freeze timestamp is invalid.",
+      "ORGANIZATION_FREEZE_TIMESTAMP_INVALID",
+      {
+        stage: "precondition",
+      },
+    );
+  }
+
+  const currentTime = new Date(now);
+
+  if (Number.isNaN(currentTime.getTime())) {
+    throw new OrganizationOffboardingDeletionError(
+      "Organization deletion time is invalid.",
+      "ORGANIZATION_DELETION_TIME_INVALID",
+      {
+        stage: "precondition",
+      },
+    );
+  }
+
+  const quiescenceSeconds =
+    Number(uploadUrlTtlSeconds) + Number(safetyMarginSeconds);
+
+  const quiescenceEndsAt = new Date(
+    frozenAt.getTime() + quiescenceSeconds * 1000,
+  );
+
+  if (currentTime.getTime() < quiescenceEndsAt.getTime()) {
+    throw new OrganizationOffboardingDeletionError(
+      "Organization upload quiescence period has not elapsed.",
+      "ORGANIZATION_UPLOAD_QUIESCENCE_PENDING",
+      {
+        stage: "precondition",
+      },
+    );
+  }
+
+  return {
+    quiescenceSatisfied: true,
+    databasePresent: true,
+    frozenAt,
+    quiescenceEndsAt,
+    uploadUrlTtlSeconds,
+    safetyMarginSeconds,
+    quiescenceSeconds,
+  };
+};
 
 const getOrganizationDeletionReconciliationState = async ({
   organizationId,
@@ -80,7 +211,7 @@ const getOrganizationDeletionReconciliationState = async ({
 
 const deleteOrganizationWithReconciliation = async ({
   organizationId,
-  writesFrozenConfirmed = false,
+  now = new Date(),
   storage = getAttachmentStorage(),
   organizationModel = Organization,
   deleteStorageObjects = deleteOrganizationAttachmentObjects,
@@ -91,21 +222,23 @@ const deleteOrganizationWithReconciliation = async ({
   /*
    * R2 deletion cannot be rolled back.
    *
-   * Never start destructive offboarding while the organization can still
-   * create or mutate application data. 26A.4f provides the actual
-   * access/session invalidation mechanism. Until then callers must explicitly
-   * confirm that writes have already been frozen by an operator-controlled
-   * mechanism.
+   * Determine the freeze state from PostgreSQL rather than trusting a caller
+   * assertion. An existing organization must already be inactive before any
+   * destructive storage or database work begins.
+   *
+   * If the organization is already absent, storage-only reconciliation remains
+   * allowed because PostgreSQL may have been deleted during an earlier partial
+   * operation.
    */
-  if (writesFrozenConfirmed !== true) {
-    throw new OrganizationOffboardingDeletionError(
-      "Organization writes must be frozen before permanent deletion.",
-      "ORGANIZATION_WRITES_NOT_FROZEN",
-      {
-        stage: "precondition",
-      },
-    );
-  }
+  const freezeState = await verifyOrganizationDeletionAccessFrozen({
+    organizationId: normalizedOrganizationId,
+    organizationModel,
+  });
+
+  verifyOrganizationDeletionUploadQuiescence({
+    freezeState,
+    now,
+  });
 
   const initialState = await getOrganizationDeletionReconciliationState({
     organizationId: normalizedOrganizationId,
@@ -325,7 +458,10 @@ const deleteOrganizationWithReconciliation = async ({
 
 module.exports = {
   ORGANIZATION_DELETION_STATES,
+  ORGANIZATION_UPLOAD_QUIESCENCE_SAFETY_MARGIN_SECONDS,
   OrganizationOffboardingDeletionError,
   deleteOrganizationWithReconciliation,
   getOrganizationDeletionReconciliationState,
+  verifyOrganizationDeletionAccessFrozen,
+  verifyOrganizationDeletionUploadQuiescence,
 };

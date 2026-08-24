@@ -926,6 +926,24 @@ const acceptInvitation = async (req, res) => {
 
     transaction = await User.sequelize.transaction();
 
+    const lockedOrganization = await Organization.findByPk(
+      invitation.organizationId,
+      {
+        attributes: ["id", "isActive"],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      },
+    );
+
+    if (!lockedOrganization || !lockedOrganization.isActive) {
+      await transaction.rollback();
+
+      return res.status(400).json({
+        status: "error",
+        message: "Invitation organization is not active.",
+      });
+    }
+
     const acceptedAt = new Date();
 
     const user = await User.create(

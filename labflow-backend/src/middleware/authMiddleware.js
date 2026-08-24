@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { User } = require("../models");
+const { Organization, User } = require("../models");
 
 const EMAIL_VERIFICATION_REQUIRED_CODE = "EMAIL_VERIFICATION_REQUIRED";
 
@@ -29,7 +29,15 @@ const protect = async (req, res, next) => {
       audience: "labflow-web",
     });
 
-    const user = await User.findByPk(decoded.id);
+    const user = await User.findByPk(decoded.id, {
+      include: [
+        {
+          model: Organization,
+          as: "organization",
+          attributes: ["id", "isActive"],
+        },
+      ],
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -46,6 +54,14 @@ const protect = async (req, res, next) => {
       !Number.isInteger(decodedTokenVersion) ||
       decodedTokenVersion !== currentTokenVersion
     ) {
+      return res.status(401).json({
+        status: "error",
+        code: SESSION_INVALIDATED_CODE,
+        message: SESSION_INVALIDATED_MESSAGE,
+      });
+    }
+
+    if (!user.organization || !user.organization.isActive) {
       return res.status(401).json({
         status: "error",
         code: SESSION_INVALIDATED_CODE,

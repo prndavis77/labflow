@@ -199,6 +199,13 @@ const validatePasswordResetToken = async ({ rawToken, now = new Date() }) => {
         model: User,
         as: "user",
         attributes: ["id", "email", "isActive", "organizationId"],
+        include: [
+          {
+            model: Organization,
+            as: "organization",
+            attributes: ["id", "isActive"],
+          },
+        ],
       },
     ],
   });
@@ -231,7 +238,12 @@ const validatePasswordResetToken = async ({ rawToken, now = new Date() }) => {
     };
   }
 
-  if (!resetToken.user || !resetToken.user.isActive) {
+  if (
+    !resetToken.user ||
+    !resetToken.user.isActive ||
+    !resetToken.user.organization ||
+    !resetToken.user.organization.isActive
+  ) {
     return {
       valid: false,
       reason: "account_unavailable",
@@ -332,12 +344,23 @@ const resetPasswordWithToken = async ({
       );
     }
 
+    const organization = await Organization.findByPk(
+      resetToken.organizationId,
+      {
+        attributes: ["id", "isActive"],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      },
+    );
+
     const user = await User.findByPk(resetToken.userId, {
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
 
     if (
+      !organization ||
+      !organization.isActive ||
       !user ||
       !user.isActive ||
       user.organizationId !== resetToken.organizationId

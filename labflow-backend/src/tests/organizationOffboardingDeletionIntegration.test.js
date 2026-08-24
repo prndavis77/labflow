@@ -19,19 +19,28 @@ const createUniqueSuffix = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const createDatabaseFixture = async () => {
+const createDatabaseFixture = async ({
+  label = "Offboarding Reconciliation",
+} = {}) => {
   const suffix = createUniqueSuffix();
 
+  const normalizedLabel = label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
   const organization = await Organization.create({
-    name: `Offboarding Reconciliation Lab ${suffix}`,
-    slug: `offboarding-reconciliation-${suffix}`,
+    name: `${label} Lab ${suffix}`,
+    slug: `${normalizedLabel}-${suffix}`,
     type: "lab",
     isActive: false,
+    offboardingFrozenAt: new Date(Date.now() - 10 * 60 * 1000),
   });
 
   const user = await User.create({
-    name: "Offboarding Reconciliation Admin",
-    email: `offboarding-reconciliation-${suffix}@example.com`,
+    name: `${label} Admin`,
+    email: `${normalizedLabel}-${suffix}@example.com`,
     passwordHash: TEST_PASSWORD_HASH,
     role: "admin",
     organizationId: organization.id,
@@ -51,6 +60,70 @@ const createStorageHarness = ({ organizationId }) => {
     `${prefix}project/100/staging/11111111-1111-4111-8111-111111111111/pending.csv`,
     `${prefix}project/100/attachments/22222222-2222-4222-8222-222222222222/final.pdf`,
   ];
+
+  const storage = {
+    listObjects: jest.fn(
+      async ({ prefix: requestedPrefix, maxKeys = 1000 }) => {
+        const matchingStorageKeys = storageKeys.filter((storageKey) =>
+          storageKey.startsWith(requestedPrefix),
+        );
+
+        const pageStorageKeys = matchingStorageKeys.slice(0, maxKeys);
+
+        return {
+          objects: pageStorageKeys.map((storageKey) => ({
+            storageKey,
+            size: 100,
+            etag: null,
+            lastModified: null,
+          })),
+
+          isTruncated: matchingStorageKeys.length > pageStorageKeys.length,
+
+          nextContinuationToken:
+            matchingStorageKeys.length > pageStorageKeys.length
+              ? "unused-test-continuation-token"
+              : null,
+        };
+      },
+    ),
+
+    deleteObjects: jest.fn(async ({ storageKeys: keysToDelete }) => {
+      const deleteSet = new Set(keysToDelete);
+
+      storageKeys = storageKeys.filter(
+        (storageKey) => !deleteSet.has(storageKey),
+      );
+
+      return {
+        deleted: true,
+        deletedCount: keysToDelete.length,
+      };
+    }),
+  };
+
+  return {
+    storage,
+
+    getStorageKeys() {
+      return [...storageKeys];
+    },
+  };
+};
+
+const createMultiOrganizationStorageHarness = ({ organizationIds } = {}) => {
+  let storageKeys = organizationIds.flatMap((organizationId) => {
+    const prefix = ORGANIZATION_STORAGE_PREFIX(organizationId);
+
+    return [
+      `${prefix}project/100/staging/11111111-1111-4111-8111-${String(
+        organizationId,
+      ).padStart(12, "0")}/pending.csv`,
+      `${prefix}project/100/attachments/22222222-2222-4222-8222-${String(
+        organizationId,
+      ).padStart(12, "0")}/final.pdf`,
+    ];
+  });
 
   const storage = {
     listObjects: jest.fn(
@@ -148,6 +221,216 @@ describe("organization offboarding deletion PostgreSQL reconciliation", () => {
     await sequelize.close();
   });
 
+  it("refuses deletion while PostgreSQL still marks the organization active", async () => {
+    const suffix = createUniqueSuffix();
+
+    const organization = await Organization.create({
+      name: `Active Offboarding Guard Lab ${suffix}`,
+      slug: `active-offboarding-guard-${suffix}`,
+      type: "lab",
+      isActive: true,
+    });
+
+    const organizationId = organization.id;
+
+    createdOrganizationIds.add(organizationId);
+
+    const user = await User.create({
+      name: "Active Offboarding Guard Admin",
+      email: `active-offboarding-guard-${suffix}@example.com`,
+      passwordHash: TEST_PASSWORD_HASH,
+      role: "admin",
+      organizationId,
+      emailVerifiedAt: new Date(),
+    });
+
+    expect(user).toBeTruthy();
+
+    const storageHarness = createStorageHarness({
+      organizationId,
+    });
+
+    await expect(
+      deleteOrganizationWithReconciliation({
+        organizationId,
+        storage: storageHarness.storage,
+      }),
+    ).rejects.toMatchObject({
+      code: "ORGANIZATION_WRITES_NOT_FROZEN",
+      stage: "precondition",
+    });
+
+    /*
+     * No irreversible storage deletion may occur.
+     */
+    expect(storageHarness.getStorageKeys()).toHaveLength(2);
+
+    /*
+     * PostgreSQL data must also remain untouched.
+     */
+    expect(
+      await Organization.count({
+        where: {
+          id: organizationId,
+        },
+      }),
+    ).toBe(1);
+
+    expect(
+      await User.count({
+        where: {
+          organizationId,
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it("deletes one organization's PostgreSQL and storage data while preserving a neighboring organization", async () => {
+    const targetFixture = await createDatabaseFixture({
+      label: "Offboarding Target",
+    });
+
+    createdOrganizationIds.add(targetFixture.organization.id);
+
+    const neighborFixture = await createDatabaseFixture({
+      label: "Offboarding Neighbor",
+    });
+
+    createdOrganizationIds.add(neighborFixture.organization.id);
+
+    const targetOrganizationId = targetFixture.organization.id;
+    const neighborOrganizationId = neighborFixture.organization.id;
+
+    const storageHarness = createMultiOrganizationStorageHarness({
+      organizationIds: [targetOrganizationId, neighborOrganizationId],
+    });
+
+    const targetPrefix = ORGANIZATION_STORAGE_PREFIX(targetOrganizationId);
+    const neighborPrefix = ORGANIZATION_STORAGE_PREFIX(neighborOrganizationId);
+
+    const storageBefore = storageHarness.getStorageKeys();
+
+    expect(
+      storageBefore.filter((storageKey) => storageKey.startsWith(targetPrefix)),
+    ).toHaveLength(2);
+
+    expect(
+      storageBefore.filter((storageKey) =>
+        storageKey.startsWith(neighborPrefix),
+      ),
+    ).toHaveLength(2);
+
+    expect(
+      await Organization.count({
+        where: {
+          id: targetOrganizationId,
+        },
+      }),
+    ).toBe(1);
+
+    expect(
+      await User.count({
+        where: {
+          organizationId: targetOrganizationId,
+        },
+      }),
+    ).toBe(1);
+
+    expect(
+      await Organization.count({
+        where: {
+          id: neighborOrganizationId,
+        },
+      }),
+    ).toBe(1);
+
+    expect(
+      await User.count({
+        where: {
+          organizationId: neighborOrganizationId,
+        },
+      }),
+    ).toBe(1);
+
+    const result = await deleteOrganizationWithReconciliation({
+      organizationId: targetOrganizationId,
+      storage: storageHarness.storage,
+    });
+
+    expect(result).toMatchObject({
+      organizationId: targetOrganizationId,
+      outcome: "deleted",
+      reconciliation: {
+        state: ORGANIZATION_DELETION_STATES.COMPLETE,
+        databasePresent: false,
+        storageEmpty: true,
+        requiresReconciliation: false,
+      },
+    });
+
+    /*
+     * Target PostgreSQL data is gone.
+     */
+    expect(
+      await Organization.count({
+        where: {
+          id: targetOrganizationId,
+        },
+      }),
+    ).toBe(0);
+
+    expect(
+      await User.count({
+        where: {
+          organizationId: targetOrganizationId,
+        },
+      }),
+    ).toBe(0);
+
+    /*
+     * Neighbor PostgreSQL data remains.
+     */
+    expect(
+      await Organization.count({
+        where: {
+          id: neighborOrganizationId,
+        },
+      }),
+    ).toBe(1);
+
+    expect(
+      await User.count({
+        where: {
+          organizationId: neighborOrganizationId,
+        },
+      }),
+    ).toBe(1);
+
+    /*
+     * Target storage namespace is gone.
+     */
+    const storageAfter = storageHarness.getStorageKeys();
+
+    expect(
+      storageAfter.filter((storageKey) => storageKey.startsWith(targetPrefix)),
+    ).toEqual([]);
+
+    /*
+     * Neighbor storage namespace remains unchanged.
+     */
+    expect(
+      storageAfter.filter((storageKey) =>
+        storageKey.startsWith(neighborPrefix),
+      ),
+    ).toHaveLength(2);
+
+    expect(
+      storageAfter.every((storageKey) => storageKey.startsWith(neighborPrefix)),
+    ).toBe(true);
+
+    createdOrganizationIds.delete(targetOrganizationId);
+  });
+
   it("recovers from storage-deleted/database-pending state and completes safely on retry", async () => {
     const fixture = await createDatabaseFixture();
 
@@ -188,7 +471,6 @@ describe("organization offboarding deletion PostgreSQL reconciliation", () => {
     await expect(
       deleteOrganizationWithReconciliation({
         organizationId,
-        writesFrozenConfirmed: true,
         storage: storageHarness.storage,
       }),
     ).rejects.toMatchObject({
@@ -244,7 +526,6 @@ describe("organization offboarding deletion PostgreSQL reconciliation", () => {
 
     const retryResult = await deleteOrganizationWithReconciliation({
       organizationId,
-      writesFrozenConfirmed: true,
       storage: storageHarness.storage,
     });
 
@@ -361,7 +642,6 @@ describe("organization offboarding deletion PostgreSQL reconciliation", () => {
 
     const result = await deleteOrganizationWithReconciliation({
       organizationId: missingOrganizationId,
-      writesFrozenConfirmed: true,
       storage,
 
       /*

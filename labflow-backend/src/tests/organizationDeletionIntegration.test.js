@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 const {
   AuditLog,
   EmailVerificationToken,
@@ -30,12 +32,24 @@ const createUniqueSuffix = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const createOrganizationDeletionFixture = async () => {
+const createTokenHash = (value) => {
+  return crypto.createHash("sha256").update(value).digest("hex");
+};
+
+const createOrganizationDeletionFixture = async ({
+  label = "Deletion Integration",
+} = {}) => {
   const suffix = createUniqueSuffix();
 
+  const normalizedLabel = label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
   const organization = await Organization.create({
-    name: `Deletion Integration Lab ${suffix}`,
-    slug: `deletion-integration-${suffix}`,
+    name: `${label} Lab ${suffix}`,
+    slug: `${normalizedLabel}-${suffix}`,
     type: "lab",
     isActive: false,
   });
@@ -159,14 +173,14 @@ const createOrganizationDeletionFixture = async () => {
   await PasswordResetToken.create({
     userId: researcher.id,
     organizationId: organization.id,
-    tokenHash: "a".repeat(64),
+    tokenHash: createTokenHash(`password-reset-${suffix}`),
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   });
 
   await EmailVerificationToken.create({
     userId: researcher.id,
     organizationId: organization.id,
-    tokenHash: "b".repeat(64),
+    tokenHash: createTokenHash(`email-verification-${suffix}`),
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   });
 
@@ -364,6 +378,84 @@ describe("organization deletion PostgreSQL integration", () => {
     });
 
     createdOrganizationIds.delete(fixture.organization.id);
+  });
+
+  it("deletes one organization dependency graph without changing a neighboring organization", async () => {
+    const targetFixture = await createOrganizationDeletionFixture({
+      label: "Deletion Target",
+    });
+
+    createdOrganizationIds.add(targetFixture.organization.id);
+
+    const neighborFixture = await createOrganizationDeletionFixture({
+      label: "Deletion Neighbor",
+    });
+
+    createdOrganizationIds.add(neighborFixture.organization.id);
+
+    const targetBefore = await countOrganizationRows(
+      targetFixture.organization.id,
+    );
+
+    const neighborBefore = await countOrganizationRows(
+      neighborFixture.organization.id,
+    );
+
+    expect(targetBefore).toEqual(neighborBefore);
+
+    const result = await deleteOrganizationDatabaseData({
+      organizationId: targetFixture.organization.id,
+    });
+
+    expect(result.organizationId).toBe(targetFixture.organization.id);
+
+    const targetAfter = await countOrganizationRows(
+      targetFixture.organization.id,
+    );
+
+    const neighborAfter = await countOrganizationRows(
+      neighborFixture.organization.id,
+    );
+
+    expect(targetAfter).toEqual({
+      organizations: 0,
+      users: 0,
+      projects: 0,
+      tasks: 0,
+      experiments: 0,
+      protocols: 0,
+      equipment: 0,
+      equipmentBookings: 0,
+      notebookEntries: 0,
+      projectMembers: 0,
+      reviewEvents: 0,
+      auditLogs: 0,
+      invitations: 0,
+      passwordResetTokens: 0,
+      emailVerificationTokens: 0,
+    });
+
+    expect(neighborAfter).toEqual(neighborBefore);
+
+    expect(neighborAfter).toMatchObject({
+      organizations: 1,
+      users: 2,
+      projects: 1,
+      tasks: 1,
+      experiments: 1,
+      protocols: 1,
+      equipment: 1,
+      equipmentBookings: 1,
+      notebookEntries: 1,
+      projectMembers: 1,
+      reviewEvents: 1,
+      auditLogs: 1,
+      invitations: 1,
+      passwordResetTokens: 1,
+      emailVerificationTokens: 1,
+    });
+
+    createdOrganizationIds.delete(targetFixture.organization.id);
   });
 
   it("rolls back every deletion when a late database step fails", async () => {
