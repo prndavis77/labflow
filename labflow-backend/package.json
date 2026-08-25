@@ -20,7 +20,9 @@
     "migration:generate": "sequelize-cli migration:generate --name",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:watch": "cross-env NODE_ENV=test jest --watch",
-    "cleanup:attachments": "node src/scripts/cleanupPendingAttachments.js"
+    "cleanup:attachments": "node src/scripts/cleanupPendingAttachments.js",
+    "export:organization": "node scripts/exportOrganizationData.js",
+    "drill:organization-export": "cross-env NODE_ENV=test node scripts/organizationDataExportDrill.js"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +30,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1094.0",
     "@aws-sdk/s3-request-presigner": "^3.1094.0",
+    "archiver": "7.0.1",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

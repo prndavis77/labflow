@@ -18,11 +18,11 @@ const assertSafeTestDatabase = () => {
     throw new Error("Refusing to reset database unless NODE_ENV is test.");
   }
 
-  const databaseName = getDatabaseNameFromUrl(process.env.DATABASE_URL);
+  const databaseName = getDatabaseNameFromUrl(process.env.TEST_DATABASE_URL);
 
   if (!databaseName) {
     throw new Error(
-      "Refusing to reset database because DATABASE_URL is missing or invalid.",
+      "Refusing to reset database because TEST_DATABASE_URL is missing or invalid.",
     );
   }
 

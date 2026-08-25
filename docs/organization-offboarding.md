@@ -140,7 +140,9 @@ The export step should occur before destructive deletion unless:
 - the customer explicitly requests immediate deletion
 - a security or legal reason requires another response
 
-The detailed export format and export procedure are defined separately under the customer-data-export phase.
+The detailed export format, security controls, operator checklist, delivery requirements, and verified non-production export drill are documented in [customer-data-export.md](customer-data-export.md).
+
+Organization deletion must not proceed while a required export remains pending unless the customer explicitly declines export, explicitly requests immediate deletion, or another documented legal, contractual, security, or incident-response requirement changes the normal sequence.
 
 ## Access During Offboarding
 

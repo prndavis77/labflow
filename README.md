@@ -16,6 +16,7 @@ The project is designed around a common academic lab problem: research work is o
 - Pilot data policy: [docs/pilot-data-policy.md](docs/pilot-data-policy.md)
 - Data inventory: [docs/data-inventory.md](docs/data-inventory.md)
 - Data retention policy: [docs/retention-policy.md](docs/retention-policy.md)
+- Customer data export procedure: [docs/customer-data-export.md](docs/customer-data-export.md)
 - Organization offboarding procedure: [docs/organization-offboarding.md](docs/organization-offboarding.md)
 
 Demo accounts are listed below. The live demo uses seeded test data and should not be used with real laboratory, research, customer, or institutional data.
@@ -32,7 +33,7 @@ LabFlow also now includes substantial production-security and tenant-lifecycle h
 
 Research files are stored privately in Cloudflare R2 and uploaded directly using short-lived signed URLs. Attachment access follows the linked record's permissions and organization scope.
 
-The backend regression suite currently contains 56 Jest/Supertest suites and 748 tests. The complete suite passes against the dedicated local `labflow_test` PostgreSQL database.
+The backend regression suite currently contains 62 Jest/Supertest suites and 792 tests. The complete suite passes against the dedicated local `labflow_test` PostgreSQL database.
 
 ### Phase 26A: Paid Pilot Data Governance and Organization Offboarding
 
@@ -51,12 +52,21 @@ Completed so far:
 - Added multi-system PostgreSQL/R2 reconciliation with explicit partial-failure states and idempotent retry behavior.
 - Added cross-organization deletion-isolation coverage for database data, R2 namespaces, authentication, invitations, password resets, and email verification.
 - Added a dedicated local `labflow_test` database requirement for automated tests.
-- Verified the complete backend regression suite with 56 suites and 748 tests.
+- Verified the complete backend regression suite with 62 suites and 792 tests after completing the customer-data export implementation.
 - Created a separate `labflow-test-attachments` Cloudflare R2 bucket with bucket-scoped non-production credentials.
 - Completed a real non-production destructive organization-deletion drill against local PostgreSQL and the isolated R2 bucket.
 - Added the production organization-offboarding and operator execution procedure in `docs/organization-offboarding.md`.
+- Defined the customer-data export inventory and explicit sensitive-field exclusions.
+- Implemented organization-scoped PostgreSQL customer-data export using explicit field allowlists.
+- Implemented organization-scoped Cloudflare R2 attachment export with size and SHA-256 verification.
+- Added explicit attachment-omission reporting and fail-closed tenant-boundary checks.
+- Added portable ZIP customer exports with top-level and attachment manifests and per-file SHA-256 integrity metadata.
+- Added an operator-controlled customer export command with organization-ID confirmation and no-overwrite behavior.
+- Completed a real end-to-end customer-export drill using local PostgreSQL and the isolated `labflow-test-attachments` R2 bucket.
+- Verified neighboring-organization PostgreSQL and R2 isolation, package integrity, sensitive-field exclusion, and temporary-artifact cleanup.
+- Added the customer-data export operator procedure in `docs/customer-data-export.md`.
 
-Remaining Phase 26A work includes customer data export and subprocessor inventory.
+Remaining Phase 26A work includes subprocessor inventory.
 
 ### Phase 25C: Production Security Hardening
 
@@ -1196,6 +1206,7 @@ LabFlow demonstrates several full-stack development concepts:
 labflow/
   labflow-backend/
     scripts/
+      organizationDataExportDrill.js
       organizationDeletionDrill.js
     src/
       config/
@@ -1204,6 +1215,7 @@ labflow/
         databaseSsl.js
         emailConfig.js
         logger.js
+        organizationDataExportPolicy.js
         proxyConfig.js
         sequelize-cli.js
         validateProductionConfig.js
@@ -1301,6 +1313,7 @@ labflow/
         userRoutes.js
       scripts/
         cleanupPendingAttachments.js
+        exportOrganizationData.js
         seedDemoData.js
         setupDatabase.js
       seeders/
@@ -1312,6 +1325,9 @@ labflow/
         invitationEmailService.js
         organizationAccessFreezeService.js
         organizationAttachmentDeletionService.js
+        organizationAttachmentExportService.js
+        organizationDataExportPackageService.js
+        organizationDataExportService.js
         organizationDeletionService.js
         organizationOffboardingDeletionService.js
         passwordResetEmailService.js
@@ -1364,6 +1380,12 @@ labflow/
         organizationAccessFreezeRecovery.test.js
         organizationAccessFreezeService.test.js
         organizationAttachmentDeletionService.test.js
+        organizationAttachmentExportR2Integration.test.js
+        organizationAttachmentExportService.test.js
+        organizationDataExportIntegration.test.js
+        organizationDataExportPackageService.test.js
+        organizationDataExportPolicy.test.js
+        organizationDataExportService.test.js
         organizationDeletionIntegration.test.js
         organizationDeletionService.test.js
         organizationDeletionStorageSafety.test.js

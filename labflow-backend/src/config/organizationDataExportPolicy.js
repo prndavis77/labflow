@@ -1,0 +1,266 @@
+"use strict";
+
+const ORGANIZATION_DATA_EXPORT_VERSION = 1;
+
+/*
+ * Customer exports use explicit allowlists.
+ *
+ * IMPORTANT:
+ * Do not replace these attribute lists with model.toJSON(), raw SELECT *,
+ * Object.keys(model.rawAttributes), or other automatic serialization.
+ *
+ * A newly added model field must not become customer-exportable until it has
+ * been reviewed and deliberately added here.
+ */
+const ORGANIZATION_EXPORT_ATTRIBUTES = Object.freeze({
+  organization: Object.freeze([
+    "id",
+    "name",
+    "slug",
+    "type",
+    "isActive",
+    "offboardingFrozenAt",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  users: Object.freeze([
+    "id",
+    "name",
+    "email",
+    "role",
+    "department",
+    "canCreateExperiments",
+    "canEditExperiments",
+    "canCreateProtocols",
+    "canEditProtocols",
+    "requiresReview",
+    "isActive",
+    "deactivatedAt",
+    "deactivatedById",
+    "organizationId",
+    "emailVerifiedAt",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  projects: Object.freeze([
+    "id",
+    "title",
+    "description",
+    "status",
+    "startDate",
+    "targetEndDate",
+    "supervisorId",
+    "isArchived",
+    "archivedAt",
+    "archivedById",
+    "archiveReason",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  projectMembers: Object.freeze([
+    "id",
+    "projectId",
+    "userId",
+    "projectRole",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  tasks: Object.freeze([
+    "id",
+    "title",
+    "description",
+    "status",
+    "priority",
+    "dueDate",
+    "projectId",
+    "assignedToId",
+    "createdById",
+    "isArchived",
+    "archivedAt",
+    "archivedById",
+    "archiveReason",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  experiments: Object.freeze([
+    "id",
+    "title",
+    "objective",
+    "notes",
+    "status",
+    "reviewStatus",
+    "reviewComment",
+    "startedAt",
+    "completedAt",
+    "projectId",
+    "researcherId",
+    "taskId",
+    "protocolId",
+    "createdById",
+    "isArchived",
+    "archivedAt",
+    "archivedById",
+    "archiveReason",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  protocols: Object.freeze([
+    "id",
+    "title",
+    "version",
+    "purpose",
+    "content",
+    "approvalStatus",
+    "reviewStatus",
+    "reviewComment",
+    "projectId",
+    "equipmentId",
+    "createdById",
+    "approvedById",
+    "approvedAt",
+    "isArchived",
+    "archivedAt",
+    "archivedById",
+    "archiveReason",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  equipment: Object.freeze([
+    "id",
+    "name",
+    "type",
+    "location",
+    "status",
+    "notes",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  equipmentBookings: Object.freeze([
+    "id",
+    "title",
+    "startTime",
+    "endTime",
+    "status",
+    "purpose",
+    "equipmentId",
+    "userId",
+    "projectId",
+    "experimentId",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  notebookEntries: Object.freeze([
+    "id",
+    "title",
+    "entryType",
+    "content",
+    "contentFormat",
+    "experimentId",
+    "projectId",
+    "authorId",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  reviewEvents: Object.freeze([
+    "id",
+    "targetType",
+    "targetId",
+    "action",
+    "comment",
+    "reviewerId",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  invitations: Object.freeze([
+    "id",
+    "organizationId",
+    "email",
+    "name",
+    "role",
+    "department",
+    "status",
+    "emailDeliveryStatus",
+    "emailLastAttemptedAt",
+    "emailSentAt",
+    "expiresAt",
+    "acceptedAt",
+    "invitedById",
+    "acceptedUserId",
+    "canCreateExperiments",
+    "canEditExperiments",
+    "canCreateProtocols",
+    "canEditProtocols",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  auditLogs: Object.freeze([
+    "id",
+    "actorUserId",
+    "action",
+    "entityType",
+    "entityId",
+    "targetUserId",
+    "summary",
+    "organizationId",
+    "createdAt",
+    "updatedAt",
+  ]),
+
+  attachments: Object.freeze([
+    "id",
+    "organizationId",
+    "uploadedById",
+    "originalFileName",
+    "fileExtension",
+    "mimeType",
+    "fileSize",
+    "verifiedFileSize",
+    "checksum",
+    "entityType",
+    "entityId",
+    "category",
+    "description",
+    "uploadStatus",
+    "isArchived",
+    "archivedAt",
+    "archivedById",
+    "createdAt",
+    "updatedAt",
+  ]),
+});
+
+/*
+ * These models contain authentication/security state and must never appear in
+ * a customer data export.
+ */
+const ORGANIZATION_EXPORT_EXCLUDED_MODELS = Object.freeze([
+  "PasswordResetToken",
+  "EmailVerificationToken",
+]);
+
+module.exports = {
+  ORGANIZATION_DATA_EXPORT_VERSION,
+  ORGANIZATION_EXPORT_ATTRIBUTES,
+  ORGANIZATION_EXPORT_EXCLUDED_MODELS,
+};
