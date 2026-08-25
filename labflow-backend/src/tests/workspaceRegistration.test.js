@@ -4,17 +4,36 @@ const app = require("../server");
 const { Organization, User } = require("../models");
 const { resetTestDatabase } = require("./helpers/dbHelpers");
 const { createBaseOrganizationSlug } = require("../utils/organizationSlug");
+const {
+  setEmailProviderForTests,
+  resetEmailProviderForTests,
+} = require("../services/emailService");
 
 const createUniqueTestValue = (prefix) => {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 };
 
 describe("Workspace registration", () => {
+  beforeEach(() => {
+    setEmailProviderForTests({
+      provider: "test",
+      async sendMessage() {
+        return {
+          provider: "test",
+          accepted: false,
+          skipped: true,
+          messageId: null,
+        };
+      },
+    });
+  });
+
   beforeEach(async () => {
     await resetTestDatabase();
   });
 
   afterAll(async () => {
+    resetEmailProviderForTests();
     await User.sequelize.close();
   });
 

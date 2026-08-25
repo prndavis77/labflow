@@ -199,23 +199,38 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-async function startServer() {
-  // Connect to PostgreSQL before starting the API server
-  try {
-    await connectDatabase();
+function startServer({ connect = connectDatabase } = {}) {
+  const server = app.listen(PORT, () => {
+    logger.info(
+      {
+        port: Number(PORT),
+      },
+      "LabFlow API server started",
+    );
+  });
 
-    app.listen(PORT, () => {
-      logger.info(
+  /*
+   * Database availability affects readiness, not process liveness.
+   *
+   * Start Express first so /api/health remains available during temporary
+   * PostgreSQL outages, provider quota exhaustion, restarts, or network
+   * failures.
+   *
+   * connectDatabase() already logs the underlying database error. This catch
+   * records the operational consequence without terminating the HTTP process.
+   */
+  Promise.resolve()
+    .then(() => connect())
+    .catch(() => {
+      logger.warn(
         {
-          port: Number(PORT),
+          event: "database_initial_connection_failed",
         },
-        "LabFlow API server started",
+        "Initial database connection failed. API remains live but not ready.",
       );
     });
-  } catch {
-    logger.fatal("LabFlow API server startup aborted");
-    process.exit(1);
-  }
+
+  return server;
 }
 
 // Only start the server when this file is run directly.
@@ -225,3 +240,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports.startServer = startServer;
