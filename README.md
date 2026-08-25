@@ -13,6 +13,10 @@ The project is designed around a common academic lab problem: research work is o
 - Portfolio case study: `docs/case-study.md`
 - Security documentation: [SECURITY.md](SECURITY.md)
 - Backend tests: `cd labflow-backend && npm test`
+- Pilot data policy: [docs/pilot-data-policy.md](docs/pilot-data-policy.md)
+- Data inventory: [docs/data-inventory.md](docs/data-inventory.md)
+- Data retention policy: [docs/retention-policy.md](docs/retention-policy.md)
+- Organization offboarding procedure: [docs/organization-offboarding.md](docs/organization-offboarding.md)
 
 Demo accounts are listed below. The live demo uses seeded test data and should not be used with real laboratory, research, customer, or institutional data.
 
@@ -20,15 +24,51 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 ## Project Status
 
-LabFlow MVP Version 1.6 is complete and deployed as a portfolio/demo application.
+LabFlow MVP Version 1.6 is complete and deployed as a portfolio/demo application. The project is now in a production-hardening and paid-pilot-readiness phase for an initial United States university-laboratory pilot.
 
-This version includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral invitation email delivery with Mailgun support verified locally, invitation delivery tracking, an admin-only backend resend workflow, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboard filtering, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory, equipment booking with conflict prevention, dashboard metrics, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
+The application includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral email delivery with Mailgun support, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboards, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory and booking, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
 
-LabFlow now includes end-to-end research file attachments for projects, tasks, experiments, protocols, and equipment. Files are stored privately in Cloudflare R2 and uploaded directly using short-lived signed URLs.
+LabFlow also now includes substantial production-security and tenant-lifecycle hardening, including organization access freezing, JWT and account-recovery-token invalidation, organization-scoped destructive deletion, Cloudflare R2 namespace deletion, PostgreSQL/R2 reconciliation after partial failure, signed-upload quiescence enforcement, tenant-isolation deletion tests, a dedicated local integration-test database, and a destructive deletion drill using isolated non-production PostgreSQL and R2 resources.
 
-Attachment access follows the linked record's permissions. Admins and authorized supervisors can manage all attachments within their scope. Researchers can upload where the parent workflow allows contribution and can edit or archive only files they uploaded. Read-only users can view and download attachments without seeing upload or management actions.
+Research files are stored privately in Cloudflare R2 and uploaded directly using short-lived signed URLs. Attachment access follows the linked record's permissions and organization scope.
 
-The backend includes a comprehensive Jest and Supertest suite covering authentication, authorization, organization isolation, invitations, email delivery, archive recovery, attachments, review workflows, and transactional rollback behavior.
+The backend regression suite currently contains 56 Jest/Supertest suites and 748 tests. The complete suite passes against the dedicated local `labflow_test` PostgreSQL database.
+
+### Phase 26A: Paid Pilot Data Governance and Organization Offboarding
+
+Completed so far:
+
+- Defined the initial US paid-pilot permitted/prohibited data boundary.
+- Added a customer-data inventory and classification document.
+- Added a data-retention policy covering active data, operational records, logs, audit data, invitations, backups, and offboarding.
+- Implemented organization access freezing with persistent `offboardingFrozenAt` state.
+- Invalidated organization-user JWT sessions and outstanding password-reset/email-verification tokens during formal organization freeze.
+- Blocked fresh login and protected API access for inactive organizations.
+- Prevented invitation, password-reset, and email-verification flows from restoring access to a frozen organization.
+- Added signed-upload quiescence enforcement before destructive organization deletion.
+- Implemented organization-scoped Cloudflare R2 deletion for permanent, staging, archived, and orphaned objects.
+- Implemented transactional organization-owned PostgreSQL deletion.
+- Added multi-system PostgreSQL/R2 reconciliation with explicit partial-failure states and idempotent retry behavior.
+- Added cross-organization deletion-isolation coverage for database data, R2 namespaces, authentication, invitations, password resets, and email verification.
+- Added a dedicated local `labflow_test` database requirement for automated tests.
+- Verified the complete backend regression suite with 56 suites and 748 tests.
+- Created a separate `labflow-test-attachments` Cloudflare R2 bucket with bucket-scoped non-production credentials.
+- Completed a real non-production destructive organization-deletion drill against local PostgreSQL and the isolated R2 bucket.
+- Added the production organization-offboarding and operator execution procedure in `docs/organization-offboarding.md`.
+
+Remaining Phase 26A work includes customer data export and subprocessor inventory.
+
+### Phase 25C: Production Security Hardening
+
+Completed:
+
+- Added production HTTP and browser security controls, including Helmet, restricted CORS, rate limiting, trusted-proxy validation, and production configuration validation.
+- Hardened authentication, authorization, organization isolation, mutable-field handling, request validation, error handling, structured logging, and credential/token redaction.
+- Hardened private Cloudflare R2 attachment handling with signed content length, file-signature inspection, OOXML validation, ranged reads, staging/final object separation, ETag-conditioned finalization, cleanup behavior, and short-lived downloads.
+- Added production PostgreSQL TLS configuration with certificate verification enabled by default and explicit safeguards against URL-based SSL overrides.
+- Added production deployment safeguards for database setup, schema synchronization, demo seeding, and environment configuration.
+- Added security regression tests and production security documentation.
+- Documented the accepted moderate `uuid` dependency risk inherited through Sequelize 6 rather than applying an unsafe forced downgrade.
 
 ### Phase 24B: Account Recovery, Email Verification, and Session Security
 
@@ -387,6 +427,35 @@ LabFlow now includes an organization model that prepares the application for mul
 Each user belongs to an organization, and core records are organization-owned, including projects, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, project members, review events, and audit logs.
 
 Backend queries are scoped by the authenticated user's organization so users from one lab cannot access records from another lab. Cross-organization isolation is covered by automated tests.
+
+### Organization Offboarding and Deletion
+
+LabFlow includes an operator-controlled organization-offboarding mechanism intended for the initial paid-pilot lifecycle.
+
+Formal offboarding can freeze an organization by marking it inactive, recording a persistent freeze timestamp, invalidating organization-user sessions, and invalidating relevant outstanding account-recovery tokens.
+
+Permanent deletion is deliberately multi-stage because PostgreSQL and Cloudflare R2 cannot participate in one distributed transaction. The deletion workflow:
+
+1. freezes organization access
+2. waits for previously issued signed upload URLs to expire
+3. inventories the organization
+4. deletes the exact organization R2 namespace
+5. verifies storage is empty
+6. transactionally deletes organization-owned PostgreSQL records
+7. reconciles database and storage state
+8. verifies another organization remains unaffected
+9. supports safe idempotent retries
+
+Supported reconciliation states are:
+
+- `PENDING`
+- `STORAGE_DELETED_DATABASE_PENDING`
+- `DATABASE_DELETED_STORAGE_REMAINING`
+- `COMPLETE`
+
+The operator procedure and production stop conditions are documented in [docs/organization-offboarding.md](docs/organization-offboarding.md).
+
+The non-production deletion drill is intentionally restricted to the local `labflow_test` database and dedicated `labflow-test-attachments` R2 bucket. It must not be used as a production deletion command.
 
 ### Organization-Based Lab Workspaces
 
@@ -1060,6 +1129,18 @@ LabFlow demonstrates several full-stack development concepts:
 - Parent-first restoration validation
 - Transactional restore and audit-log creation
 - Cloudflare R2 object verification before attachment restoration
+- Formal organization access freezing with persistent freeze timestamps
+- Organization-wide JWT session invalidation
+- Recovery-token invalidation during organization freeze
+- Inactive-organization authentication enforcement
+- Exact organization-prefix Cloudflare R2 deletion
+- Transactional organization-owned PostgreSQL deletion
+- PostgreSQL/R2 partial-failure reconciliation
+- Signed-upload quiescence enforcement before destructive deletion
+- Idempotent organization-deletion retries
+- Cross-organization destructive-operation isolation tests
+- Dedicated local PostgreSQL integration-test database
+- Isolated non-production Cloudflare R2 deletion-drill environment
 - Idempotent restore operations
 - Cross-entity restoration regression tests
 
@@ -1114,6 +1195,8 @@ LabFlow demonstrates several full-stack development concepts:
 ```txt
 labflow/
   labflow-backend/
+    scripts/
+      organizationDeletionDrill.js
     src/
       config/
         attachmentConfig.js
@@ -1178,6 +1261,8 @@ labflow/
         20260724101117-create-attachments.js
         20260801183056-add-invitation-email-delivery-tracking.js
         20260803135024-add-password-reset-and-email-verification.js
+        20260821212300-remove-duplicate-organization-foreign-keys.js
+        20260824140000-add-offboarding-frozen-at-to-organizations.js
       models/
         Attachment.js
         AuditLog.js
@@ -1225,6 +1310,10 @@ labflow/
         emailVerificationEmailService.js
         emailVerificationService.js
         invitationEmailService.js
+        organizationAccessFreezeService.js
+        organizationAttachmentDeletionService.js
+        organizationDeletionService.js
+        organizationOffboardingDeletionService.js
         passwordResetEmailService.js
         passwordResetService.js
       storage/
@@ -1264,21 +1353,34 @@ labflow/
         errorHandler.test.js
         errorLogger.test.js
         health.test.js
+        healthReadiness.test.js
         invitationControllerEmail.test.js
         invitationEmail.test.js
         invitationEmailService.test.js
         invitationEmailTracking.test.js
         invitations.test.js
         jwtSessionInvalidation.test.js
+        organizationAccessFreezeAuth.test.js
+        organizationAccessFreezeRecovery.test.js
+        organizationAccessFreezeService.test.js
+        organizationAttachmentDeletionService.test.js
+        organizationDeletionIntegration.test.js
+        organizationDeletionService.test.js
+        organizationDeletionStorageSafety.test.js
         organizationIsolation.test.js
+        organizationOffboardingDeletionIntegration.test.js
+        organizationOffboardingDeletionService.test.js
         organizationSettings.test.js
         organizationSlug.test.js
+        organizationStorageKey.test.js
         passwordReset.test.js
         productionConfig.test.js
         projectMembershipAccess.test.js
         proxyConfig.test.js
+        r2OrganizationDeletion.test.js
         reviewWorkflow.test.js
         securityMiddleware.test.js
+        serverStartup.test.js
         setupDatabaseSafety.test.js
         setupTests.js
         taskCompletionReview.test.js
@@ -1770,6 +1872,23 @@ The `npm run seed` command is intended for local and demo setup. The seed script
 LabFlow uses Sequelize migrations as the production schema-management mechanism.
 
 The legacy `npm run setup:db` workflow uses Sequelize schema synchronization for local development and demo setup. Automatic schema synchronization is explicitly refused when `NODE_ENV=production`.
+
+Organization deletion and offboarding have been implemented and exercised in a dedicated non-production environment. Production use of that mechanism still requires verification that the deployed application code and production schema contain the tested offboarding implementation, including the `organizations.offboarding_frozen_at` migration.
+
+Automated backend tests must use `TEST_DATABASE_URL`. Test execution does not fall back to `DATABASE_URL`, reducing the risk of destructive integration tests running against hosted or production PostgreSQL.
+
+The organization deletion drill uses separate `LABFLOW_DRILL_R2_*` credentials and is restricted to the dedicated `labflow-test-attachments` bucket. The drill credentials are bucket-scoped and were verified unable to access the production attachment bucket.
+
+### Liveness and Readiness
+
+LabFlow exposes separate liveness and readiness endpoints:
+
+- `GET /api/health` verifies that the Node.js/Express process is running and does not depend on PostgreSQL.
+- `GET /api/ready` verifies that the backend can currently communicate with PostgreSQL.
+
+The HTTP server starts independently of the initial database connection. A temporary PostgreSQL outage therefore leaves `/api/health` available while `/api/ready` returns `503 Service Unavailable`.
+
+Render uses `/api/health` as its service health-check path so a temporary database outage does not cause the web process or deployment itself to be treated as dead. Dependency-aware monitoring can use `/api/ready` separately.
 
 ### Production Deployment Safety
 
@@ -2397,12 +2516,13 @@ Current limitations include:
 - Archive and recovery cover projects, tasks, experiments, protocols, and attachments. Equipment, bookings, notebook entries, and project memberships retain their existing lifecycle behavior.
 - Restoration is intentionally parent-first and non-cascading, so related records must be restored individually.
 - PostgreSQL restoration and Cloudflare R2 verification cannot participate in one distributed transaction.
-- Attachment malware scanning, content inspection, large multipart uploads, organization storage quotas, and physical deletion policies are not yet included.
+- Attachment malware scanning, broader content inspection, large multipart uploads, and organization storage quotas are not yet included. Organization-level attachment deletion and offboarding are implemented, but routine per-file hard-delete workflows remain intentionally distinct from archive behavior.
 - Notebook entries use plain text and do not yet support rich text or PDF export.
 - Frontend automated tests are not yet included.
-- Production-grade monitoring, alerting, account lockout, and automated deployment/migration orchestration are not yet complete.
+- Production monitoring and alerting are configured for core frontend/backend health checks, but broader operational alert coverage, account lockout, and fully automated deployment/migration orchestration are not yet complete.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 - Demo accounts use shared credentials and are not suitable for real production use.
+- The current Neon Free database tier has a monthly compute allowance and is not suitable as the final database capacity for a paid pilot. Production database capacity must be upgraded before the first paid pilot.
 
 ---
 
