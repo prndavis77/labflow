@@ -27,11 +27,11 @@ https://labflow-brown.vercel.app
 
 Backend liveness:
 
-https://labflow-backend-p7im.onrender.com/api/health
+https://api.labfluss.com/api/health
 
 Backend readiness:
 
-https://labflow-backend-p7im.onrender.com/api/ready
+https://api.labfluss.com/api/ready
 
 ## Health Model
 

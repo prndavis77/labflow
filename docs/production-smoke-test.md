@@ -68,7 +68,7 @@ Secret values are stored only in the hosting environment and are not recorded in
 Liveness endpoint:
 
 ```text
-https://labflow-backend-p7im.onrender.com/api/health
+https://api.labfluss.com/api/health
 ```
 
 ### Readiness
@@ -82,9 +82,8 @@ https://labflow-backend-p7im.onrender.com/api/health
 
 Readiness endpoint:
 
-```text
-https://labflow-backend-p7im.onrender.com/api/ready
-```
+````text
+https://api.labfluss.com/api/ready
 
 ## Observability and operational monitoring
 
@@ -430,7 +429,7 @@ The current automated backend regression baseline is:
 Test Suites: 36 passed, 36 total
 Tests: 525 passed, 525 total
 Snapshots: 0 total
-```
+````
 
 Phase 25A improves observability and operational reliability. It does not by itself make LabFlow ready for sensitive, regulated, or institutional production data.
 

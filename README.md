@@ -9,7 +9,7 @@ The project is designed around a common academic lab problem: research work is o
 ## Quick Links
 
 - Live demo: `https://labflow-brown.vercel.app`
-- Backend health check: `https://labflow-backend-p7im.onrender.com/api/health`
+- Backend health check: `https://api.labfluss.com/api/health`
 - Portfolio case study: `docs/case-study.md`
 - Security documentation: [SECURITY.md](SECURITY.md)
 - Backend tests: `cd labflow-backend && npm test`
@@ -214,7 +214,7 @@ Portfolio case study: [docs/case-study.md](docs/case-study.md)
 Demo backend health check:
 
 ```txt
-https://labflow-backend-p7im.onrender.com/api/health
+https://api.labfluss.com/api/health
 ```
 
 This deployment uses:
@@ -2631,3 +2631,4 @@ Key portfolio talking points:
 ## License
 
 This project is currently intended for personal portfolio and educational use.
+

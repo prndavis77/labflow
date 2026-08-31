@@ -2293,7 +2293,7 @@ Alert condition: URL becomes unavailable
 #### Backend readiness
 
 ```text
-URL: https://labflow-backend-p7im.onrender.com/api/ready
+URL: https://api.labfluss.com/api/ready
 Check interval: 3 minutes
 Alert condition: URL becomes unavailable
 ```
@@ -2301,7 +2301,7 @@ Alert condition: URL becomes unavailable
 #### Backend liveness
 
 ```text
-URL: https://labflow-backend-p7im.onrender.com/api/health
+URL: https://api.labfluss.com/api/health
 Check interval: 5 minutes
 Alert condition: URL becomes unavailable
 ```

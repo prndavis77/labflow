@@ -17,7 +17,7 @@ https://labflow-brown.vercel.app
 Backend health check:
 
 ```txt
-https://labflow-backend-p7im.onrender.com/api/health
+https://api.labfluss.com/api/health
 ```
 
 GitHub repository:
