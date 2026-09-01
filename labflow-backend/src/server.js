@@ -52,9 +52,14 @@ const developmentOrigins = [
 
 const isProductionCors = process.env.NODE_ENV === "production";
 
+const productionOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.ADDITIONAL_FRONTEND_URL,
+].filter(Boolean);
+
 const allowedOrigins = isProductionCors
-  ? [process.env.FRONTEND_URL].filter(Boolean)
-  : [...developmentOrigins, process.env.FRONTEND_URL].filter(Boolean);
+  ? productionOrigins
+  : [...developmentOrigins, ...productionOrigins];
 
 app.use(
   cors({
