@@ -1,11 +1,11 @@
-# LabFlow Data Retention Policy
+# Labfluss Data Retention Policy
 
 **Version:** 1.0  
 **Applies to:** Initial United States paid pilot program
 
 ## Purpose
 
-This policy defines how long LabFlow retains customer, account, research, security, operational, and backup data during and after the initial paid pilot.
+This policy defines how long Labfluss retains customer, account, research, security, operational, and backup data during and after the initial paid pilot.
 
 The objectives are to:
 
@@ -15,19 +15,19 @@ The objectives are to:
 - preserve limited operational and security information where necessary
 - allow backup copies to expire through controlled retention cycles
 - support incident response and recovery
-- align retention with the LabFlow Pilot Data Policy and Data Inventory
+- align retention with the Labfluss Pilot Data Policy and Data Inventory
 
 This policy does not override a stricter retention requirement agreed to in writing with a pilot customer.
 
 ## Implementation Requirement
 
-Before this policy is applied to a paid pilot, LabFlow must verify that the production environment and operating procedures can satisfy the retention, deletion, backup, and offboarding commitments described in this document.
+Before this policy is applied to a paid pilot, Labfluss must verify that the production environment and operating procedures can satisfy the retention, deletion, backup, and offboarding commitments described in this document.
 
 A retention period must not be represented to a customer as operationally guaranteed until the corresponding technical or manual procedure has been implemented and verified.
 
 ## Retention Principles
 
-LabFlow follows these principles:
+Labfluss follows these principles:
 
 1. Customer Data is retained while the customer's pilot workspace remains active unless the customer deletes or archives information through supported application workflows.
 2. Archive is not the same as permanent deletion.
@@ -35,7 +35,7 @@ LabFlow follows these principles:
 4. Operational and security records may have a different retention period from customer research content.
 5. Backups are not modified record-by-record during normal deletion. Deleted production data disappears from backups as those backups expire according to their retention schedule.
 6. Data should not be retained indefinitely without an operational, security, contractual, or recovery reason.
-7. Prohibited data discovered in LabFlow may require accelerated containment or deletion under the Pilot Data Policy.
+7. Prohibited data discovered in Labfluss may require accelerated containment or deletion under the Pilot Data Policy.
 8. A legal, contractual, security, or incident-response preservation requirement may temporarily suspend normal deletion where necessary.
 
 ## Retention Schedule
@@ -73,7 +73,7 @@ LabFlow follows these principles:
 
 ## Active Customer Data
 
-While a pilot workspace is active, LabFlow retains the customer data needed to provide the service.
+While a pilot workspace is active, Labfluss retains the customer data needed to provide the service.
 
 This includes:
 
@@ -96,18 +96,18 @@ Archived records remain stored and recoverable. Archiving does not constitute pe
 
 ## Pilot Termination and Offboarding
 
-When a paid pilot ends, LabFlow should provide a 30-day offboarding window unless another period is agreed in writing.
+When a paid pilot ends, Labfluss should provide a 30-day offboarding window unless another period is agreed in writing.
 
 During that period:
 
 - the customer's workspace should no longer be treated as an indefinitely active production account
 - the customer may request an available data export
-- LabFlow may coordinate data verification and offboarding
+- Labfluss may coordinate data verification and offboarding
 - customer data remains protected by the same access and security requirements that applied during the active pilot
 
 Customer production data may be removed earlier at the customer's request where operationally feasible. In all cases, customer production data should be permanently removed no later than the end of the 30-day offboarding period unless:
 
-- the customer and LabFlow agree in writing to extend retention
+- the customer and Labfluss agree in writing to extend retention
 - a legal or contractual preservation requirement applies
 - retention is temporarily necessary for investigation of a security incident
 
@@ -127,7 +127,7 @@ The detailed user-removal procedure should be defined as part of organization of
 
 ## Archived Records
 
-LabFlow currently supports archive/recovery workflows for supported resource types.
+Labfluss currently supports archive/recovery workflows for supported resource types.
 
 Archived records:
 
@@ -143,7 +143,7 @@ Permanent deletion must use a separate deletion or organization-offboarding proc
 
 ### Passwords
 
-LabFlow stores password hashes rather than plaintext passwords.
+Labfluss stores password hashes rather than plaintext passwords.
 
 Password hashes are retained only while the associated user account exists and while required in backups that have not yet expired.
 
@@ -159,7 +159,7 @@ Expired or consumed authentication credentials must not remain valid.
 
 JWT bearer tokens expire according to the configured authentication lifetime and may also become invalid through `tokenVersion` session invalidation.
 
-LabFlow does not treat an expired or invalidated JWT as customer data that must be retained.
+Labfluss does not treat an expired or invalidated JWT as customer data that must be retained.
 
 ## Invitations
 
@@ -206,7 +206,7 @@ Production application logs are intended for:
 
 The target retention period for application logs is no more than 30 days unless a specific incident requires temporary preservation.
 
-Logs must remain sanitized according to LabFlow security requirements.
+Logs must remain sanitized according to Labfluss security requirements.
 
 Logs must not intentionally contain:
 
@@ -231,17 +231,17 @@ Monitoring systems should not receive customer research content.
 
 ## Transactional Email
 
-LabFlow sends transactional email for workflows such as:
+Labfluss sends transactional email for workflows such as:
 
 - invitations
 - password reset
 - email verification
 
-LabFlow should retain application-side delivery metadata only as long as needed for troubleshooting and operational history, with a target maximum of 90 days after the relevant message or workflow is no longer active.
+Labfluss should retain application-side delivery metadata only as long as needed for troubleshooting and operational history, with a target maximum of 90 days after the relevant message or workflow is no longer active.
 
 The external email provider may maintain its own delivery logs or message metadata according to its configured service capabilities and provider policies.
 
-Provider-specific retention should be recorded in the LabFlow subprocessor inventory.
+Provider-specific retention should be recorded in the Labfluss subprocessor inventory.
 
 ## Database Backup Retention
 
@@ -249,18 +249,21 @@ Production database backups contain Confidential customer information and Securi
 
 They must therefore be protected as Security-Sensitive.
 
-For the initial paid pilot, the target backup strategy should provide:
+For the initial paid pilot, the verified production database backup configuration includes:
 
-- daily recoverable database copies
-- at least 7 daily recovery points
-- weekly recovery points where practical
-- a maximum routine backup retention period of 30 days unless a longer recovery requirement is agreed or documented
+- Amazon RDS automated backups
+- 7-day automated backup retention
+- point-in-time recovery within the retained backup window
+- manual DB snapshots for selected known-good recovery points
+- portable PostgreSQL logical backups for additional recovery portability
 
-Provider point-in-time recovery windows may be shorter than the external backup retention period.
+Longer-lived backup copies may be retained only where operational, contractual, migration, or incident-response requirements justify them.
+
+Amazon RDS point-in-time recovery is limited to the configured automated-backup retention window.
 
 Manual pre-migration or incident-related recovery snapshots may temporarily be retained outside the normal schedule until the associated deployment or incident has been verified as resolved.
 
-Backup retention must be implemented consistently with the LabFlow Backup and Recovery documentation.
+Backup retention must be implemented consistently with the Labfluss Backup and Recovery documentation.
 
 ## Attachment Backup Retention
 
@@ -277,7 +280,7 @@ A longer retention period may be established where a pilot contract or recovery 
 
 ## Deletion From Backups
 
-When production customer data is deleted, LabFlow does not need to locate and surgically remove the same record from every historical backup immediately.
+When production customer data is deleted, Labfluss does not need to locate and surgically remove the same record from every historical backup immediately.
 
 Instead:
 
@@ -291,11 +294,11 @@ This approach preserves backup integrity while still placing an upper bound on r
 
 ## Prohibited Data
 
-The LabFlow Pilot Data Policy continues to apply regardless of the normal retention periods in this document.
+The Labfluss Pilot Data Policy continues to apply regardless of the normal retention periods in this document.
 
 If prohibited data is discovered:
 
-- normal retention periods do not require LabFlow to keep it
+- normal retention periods do not require Labfluss to keep it
 - access should be restricted where practical
 - appropriate containment and deletion actions should be determined
 - sufficient incident records may be preserved without unnecessarily retaining the prohibited content itself
@@ -320,7 +323,7 @@ The existence of this exception does not authorize indefinite retention.
 
 A university may require a different retention period as part of a pilot agreement.
 
-LabFlow should not accept a customer-specific retention requirement unless the production architecture and operating procedures can actually satisfy it.
+Labfluss should not accept a customer-specific retention requirement unless the production architecture and operating procedures can actually satisfy it.
 
 Where the pilot agreement establishes a stricter retention or deletion requirement than this policy, the agreed requirement applies.
 

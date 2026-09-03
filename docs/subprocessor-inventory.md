@@ -1,4 +1,4 @@
-# LabFlow Subprocessor Inventory
+# Labfluss Subprocessor Inventory
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
@@ -6,9 +6,9 @@
 
 ## Purpose
 
-This document identifies third-party service providers that may process LabFlow customer data or customer-related operational data in connection with providing the LabFlow service.
+This document identifies third-party service providers that may process Labfluss customer data or customer-related operational data in connection with providing the Labfluss service.
 
-For the initial paid pilot, university customers generally determine the purposes of processing their laboratory and user data. LabFlow processes that data to provide the service. Where LabFlow acts as a processor on behalf of the customer, the third-party providers identified in this document may act as LabFlow subprocessors.
+For the initial paid pilot, university customers generally determine the purposes of processing their laboratory and user data. Labfluss processes that data to provide the service. Where Labfluss acts as a processor on behalf of the customer, the third-party providers identified in this document may act as Labfluss subprocessors.
 
 The exact legal role of each party depends on the applicable customer agreement and the type of data being processed.
 
@@ -19,11 +19,11 @@ This inventory should be read together with:
 - `retention-policy.md`
 - `customer-data-export.md`
 - `organization-offboarding.md`
-- the applicable LabFlow customer agreement and privacy documentation
+- the applicable Labfluss customer agreement and privacy documentation
 
 ## Scope
 
-This inventory covers providers that directly support production LabFlow operations and may receive:
+This inventory covers providers that directly support production Labfluss operations and may receive:
 
 - customer user information
 - laboratory workflow data
@@ -33,40 +33,57 @@ This inventory covers providers that directly support production LabFlow operati
 - network/request metadata
 - application or infrastructure monitoring information
 
-A provider is not included merely because LabFlow developers use that provider for development purposes.
+A provider is not included merely because Labfluss developers use that provider for development purposes.
 
 For example, a source-code hosting service that receives no production customer data is not automatically a production customer-data subprocessor.
 
 ## Downstream Provider Subprocessors
 
-Some LabFlow providers use their own infrastructure providers and other subprocessors.
+Some Labfluss providers use their own infrastructure providers and other subprocessors.
 
-Those downstream organizations are not normally direct LabFlow vendors.
+Those downstream organizations are not normally direct Labfluss vendors.
 
-LabFlow therefore maintains:
+Labfluss therefore maintains:
 
-1. this inventory of direct LabFlow service providers; and
+1. this inventory of direct Labfluss service providers; and
 2. references to each direct provider's maintained subprocessor list where available.
 
-LabFlow should not copy a provider's entire changing subprocessor list into this document unless there is a specific contractual or operational reason to do so.
+Labfluss should not copy a provider's entire changing subprocessor list into this document unless there is a specific contractual or operational reason to do so.
 
 Provider-maintained lists should be reviewed periodically and before material production changes.
 
 ---
 
-## 1. Render
+## 1. Amazon Web Services
 
 ### Service
 
-Backend/API hosting.
+Production infrastructure and application hosting.
 
-### LabFlow use
+### Labfluss use
 
-Render hosts the production Node.js/Express API and related backend processes.
+Amazon Web Services currently provides three core production services used by Labfluss:
+
+- AWS Amplify Hosting for the React/Vite frontend
+- AWS Lightsail for the Node.js/Express backend API
+- Amazon RDS for PostgreSQL for the production relational database
 
 ### Data potentially processed
 
-Because normal application API requests pass through the backend, Render infrastructure may process:
+The AWS services may process different categories of Labfluss customer or operational data depending on their function.
+
+AWS Amplify Hosting may process:
+
+- IP addresses
+- user agents
+- request URLs
+- timestamps
+- network and security telemetry
+- compiled frontend assets
+
+Labfluss does not intentionally place database credentials, backend secrets, or ordinary customer records into frontend build artifacts.
+
+AWS Lightsail may process:
 
 - organization identifiers
 - user account information
@@ -81,160 +98,13 @@ Because normal application API requests pass through the backend, Render infrast
 - review information
 - invitation information
 - attachment metadata
-- authorization/session-related request information
+- authorization and session-related request information
 - request metadata
 - sanitized application logs
 
-Attachment binaries normally upload directly between the browser and Cloudflare R2 using signed URLs rather than passing through the backend during normal upload.
+Attachment binaries normally upload directly between the browser and Cloudflare R2 using short-lived signed URLs rather than passing through the Lightsail backend during normal upload.
 
-The backend may nevertheless process attachment metadata and may access attachment content during specific storage validation, export, deletion, recovery, or administrative operations.
-
-### Purpose
-
-Application hosting and API execution.
-
-### Provider role
-
-Subprocessor where LabFlow processes customer personal data on behalf of a university customer.
-
-### Data location
-
-The production LabFlow backend service is deployed in:
-
-- Frankfurt (EU Central), Germany
-
-The current production compute plan is Free and must be upgraded before the first paid pilot.
-
-### Contractual/privacy documentation
-
-Render publishes a Data Processing Addendum covering customer personal data processed through its services.
-
-Render's DPA authorizes subprocessors and requires written data-protection obligations for those subprocessors.
-
-Render maintains its current subprocessor list through its Trust/Security documentation.
-
-### Downstream subprocessors
-
-Render's current official subprocessor mechanism has been reviewed.
-
-Render requires customers to subscribe to new-subprocessor notifications where they want advance notice of provider changes.
-
-Do not duplicate Render's full changing subprocessor list in this document.
-
-### LabFlow safeguards
-
-- TLS for application traffic
-- production environment validation
-- sensitive-value log redaction
-- no raw authentication/reset/verification tokens in logs
-- organization authorization and tenant isolation
-- database TLS
-- private Cloudflare R2 storage
-
-### Pilot status
-
-**CONFIGURATION VERIFIED, PRODUCTION PLAN UPGRADE PENDING**
-
-Before first pilot:
-
-- upgrade the production service from Free to a paid instance
-- subscribe to Render subprocessor-change notifications
-- record the final paid production instance type
-
----
-
-## 2. Vercel
-
-### Service
-
-Frontend hosting and content delivery.
-
-### LabFlow use
-
-Vercel hosts the compiled React/Vite frontend.
-
-The browser communicates directly with the LabFlow backend API rather than storing ordinary application customer records in Vercel.
-
-### Data potentially processed
-
-Vercel may process operational web-request information such as:
-
-- IP address
-- user agent
-- request URL
-- timestamps
-- network/security telemetry
-
-LabFlow does not intentionally store the PostgreSQL customer dataset or Cloudflare R2 attachment binaries in Vercel.
-
-Application architecture must continue to avoid embedding production secrets or customer data into frontend build artifacts.
-
-### Purpose
-
-Frontend hosting, static asset delivery, and related network/security operations.
-
-### Provider role
-
-Subprocessor or operational processor depending on the data and applicable customer relationship.
-
-### Data location
-
-Vercel states that its primary processing facilities are in the United States and that processing may also occur where Vercel or its subprocessors maintain operations.
-
-### Contractual/privacy documentation
-
-Vercel publishes a Data Processing Addendum.
-
-The current DPA states that it applies to Enterprise and Pro plans.
-
-### Pilot plan requirement
-
-**VERIFY BEFORE PILOT.**
-
-The production LabFlow frontend should use a Vercel plan covered by the applicable DPA.
-
-If the deployment remains on a plan not covered by the DPA, this must be resolved before accepting paid-pilot customer data.
-
-### Downstream subprocessors
-
-Vercel maintains its current subprocessor list through its security/trust site.
-
-Review the current list before the pilot and subscribe to updates where available.
-
-### LabFlow safeguards
-
-- no backend credentials in frontend source
-- no database credentials in browser code
-- direct authenticated API calls to the backend
-- HTTPS
-- CORS restrictions
-- short-lived R2 signed URLs
-
-### Pilot status
-
-**NOT PILOT-READY: HOBBY PLAN / DPA-COVERED PLAN UPGRADE PENDING**
-
-Required before first pilot:
-
-- verify current Vercel plan
-- ensure the plan is covered by the DPA
-- review current provider subprocessor list
-
----
-
-## 3. Neon
-
-### Service
-
-Managed PostgreSQL database hosting.
-
-### LabFlow use
-
-Neon stores the production PostgreSQL database.
-
-### Data potentially processed
-
-Neon stores the primary structured LabFlow customer dataset, including:
+Amazon RDS for PostgreSQL stores the primary structured Labfluss customer dataset, including:
 
 - organizations
 - users
@@ -255,84 +125,88 @@ Neon stores the primary structured LabFlow customer dataset, including:
 - audit records
 - archived customer records
 
-Raw attachment binaries are stored in Cloudflare R2 rather than PostgreSQL.
+Raw attachment binaries are stored in Cloudflare R2 rather than Amazon RDS.
 
 ### Purpose
 
-Persistent relational database storage and database recovery capability.
+- frontend hosting and static asset delivery
+- backend/API hosting and execution
+- persistent relational database storage
+- database backup and recovery
 
 ### Provider role
 
-Subprocessor.
+Subprocessor where AWS processes customer personal data on behalf of Labfluss in connection with providing the service.
 
 ### Data location
 
-The production Neon project is deployed in:
+The current production AWS infrastructure is deployed in the Europe (Frankfurt) Region where applicable.
 
-- AWS Europe Central 1 (Frankfurt)
+Current verified production configuration includes:
 
-The production project currently runs on the Free plan.
+- Amplify production frontend serving `https://app.labfluss.com`
+- Lightsail backend instance in Frankfurt
+- Amazon RDS PostgreSQL DB instance `labflow-production` in `eu-central-1`
+- private Lightsail-to-RDS connectivity
+- RDS publicly accessible: No
 
-The Free-plan compute allowance has been exhausted and the production database must be moved to suitable paid capacity before the first paid pilot.
+AWS identifies Europe (Frankfurt) as Region `eu-central-1` in Germany.
+
+Amazon RDS supports Europe (Frankfurt), `eu-central-1`.
+
+Customer-data residency should not be described more broadly than the verified service configuration and applicable AWS service terms.
 
 ### Contractual/privacy documentation
 
-Neon is now part of the Databricks platform.
+AWS publishes an AWS Data Processing Addendum governing the processing of Customer Data through covered AWS services.
 
-The current Neon Product Specific Schedule is governed by the Databricks Master Cloud Services Agreement and applicable Databricks Data Processing Addendum.
-
-For Neon Platform Services, the current legal schedule specifies that:
-
-- Databricks acts as the contracting provider
-- the Databricks subprocessor list applies
-- Grafana Labs, located in the United States, is additionally used for Neon infrastructure services
+AWS also maintains an official subprocessor list. AWS states that subprocessors relevant to an individual customer depend on the AWS Region selected and the AWS services used.
 
 ### Downstream subprocessors
 
-The current Databricks subprocessor list includes cloud infrastructure, support, communications, and related service providers.
+Use the AWS-maintained subprocessor list rather than copying the complete changing list into this document.
 
-The list must be reviewed before material production changes and provider update notifications should be subscribed to where available.
+AWS states that it updates the subprocessor page before engaging a new subprocessor and provides an update-notification mechanism.
 
-### LabFlow safeguards
+### Labfluss safeguards
 
-- PostgreSQL TLS
-- certificate verification enabled by default
-- production rejection of unsafe URL-based SSL overrides
-- tenant-scoped application queries
-- password hashing
-- token hashing
-- organization deletion procedures
-- customer export procedures
-- backup/recovery procedures
-
-### Retention considerations
-
-Database production deletion follows LabFlow's organization-offboarding process.
-
-Historical copies may remain temporarily within backups or point-in-time recovery systems according to the applicable provider capabilities and LabFlow retention policy.
+- TLS for frontend and backend traffic
+- Nginx HTTPS reverse proxy
+- systemd-supervised backend service
+- production environment validation
+- sensitive-value log redaction
+- no raw authentication/reset/verification tokens in logs
+- organization authorization and tenant isolation
+- private-only Amazon RDS production database
+- private Lightsail-to-RDS connectivity
+- Amazon RDS TLS with certificate verification
+- encrypted RDS storage
+- 7-day RDS automated backup retention
+- manual RDS snapshot capability
+- private Cloudflare R2 attachment storage
+- no backend secrets embedded in frontend build artifacts
 
 ### Pilot status
 
-**NOT PILOT-READY: FREE COMPUTE LIMIT EXHAUSTED**
+**PRODUCTION INFRASTRUCTURE CONFIGURATION VERIFIED, AWS LEGAL/SUBPROCESSOR REVIEW REQUIRED BEFORE FIRST PAID PILOT**
 
 Before first pilot:
 
-- upgrade from Free to suitable paid production capacity
-- record the final paid plan
-- choose the final history/PITR retention window
-- configure automated backup/snapshot strategy
-- review whether IP allow-listing or private networking is required
-- subscribe to provider subprocessor-change notifications where available
+- review the current AWS Data Processing Addendum
+- review the current AWS subprocessor list
+- subscribe to AWS subprocessor-change notifications
+- confirm the AWS account/service terms applicable to the production configuration
+- confirm any customer-specific data-location requirements against the actual AWS services and Regions used
 
 ---
 
-## 4. Cloudflare
+## 2. Cloudflare
 
 ### Service
 
 Cloudflare R2 object storage.
 
-### LabFlow use
+### Labfluss use
 
 Cloudflare R2 stores private customer attachment binaries.
 
@@ -393,7 +267,7 @@ Cloudflare maintains a public subprocessor list.
 
 Review it before the first paid pilot and monitor provider changes.
 
-### LabFlow safeguards
+### Labfluss safeguards
 
 - private bucket
 - no public attachment access
@@ -411,23 +285,22 @@ Review it before the first paid pilot and monitor provider changes.
 
 ### Pilot status
 
-**CONFIGURATION AND PRIVACY DOCUMENTATION VERIFIED, PRE-PILOT CORS CLEANUP PENDING**
+**CONFIGURATION AND PRIVACY DOCUMENTATION VERIFIED**
 
 Before first pilot:
 
 - subscribe to Cloudflare subprocessor-change notifications
-- update the production CORS origin when the custom LabFlow domain is introduced
 - decide whether `http://localhost:5173` should remain allowed on the production bucket
 
 ---
 
-## 5. Mailgun / Sinch Email
+## 3. Mailgun / Sinch Email
 
 ### Service
 
 Transactional email delivery.
 
-### LabFlow use
+### Labfluss use
 
 Mailgun sends:
 
@@ -450,7 +323,7 @@ Mailgun may process:
 - one-time email-verification URLs
 - one-time password-reset URLs
 
-Because one-time URLs contain authentication/recovery tokens, those tokens exist within the message sent to Mailgun even though LabFlow stores only token hashes in PostgreSQL.
+Because one-time URLs contain authentication/recovery tokens, those tokens exist within the message sent to Mailgun even though Labfluss stores only token hashes in PostgreSQL.
 
 This makes transactional-email handling security-sensitive.
 
@@ -478,7 +351,7 @@ The current Mailgun account and sending domain use the United States region.
 
 The production API configuration must continue to use the Mailgun US API endpoint unless an intentional migration is performed.
 
-Do not assume the region solely from the LabFlow deployment region.
+Do not assume the region solely from the Labfluss deployment region.
 
 ### Retention
 
@@ -491,7 +364,7 @@ Mailgun may retain other operational or statistical records according to its ser
 
 The dashboard-visible retention values should be reviewed again if the account is upgraded.
 
-### LabFlow safeguards
+### Labfluss safeguards
 
 - raw token values are not stored in PostgreSQL
 - invitation/reset/verification tokens are cryptographically generated
@@ -504,12 +377,12 @@ The dashboard-visible retention values should be reviewed again if the account i
 
 ### Pilot status
 
-**CONFIGURATION VERIFIED, DEDICATED LABFLOW SENDING DOMAIN PENDING**
+**CONFIGURATION VERIFIED, DEDICATED LABFLUSS SENDING DOMAIN PENDING**
 
 Before first pilot:
 
-- create a dedicated LabFlow production sending domain
-- verify SPF/DKIM for the LabFlow production sending domain
+- create a dedicated Labfluss production sending domain
+- verify SPF/DKIM for the Labfluss production sending domain
 - update production `MAILGUN_DOMAIN`
 - verify production `MAILGUN_API_BASE_URL` remains the US endpoint
 - subscribe to Mailgun/Sinch subprocessor-change notifications where available
@@ -517,15 +390,15 @@ Before first pilot:
 
 ---
 
-## 6. Better Stack
+## 4. Better Stack
 
 ### Service
 
 External uptime/readiness monitoring and operational alerting.
 
-### LabFlow use
+### Labfluss use
 
-Better Stack monitors production availability, including LabFlow health/readiness endpoints.
+Better Stack monitors production availability, including Labfluss health/readiness endpoints.
 
 Current monitoring is intended to observe service availability rather than ingest customer research data.
 
@@ -541,7 +414,7 @@ Expected data is limited primarily to:
 - service availability incidents
 - operator/account information
 
-The monitored LabFlow health endpoints must remain free of customer records, credentials, secrets, database connection information, and other sensitive content.
+The monitored Labfluss health endpoints must remain free of customer records, credentials, secrets, database connection information, and other sensitive content.
 
 ### Purpose
 
@@ -555,7 +428,7 @@ Operational subprocessor/service provider.
 
 The current Better Stack configuration uses its EU/Germany data-region posture for control-plane and incident log-snippet handling.
 
-LabFlow currently uses Better Stack only for external uptime monitoring and does not intentionally ingest application logs, research data, or frontend session telemetry.
+Labfluss currently uses Better Stack only for external uptime monitoring and does not intentionally ingest application logs, research data, or frontend session telemetry.
 
 ### Contractual/privacy documentation
 
@@ -565,11 +438,11 @@ The current Better Stack DPA and authorized subprocessor schedule have been revi
 
 The current authorized subprocessor schedule includes infrastructure, support, communications, analytics, and AI service providers.
 
-Because LabFlow currently uses Better Stack only for uptime monitoring, the operational data exposed to Better Stack is intentionally limited.
+Because Labfluss currently uses Better Stack only for uptime monitoring, the operational data exposed to Better Stack is intentionally limited.
 
 The "Explain with AI and AI summaries" feature should be disabled before the paid pilot to avoid unnecessary AI processing of incident data.
 
-### LabFlow safeguards
+### Labfluss safeguards
 
 - public liveness endpoint contains generic status only
 - readiness endpoint exposes availability state without database credentials or customer content
@@ -592,11 +465,11 @@ Before first pilot:
 
 ### GitHub
 
-GitHub hosts LabFlow source code.
+GitHub hosts Labfluss source code.
 
 Production customer records and production secrets must not be committed to the repository.
 
-Provided that this boundary is maintained, GitHub is not currently classified as a processor of LabFlow pilot customer content for the purposes of this inventory.
+Provided that this boundary is maintained, GitHub is not currently classified as a processor of Labfluss pilot customer content for the purposes of this inventory.
 
 If production logs, database exports, customer attachments, support tickets containing customer data, or production secrets begin to be stored in GitHub, this classification must be revisited.
 
@@ -631,7 +504,7 @@ A new provider must not receive pilot customer data solely because it is technic
 
 ## Subprocessor Change Monitoring
 
-Where providers offer subprocessor-change notifications, LabFlow should subscribe to them.
+Where providers offer subprocessor-change notifications, Labfluss should subscribe to them.
 
 At minimum, the operator should review this inventory:
 
@@ -645,7 +518,7 @@ At minimum, the operator should review this inventory:
 
 ## Customer Disclosure
 
-The initial paid-pilot agreement or privacy documentation should identify the applicable LabFlow subprocessors or provide a maintained reference to this inventory.
+The initial paid-pilot agreement or privacy documentation should identify the applicable Labfluss subprocessors or provide a maintained reference to this inventory.
 
 A customer should be able to understand:
 
@@ -655,7 +528,7 @@ A customer should be able to understand:
 - relevant location information
 - how material provider changes will be handled
 
-LabFlow should not promise a specific provider, region, or downstream subprocessor arrangement unless that configuration has been verified and can be maintained contractually.
+Labfluss should not promise a specific provider, region, or downstream subprocessor arrangement unless that configuration has been verified and can be maintained contractually.
 
 ---
 
@@ -663,61 +536,32 @@ LabFlow should not promise a specific provider, region, or downstream subprocess
 
 The following items remain configuration-specific and must be verified before the first paid pilot:
 
-### Render
+### Amazon Web Services
 
-- [x] production service identified: `labflow-backend`
-- [x] production service region recorded: Frankfurt (EU Central)
-- [x] current compute plan recorded: Free
-- [x] production database configuration confirmed
-- [x] production R2 configuration confirmed
-- [x] production health check confirmed: `/api/health`
-- [x] Render DPA reviewed
-- [x] current Render subprocessor mechanism reviewed
-- [ ] upgrade production service from Free before paid pilot
-- [ ] subscribe to Render subprocessor-change notifications
-- [ ] record final paid production instance type after upgrade
-
-### Vercel
-
-- [x] production project identified: `labflow`
-- [x] current plan recorded: Hobby
-- [x] production domain recorded: `labflow-brown.vercel.app`
-- [x] Web Analytics confirmed disabled
-- [x] current model-training data preference reviewed
-- [x] "Improve models with this project's data" disabled
-- [x] current Vercel subprocessor list and Trust Center reviewed
-- [ ] upgrade production account/project to Pro or Enterprise before paid pilot
-- [ ] verify DPA coverage after upgrade
-- [ ] subscribe to Vercel subprocessor-change notifications
-- [ ] add and verify custom production domain before pilot
-
-### Neon
-
-- [x] production project identified: `labflow`
-- [x] production branch identified: `production`
-- [x] current plan recorded: Free
-- [x] production region recorded: AWS Europe Central 1 (Frankfurt)
-- [x] PostgreSQL version recorded: 17
-- [x] compute configuration recorded: 0.25 to 2 CU
-- [x] scale-to-zero recorded: 5 minutes
-- [x] production storage usage reviewed
-- [x] production network-transfer usage reviewed
-- [x] current restore/history window recorded: 6 hours
-- [x] manual snapshot capability verified
-- [x] current snapshot exists
-- [x] public internet database access confirmed enabled
-- [x] HIPAA support confirmed disabled
-- [x] logical replication confirmed disabled
-- [x] current Neon/Databricks Product Specific Schedule reviewed
-- [x] current Databricks subprocessor mechanism reviewed
-- [x] Neon-specific Grafana Labs infrastructure subprocessor identified
-- [ ] upgrade from Free before paid pilot
-- [ ] select final paid plan and record it
-- [ ] configure production capacity suitable for pilot use
-- [ ] choose final history/PITR retention on paid plan
-- [ ] configure automated backup/snapshot strategy
-- [ ] review whether IP allow-listing or private networking is required
-- [ ] subscribe to subprocessor-change notifications where available
+- [x] AWS Amplify production frontend identified
+- [x] production custom frontend domain recorded: `https://app.labfluss.com`
+- [x] AWS Lightsail production backend identified: `labflow-backend-production`
+- [x] Lightsail production region recorded: Frankfurt
+- [x] production API domain recorded: `https://api.labfluss.com`
+- [x] Amazon RDS production DB instance identified: `labflow-production`
+- [x] production database identified: `labflow`
+- [x] PostgreSQL version recorded: 17.11
+- [x] RDS region recorded: `eu-central-1`
+- [x] RDS instance class recorded: `db.t4g.micro`
+- [x] RDS storage recorded: 20 GiB gp3
+- [x] RDS encryption at rest confirmed enabled
+- [x] automated backups confirmed enabled
+- [x] backup retention confirmed: 7 days
+- [x] post-cutover manual DB snapshot created
+- [x] RDS publicly accessible confirmed: No
+- [x] private Lightsail-to-RDS connectivity verified
+- [x] production health endpoint confirmed: `/api/health`
+- [x] production readiness endpoint confirmed: `/api/ready`
+- [x] attachment-cleanup systemd timer enabled and active
+- [ ] review current AWS Data Processing Addendum before paid pilot
+- [ ] review current AWS subprocessor list before paid pilot
+- [ ] subscribe to AWS subprocessor-change notifications
+- [ ] confirm customer-specific data-location requirements against the actual AWS services and Regions used
 
 ### Cloudflare R2
 
@@ -727,7 +571,7 @@ The following items remain configuration-specific and must be verified before th
 - [x] no custom domain attached
 - [x] R2 Data Catalog confirmed disabled
 - [x] CORS policy reviewed
-- [x] allowed production origin recorded: `https://labflow-brown.vercel.app`
+- [x] allowed production origin recorded: `https://app.labfluss.com`
 - [x] allowed development origin recorded: `http://localhost:5173`
 - [x] allowed methods recorded: GET, PUT, HEAD
 - [x] lifecycle rule reviewed: abort incomplete multipart uploads after 7 days
@@ -739,7 +583,6 @@ The following items remain configuration-specific and must be verified before th
 - [x] current Cloudflare DPA reviewed
 - [x] current Cloudflare subprocessor list reviewed
 - [ ] configure subprocessor-change notifications where available
-- [ ] update production CORS origin when the custom LabFlow domain is introduced
 - [ ] decide whether localhost should remain allowed on the production bucket before pilot
 
 ### Mailgun / Sinch Email
@@ -757,12 +600,12 @@ The following items remain configuration-specific and must be verified before th
 - [x] TLS mode recorded: Opportunistic
 - [x] certificate verification confirmed required
 - [x] dedicated IP count recorded: 0
-- [x] LabFlow-specific sending key confirmed
+- [x] Labfluss-specific sending key confirmed
 - [x] current Mailgun/Sinch DPA reviewed
 - [x] current Mailgun/Sinch subprocessor list reviewed
-- [ ] create a dedicated LabFlow production sending domain
-- [ ] verify SPF/DKIM for the LabFlow production sending domain
-- [ ] update LabFlow production `MAILGUN_DOMAIN`
+- [ ] create a dedicated Labfluss production sending domain
+- [ ] verify SPF/DKIM for the Labfluss production sending domain
+- [ ] update Labfluss production `MAILGUN_DOMAIN`
 - [ ] verify production `MAILGUN_API_BASE_URL` remains the US endpoint
 - [ ] configure subprocessor-change notifications where available
 - [ ] decide whether the Free plan is appropriate for paid-pilot transactional email
@@ -795,8 +638,8 @@ The following items remain configuration-specific and must be verified before th
 
 ## Review Record
 
-**Last reviewed:** 2026-08-26
+**Last reviewed:** 2026-09-02
 
 **Next review:** Before first paid pilot or upon material provider change, whichever occurs first.
 
-**Status:** Configuration and provider legal review completed. Pre-pilot remediation items remain open.
+**Status:** Production provider inventory updated after AWS migration. AWS legal/subprocessor review and remaining pre-pilot remediation items remain open.

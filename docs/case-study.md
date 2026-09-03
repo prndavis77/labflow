@@ -1,8 +1,8 @@
-# LabFlow Case Study
+# Labfluss Case Study
 
 ## Overview
 
-LabFlow is a full-stack project management application for university research laboratories. It helps lab teams manage research projects, tasks, experiments, protocols, shared equipment, equipment bookings, review workflows, notebook entries, and project-specific access control in one centralized system.
+Labfluss is a full-stack project management application for university research laboratories. It helps lab teams manage research projects, tasks, experiments, protocols, shared equipment, equipment bookings, review workflows, notebook entries, and project-specific access control in one centralized system.
 
 The project was built as a portfolio/demo application to demonstrate practical full-stack development in a real-world scientific workflow domain.
 
@@ -11,7 +11,7 @@ The project was built as a portfolio/demo application to demonstrate practical f
 Live demo:
 
 ```txt
-https://labflow-brown.vercel.app
+https://app.labfluss.com
 ```
 
 Backend health check:
@@ -26,7 +26,7 @@ GitHub repository:
 https://github.com/prndavis77/labflow
 ```
 
-The deployed demo uses Vercel for the React/Vite frontend, Render for the Node/Express backend API, and Neon PostgreSQL for the hosted PostgreSQL database.
+The deployed application uses AWS Amplify Hosting for the React/Vite frontend, AWS Lightsail for the Node/Express backend API, Amazon RDS for PostgreSQL for the production database, and Cloudflare R2 for private attachment storage.
 
 The live demo uses seeded test data and shared demo accounts. It should not be used with real laboratory, research, customer, or institutional data.
 
@@ -50,11 +50,11 @@ This can make basic lab management questions harder to answer:
 - Are two researchers trying to book the same instrument at the same time?
 - What feedback did a supervisor leave on a rejected experiment or protocol?
 
-LabFlow was designed to bring these related workflows into one structured application.
+Labfluss was designed to bring these related workflows into one structured application.
 
 ## Solution
 
-LabFlow centralizes core research lab workflows into one system:
+Labfluss centralizes core research lab workflows into one system:
 
 - Project management
 - Standalone and project-linked task management
@@ -112,7 +112,7 @@ I designed and built the full-stack MVP, including:
 - Demo seed data
 - Sequelize migrations
 - Backend automated tests with Jest and Supertest
-- Deployment to Vercel, Render, and Neon PostgreSQL
+- Production deployment to AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, and Cloudflare R2
 - Organization settings workflow
 - Invitation list management
 - Workspace registration and first-admin onboarding
@@ -162,16 +162,19 @@ I designed and built the full-stack MVP, including:
 
 - Jest
 - Supertest
-- Vercel
-- Render
-- Neon PostgreSQL
+- AWS Amplify Hosting
+- AWS Lightsail
+- Amazon RDS for PostgreSQL
+- Cloudflare R2
+- Nginx
+- systemd
 - Git and GitHub
 
 ## Key Technical Features
 
 ### Relational Database Design
 
-LabFlow uses a relational PostgreSQL schema modeled with Sequelize. The main entities include users, projects, project members, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, review events, and attachments.
+Labfluss uses a relational PostgreSQL schema modeled with Sequelize. The main entities include users, projects, project members, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, review events, and attachments.
 
 The data model is designed around connected lab workflows. Projects can have tasks, experiments, protocols, bookings, notebook entries, and project members. Experiments can link to projects, researchers, tasks, protocols, bookings, and notebook entries. Equipment can link to bookings and instrument-specific SOPs.
 
@@ -179,7 +182,7 @@ The data model is designed around connected lab workflows. Projects can have tas
 
 The app uses JWT authentication with protected frontend routes and protected backend API routes.
 
-LabFlow supports three main user roles:
+Labfluss supports three main user roles:
 
 - Admin
 - Supervisor
@@ -191,7 +194,7 @@ The backend enforces authorization rules so users cannot bypass access restricti
 
 ### Project Membership and Layered Permissions
 
-LabFlow uses a layered permission model:
+Labfluss uses a layered permission model:
 
 - System role: admin, supervisor, or researcher
 - Project role: lead, member, or viewer
@@ -229,7 +232,7 @@ This prevents a researcher from accidentally moving a record to a project they c
 
 Lab work is not always tied to a research project. A researcher may be assigned to restock supplies, tune an instrument, change a column, clean equipment, or assist another researcher.
 
-LabFlow supports both project-linked tasks and standalone lab tasks. Researcher task visibility is assignment-aware, so researchers can see tasks assigned to them even when those tasks are not linked to a project.
+Labfluss supports both project-linked tasks and standalone lab tasks. Researcher task visibility is assignment-aware, so researchers can see tasks assigned to them even when those tasks are not linked to a project.
 
 ### Task Completion Review
 
@@ -241,7 +244,7 @@ This workflow better reflects supervised lab work, where task completion may nee
 
 ### Invitation Email Delivery and Resend
 
-LabFlow includes a provider-neutral email service with a Mailgun implementation. Mailgun delivery has been verified locally.
+Labfluss includes a provider-neutral email service with a Mailgun implementation. Mailgun delivery has been verified locally.
 
 The invitation creation workflow intentionally separates database persistence from the external provider call:
 
@@ -271,7 +274,7 @@ After invitation acceptance, the frontend clears any existing browser session be
 
 ### Password Reset, Email Verification, and Session Invalidation
 
-LabFlow now includes self-service account recovery and verified-email enforcement.
+Labfluss now includes self-service account recovery and verified-email enforcement.
 
 Password-reset and email-verification links use random raw tokens, while PostgreSQL stores only SHA-256 hashes. Reset links expire after 30 minutes, and verification links expire after 24 hours. Requesting another verification email replaces earlier unused verification tokens. A successful password reset consumes the reset token and invalidates existing JWT sessions through `tokenVersion`.
 
@@ -283,7 +286,7 @@ This design allows email verification to take effect immediately without issuing
 
 ### Equipment Booking Conflict Prevention
 
-LabFlow prevents overlapping confirmed bookings for the same equipment at the backend level.
+Labfluss prevents overlapping confirmed bookings for the same equipment at the backend level.
 
 The conflict rule is:
 
@@ -305,7 +308,7 @@ Because this logic is enforced on the backend, the rule does not depend only on 
 
 Protocols can be linked to a project, linked to equipment, linked to both, or saved as general lab SOPs.
 
-This allows LabFlow to support:
+This allows Labfluss to support:
 
 - Project-specific methods
 - General lab SOPs
@@ -316,11 +319,11 @@ Researchers can view general non-project-linked protocols and project-linked pro
 
 ### Review Queue, Review Notes, and Review History
 
-LabFlow includes a Review Queue for supervisor/admin review workflows. Experiments, protocols, and task completion requests can be surfaced for review.
+Labfluss includes a Review Queue for supervisor/admin review workflows. Experiments, protocols, and task completion requests can be surfaced for review.
 
 When requesting changes on an experiment or protocol, reviewers must provide a review note. The latest review comment is shown on the record so researchers can see what needs to be corrected, clarified, repeated, or improved.
 
-LabFlow also stores review history events. This preserves repeated review cycles such as changes requested, revised, more changes requested, and approved.
+Labfluss also stores review history events. This preserves repeated review cycles such as changes requested, revised, more changes requested, and approved.
 
 ### Experiment-Linked Notebook Entries
 
@@ -330,15 +333,15 @@ Notebook entries are linked to experiments and projects, allowing experiment det
 
 ### Secure Research File Attachments
 
-LabFlow includes a generic attachment system for projects, tasks, experiments, protocols, and equipment.
+Labfluss includes a generic attachment system for projects, tasks, experiments, protocols, and equipment.
 
 File metadata is stored in PostgreSQL, while file content is stored in a private Cloudflare R2 bucket. The backend creates short-lived signed upload URLs so files can be uploaded directly from the browser without passing the file body through the Express server.
 
 The upload workflow has three stages:
 
-1. LabFlow validates the target record, user permissions, filename, MIME type, extension, and file size.
+1. Labfluss validates the target record, user permissions, filename, MIME type, extension, and file size.
 2. The frontend uploads the file directly to private object storage using a signed URL.
-3. LabFlow verifies the stored object before marking the attachment as available.
+3. Labfluss verifies the stored object before marking the attachment as available.
 
 Downloads also use short-lived signed URLs. The backend verifies that the user can access the linked record before creating a download URL.
 
@@ -354,7 +357,7 @@ The same reusable frontend components are used across project, task, experiment,
 
 ### Admin-Controlled Archived Item Recovery
 
-LabFlow supports controlled recovery of archived projects, tasks, experiments, protocols, and attachments.
+Labfluss supports controlled recovery of archived projects, tasks, experiments, protocols, and attachments.
 
 Rather than adding separate recovery pages for each workflow, I created one admin-only Archived Items page with tabs for each supported entity type. The page provides search, archive-date filters, pagination, archive metadata, and restore actions.
 
@@ -374,7 +377,7 @@ The restore operation preserves the record's existing business status. It clears
 
 Each successful restore creates an audit event in the same PostgreSQL transaction. If audit creation fails, the database restoration is rolled back. Repeated requests for an already-active record are idempotent and do not create duplicate audit events.
 
-Attachment recovery includes an additional storage check. Before the database record is restored, LabFlow performs a metadata request against private Cloudflare R2 storage. If the object does not exist, the attachment remains archived. If storage is temporarily unavailable, the operation fails safely and can be retried later.
+Attachment recovery includes an additional storage check. Before the database record is restored, Labfluss performs a metadata request against private Cloudflare R2 storage. If the object does not exist, the attachment remains archived. If storage is temporarily unavailable, the operation fails safely and can be retried later.
 
 Because PostgreSQL and Cloudflare R2 do not participate in one distributed transaction, the R2 existence check and database update cannot be fully atomic. The implementation minimizes that limitation by verifying storage immediately before the transactional database restore and by never changing the R2 object during recovery.
 
@@ -405,7 +408,7 @@ This allows list pages and detail pages to share the same form logic. Users can 
 
 ### Sequelize Migrations
 
-LabFlow now uses Sequelize migrations to manage the database schema. The initial migration creates the current MVP schema, including users, projects, project memberships, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, review events, enums, indexes, and foreign key relationships.
+Labfluss now uses Sequelize migrations to manage the database schema. The initial migration creates the current MVP schema, including users, projects, project memberships, tasks, experiments, protocols, equipment, equipment bookings, notebook entries, review events, enums, indexes, and foreign key relationships.
 
 This is a stronger deployment path than relying on automatic schema sync for future database changes.
 
@@ -480,7 +483,7 @@ The project is still a portfolio/demo application and would need additional prod
 
 ### Audit Logging
 
-LabFlow includes an admin-only audit logging system for sensitive actions and review workflow events. The audit log records who performed the action, what entity was affected, the target user when relevant, a readable summary, request metadata, and timestamps.
+Labfluss includes an admin-only audit logging system for sensitive actions and review workflow events. The audit log records who performed the action, what entity was affected, the target user when relevant, a readable summary, request metadata, and timestamps.
 
 Audit logging currently covers user role changes, workflow permission updates, account deactivation and reactivation, admin password resets, experiment and protocol review actions, task completion review decisions, organization setting changes, attachment actions, archived-item restoration, and invitation resend.
 
@@ -488,19 +491,19 @@ Admins can review these events in a dedicated Audit Logs page with filters for a
 
 ### Soft Delete and Auditability
 
-To support research-lab traceability, LabFlow avoids permanently deleting core lab records. Projects, tasks, experiments, and protocols are archived instead. This keeps historical records available for audit trails while removing inactive items from normal working views.
+To support research-lab traceability, Labfluss avoids permanently deleting core lab records. Projects, tasks, experiments, and protocols are archived instead. This keeps historical records available for audit trails while removing inactive items from normal working views.
 
 ### Organization Model and Data Isolation
 
 A major backend architecture upgrade added organization-level ownership across the application. Users now belong to an organization, and core lab records are linked to that organization.
 
-This allows LabFlow to move closer to a real multi-lab structure, where one lab's users, projects, tasks, protocols, equipment, audit logs, and review events are isolated from another lab's data.
+This allows Labfluss to move closer to a real multi-lab structure, where one lab's users, projects, tasks, protocols, equipment, audit logs, and review events are isolated from another lab's data.
 
 The controller layer now scopes record access by the authenticated user's organization, and a dedicated organization isolation test suite verifies that cross-organization access is blocked.
 
 ### Organization Settings and Tenant Administration
 
-LabFlow now includes a basic organization settings workflow. Admins can view and update the current organization’s name and type, while regular users can view the organization context but cannot change it.
+Labfluss now includes a basic organization settings workflow. Admins can view and update the current organization’s name and type, while regular users can view the organization context but cannot change it.
 
 The app always uses the authenticated user’s `organizationId` rather than accepting an organization ID from the request body or URL. This keeps organization settings scoped to the current tenant and avoids cross-organization updates.
 
@@ -572,11 +575,11 @@ I added a researcher-level review policy that separates workflow permission from
 
 ### 10. Separating Workspace Creation From User Onboarding
 
-A key part of the latest LabFlow iteration was separating creation of a new lab workspace from onboarding users into an existing organization.
+A key part of the latest Labfluss iteration was separating creation of a new lab workspace from onboarding users into an existing organization.
 
 The public registration page now creates a new organization and its first administrator. The user provides the organization name, organization type, administrator name, email address, optional department, and password.
 
-The backend normalizes the organization name into a URL-safe slug. If the slug already exists, LabFlow creates a unique suffix such as `-2` or `-3`.
+The backend normalizes the organization name into a URL-safe slug. If the slug already exists, Labfluss creates a unique suffix such as `-2` or `-3`.
 
 Workspace registration runs inside a database transaction. The organization and first administrator are therefore created together. If either operation fails, the transaction rolls back and no partial workspace is left behind.
 
@@ -599,11 +602,11 @@ An invitation stores the intended user’s:
 
 The raw invitation token is embedded in the invitation link, but only its SHA-256 hash is stored in the database. Raw invitation links may be returned in development and test environments, while production sends the link by email without exposing it in the API response.
 
-When the invited user opens the link, LabFlow shows the organization and invitation details. The user sets a password, and the backend creates the account using the organization, role, email address, and permissions stored on the invitation rather than accepting those fields from the client.
+When the invited user opens the link, Labfluss shows the organization and invitation details. The user sets a password, and the backend creates the account using the organization, role, email address, and permissions stored on the invitation rather than accepting those fields from the client.
 
 Invitation acceptance is transactional. User creation and the invitation status update either both succeed or both roll back. Accepted invitations cannot be reused.
 
-User email addresses are currently globally unique, so one email address can belong to only one LabFlow organization. Supporting one account across multiple organizations would require a future membership model.
+User email addresses are currently globally unique, so one email address can belong to only one Labfluss organization. Supporting one account across multiple organizations would require a future membership model.
 
 ### 12. Making Demo Seeding Safe for Multiple Organizations
 
@@ -631,7 +634,7 @@ A future enhancement could allow notebook entries to reference existing experime
 
 ### 14. Recovering Archived Records Without Accidental Cascades
 
-Once LabFlow used soft archive behavior, administrators needed a safe way to recover records that had been archived accidentally or temporarily.
+Once Labfluss used soft archive behavior, administrators needed a safe way to recover records that had been archived accidentally or temporarily.
 
 A simple recursive restore would have been risky. Restoring a project could unexpectedly reactivate tasks, experiments, protocols, and attachments that were intentionally archived for separate reasons.
 
@@ -649,20 +652,27 @@ For attachment restoration, Cloudflare R2 and PostgreSQL cannot share a transact
 
 ### 15. Separating Application Security From Third-Party Reputation Classification
 
-The deployed Vercel hostname was classified as phishing by Kaspersky's reputation database. Kaspersky then blocked the frontend JavaScript and CSS assets. Even after a user chose to continue, the application remained blank because the JavaScript request was replaced or interrupted and returned HTML instead of the expected module MIME type.
+During the earlier Vercel-hosted deployment, the generated Vercel hostname was classified as phishing by Kaspersky's reputation database. Kaspersky then blocked the frontend JavaScript and CSS assets. Even after a user chose to continue, the application remained blank because the JavaScript request was replaced or interrupted and returned HTML instead of the expected module MIME type.
 
 The console showed blocked or interrupted asset requests, HTTP 499 responses, `NS_ERROR_CORRUPTED_CONTENT`, and a disallowed `text/html` MIME type for the JavaScript bundle. These were symptoms of the antivirus classification rather than defects in the React application.
 
-The appropriate response is to submit the hostname for Kaspersky reanalysis and avoid asking users to disable protection. A stable custom domain is also planned, although it may still require reputation review.
+The appropriate response is to submit the hostname for Kaspersky reanalysis and avoid asking users to disable protection. The production frontend was later migrated to AWS Amplify Hosting and is now served from the custom domain `https://app.labfluss.com`.
 
 ## Result
 
-LabFlow MVP Version 1.6 is complete and deployed as a portfolio/demo application.
+Labfluss MVP Version 1.6 is complete and deployed as a portfolio/demo application.
 
 The project includes:
 
 - Full-stack React/Node/PostgreSQL application
 - Deployed frontend, backend, and hosted database
+- AWS Amplify production frontend at `https://app.labfluss.com`
+- AWS Lightsail backend at `https://api.labfluss.com`
+- Private Amazon RDS for PostgreSQL production database
+- Private Lightsail-to-RDS connectivity through VPC peering
+- Nginx reverse proxy with HTTPS
+- systemd-supervised backend service
+- systemd attachment-cleanup timer
 - Role-based authentication and protected routes
 - Project membership and project-specific access control
 - Experiment, protocol, task, equipment, booking, notebook, and review workflows
@@ -702,17 +712,16 @@ The project includes:
 
 ## Current Limitations
 
-LabFlow is intentionally focused on MVP workflows.
+Labfluss is intentionally focused on MVP workflows.
 
 Current limitations include:
 
-- The generated Vercel demo hostname is currently classified as phishing by Kaspersky's reputation database. A reanalysis request is needed, and a stable custom domain is planned.
 - No rich-text editor or PDF export for experiment notebooks
 - Password reset, email verification, invitation delivery, verification resend, and stale-session handling are implemented. Production verification covered workspace registration, verification-email delivery, resend, verification completion, and immediate post-verification access. Task reminders, booking reminders, and broader notification preferences are not yet included.
 - Local Mailgun keys should currently be injected into the backend process or stored in an operating-system secret store rather than saved in the local `.env` file, because repeated automated key disabling was observed when stored there.
 - No frontend automated tests yet
-- No production-grade monitoring or centralized logging
-- Organization isolation, workspace creation, first-administrator onboarding, invitation-based user onboarding, and basic settings exist, but multi-organization memberships, custom domains, subscriptions, billing, and full institutional tenant administration are not yet included.
+- External uptime monitoring is configured, but centralized long-term application log aggregation is still limited.
+- Organization isolation, workspace creation, first-administrator onboarding, invitation-based user onboarding, basic settings, and production custom domains exist, but multi-organization memberships, subscriptions, billing, and full institutional tenant administration are not yet included.
 - Equipment inventory metrics are organization-wide because equipment is not project-owned.
 - Review history and audit logs are not yet immutable or signature-backed.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
@@ -726,14 +735,12 @@ Current limitations include:
 
 Recommended future improvements include:
 
-- Stable custom frontend and API domains
-- Kaspersky and other reputation-service reclassification
 - Expanded organization administration and tenant policies
 - Multi-organization membership and organization switching
 - Subscription and billing support
 - Task, review, and booking notification preferences
 - Secure local secret storage through Windows Credential Manager or PowerShell SecretManagement
-- Production monitoring, centralized logging, alerting, and automated deployment/migration workflows
+- Expanded centralized logging, alerting, and automated deployment/migration workflows
 - Rich-text notebook entries and experiment notebook PDF export
 - Equipment maintenance history and calendar-based bookings
 - Frontend component and workflow tests
@@ -747,7 +754,7 @@ Recommended future improvements include:
 
 ## Portfolio Summary
 
-LabFlow demonstrates practical full-stack application development with a real-world domain use case.
+Labfluss demonstrates practical full-stack application development with a real-world domain use case.
 
 The project shows experience with:
 
@@ -759,5 +766,5 @@ The project shows experience with:
 - Role-based and project-scoped authorization
 - Backend validation for business rules
 - Automated backend testing
-- Deployment with Vercel, Render, and Neon PostgreSQL
+- Production deployment with AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Cloudflare R2, Nginx, and systemd
 - Translating scientific workflow knowledge into software features

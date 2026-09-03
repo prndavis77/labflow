@@ -1,33 +1,33 @@
-# LabFlow Privacy Policy
+# Labfluss Privacy Policy
 
 **Version:** 1.0
 **Effective date:** [EFFECTIVE DATE]
-**Last updated:** [LAST UPDATED DATE]
+**Last updated:** 2026-09-02
 
 ## 1. Introduction
 
-This Privacy Policy explains how LabFlow ("LabFlow," "we," "us," or "our") collects, uses, discloses, stores, and protects personal information in connection with the LabFlow service.
+This Privacy Policy explains how Labfluss ("Labfluss," "we," "us," or "our") collects, uses, discloses, stores, and protects personal information in connection with the Labfluss service.
 
-LabFlow is a project-management and laboratory-workflow platform intended for use by university research laboratories and their authorized personnel.
+Labfluss is a project-management and laboratory-workflow platform intended for use by university research laboratories and their authorized personnel.
 
-For the initial paid pilot program, LabFlow is intended for United States university laboratories and for research and administrative information that is permitted under LabFlow's Pilot Data Policy.
+For the initial paid pilot program, Labfluss is intended for United States university laboratories and for research and administrative information that is permitted under Labfluss's Pilot Data Policy.
 
 This Privacy Policy applies to:
 
-- the LabFlow web application;
-- LabFlow-operated websites that link to this Privacy Policy;
+- the Labfluss web application;
+- Labfluss-operated websites that link to this Privacy Policy;
 - account administration;
 - transactional communications;
 - technical support and service operations; and
-- related interactions with LabFlow.
+- related interactions with Labfluss.
 
-This Privacy Policy does not override the terms of an agreement between LabFlow and a university or other organizational customer.
+This Privacy Policy does not override the terms of an agreement between Labfluss and a university or other organizational customer.
 
-Where an organizational customer determines why and how personal information is processed through LabFlow, that customer may be the entity primarily responsible for the information, and LabFlow may process the information on the customer's behalf.
+Where an organizational customer determines why and how personal information is processed through Labfluss, that customer may be the entity primarily responsible for the information, and Labfluss may process the information on the customer's behalf.
 
-## 2. Who Operates LabFlow
+## 2. Who Operates Labfluss
 
-LabFlow is operated by:
+Labfluss is operated by:
 
 Philip Davis
 Heinrichstraße 94
@@ -40,7 +40,7 @@ Privacy inquiries may be sent to:
 
 ## 3. Information We Collect
 
-The information LabFlow processes depends on how the service is used.
+The information Labfluss processes depends on how the service is used.
 
 ### 3.1 Account and identity information
 
@@ -58,7 +58,7 @@ We may collect or process information such as:
 
 ### 3.2 Authentication and security information
 
-LabFlow processes information necessary to authenticate users and protect accounts, including:
+Labfluss processes information necessary to authenticate users and protect accounts, including:
 
 - password hashes;
 - authentication and account-security state;
@@ -68,13 +68,13 @@ LabFlow processes information necessary to authenticate users and protect accoun
 - invitation state; and
 - security-related audit information.
 
-LabFlow does not store plaintext user passwords.
+Labfluss does not store plaintext user passwords.
 
-Certain one-time account links, such as invitation, verification, and password-reset links, may contain temporary security tokens when transmitted by email. LabFlow stores hashes of those tokens rather than the raw token values in its application database.
+Certain one-time account links, such as invitation, verification, and password-reset links, may contain temporary security tokens when transmitted by email. Labfluss stores hashes of those tokens rather than the raw token values in its application database.
 
 ### 3.3 Customer Content
 
-Authorized users may provide information through LabFlow relating to laboratory operations and research workflows, including:
+Authorized users may provide information through Labfluss relating to laboratory operations and research workflows, including:
 
 - projects;
 - project memberships;
@@ -91,21 +91,21 @@ Authorized users may provide information through LabFlow relating to laboratory 
 
 We refer to this information collectively as "Customer Content."
 
-Customers and users are responsible for ensuring that Customer Content is permitted under their institutional requirements, agreements, research restrictions, and LabFlow's applicable data-use policies.
+Customers and users are responsible for ensuring that Customer Content is permitted under their institutional requirements, agreements, research restrictions, and Labfluss's applicable data-use policies.
 
 ### 3.4 Attachments
 
-Users may upload files associated with permitted LabFlow records.
+Users may upload files associated with permitted Labfluss records.
 
 Attachments may include research-related or laboratory-related content selected by the user.
 
 Attachments are stored separately from the primary relational database using private object storage.
 
-Users must not upload information prohibited by LabFlow's Pilot Data Policy or other applicable service restrictions.
+Users must not upload information prohibited by Labfluss's Pilot Data Policy or other applicable service restrictions.
 
 ### 3.5 Invitation and transactional-email information
 
-When LabFlow sends account-related email, we may process:
+When Labfluss sends account-related email, we may process:
 
 - recipient name;
 - email address;
@@ -118,7 +118,7 @@ When LabFlow sends account-related email, we may process:
 
 ### 3.6 Technical and usage information
 
-When a person accesses LabFlow, we or our service providers may automatically process technical information such as:
+When a person accesses Labfluss, we or our service providers may automatically process technical information such as:
 
 - IP address;
 - browser or user-agent information;
@@ -135,7 +135,7 @@ This information is used primarily to operate, secure, troubleshoot, and maintai
 
 ### 3.7 Audit information
 
-LabFlow maintains audit and operational records associated with certain account and application activities.
+Labfluss maintains audit and operational records associated with certain account and application activities.
 
 These records may include:
 
@@ -156,11 +156,11 @@ We may receive information:
 For example, when a user:
 
 - creates or activates an account;
-- enters information into LabFlow;
+- enters information into Labfluss;
 - uploads an attachment;
 - updates a profile;
 - performs laboratory workflow activities; or
-- contacts LabFlow.
+- contacts Labfluss.
 
 ### 4.2 From organizational customers
 
@@ -168,17 +168,17 @@ A university, laboratory administrator, supervisor, or other authorized customer
 
 ### 4.3 Automatically through use of the service
 
-Technical and operational information may be generated automatically when users connect to or interact with LabFlow.
+Technical and operational information may be generated automatically when users connect to or interact with Labfluss.
 
 ### 4.4 From service providers
 
-We may receive delivery, infrastructure, security, or availability information from providers used to operate LabFlow.
+We may receive delivery, infrastructure, security, or availability information from providers used to operate Labfluss.
 
 ## 5. How We Use Information
 
-LabFlow may process personal information for purposes including:
+Labfluss may process personal information for purposes including:
 
-- providing and operating the LabFlow service;
+- providing and operating the Labfluss service;
 - authenticating users;
 - creating and administering accounts;
 - managing organizations and user permissions;
@@ -199,17 +199,17 @@ LabFlow may process personal information for purposes including:
 - deleting or offboarding customer organizations;
 - enforcing service terms and data restrictions;
 - complying with applicable legal obligations; and
-- protecting the rights, security, and integrity of LabFlow, its customers, and users.
+- protecting the rights, security, and integrity of Labfluss, its customers, and users.
 
 We do not use Customer Content for unrelated advertising purposes.
 
 ## 6. Customer Instructions and Institutional Control
 
-LabFlow is designed primarily as a service for organizational customers such as university research laboratories.
+Labfluss is designed primarily as a service for organizational customers such as university research laboratories.
 
 Depending on the circumstances, a university or other organizational customer may determine:
 
-- which users are authorized to use LabFlow;
+- which users are authorized to use Labfluss;
 - which information users may enter;
 - the purposes for which Customer Content is processed;
 - user permissions;
@@ -217,40 +217,40 @@ Depending on the circumstances, a university or other organizational customer ma
 - retention requirements; and
 - whether information should be exported or deleted.
 
-Where LabFlow processes personal information on behalf of an organizational customer, requests concerning Customer Content may need to be directed to that customer.
+Where Labfluss processes personal information on behalf of an organizational customer, requests concerning Customer Content may need to be directed to that customer.
 
-LabFlow may refer an individual to the relevant organizational customer when that customer is responsible for responding to the request.
+Labfluss may refer an individual to the relevant organizational customer when that customer is responsible for responding to the request.
 
 ## 7. Information We Do Not Intend to Collect
 
-The initial LabFlow paid pilot is subject to defined data restrictions.
+The initial Labfluss paid pilot is subject to defined data restrictions.
 
-LabFlow is not intended to receive or process:
+Labfluss is not intended to receive or process:
 
 - protected health information or electronic protected health information subject to HIPAA;
 - official student education records requiring FERPA-regulated handling;
 - ITAR-controlled technical data;
-- export-controlled information requiring controls that LabFlow has not agreed to provide;
+- export-controlled information requiring controls that Labfluss has not agreed to provide;
 - classified information;
 - Controlled Unclassified Information where specialized contractual or government safeguards apply;
 - passwords or credentials for third-party systems;
 - secret access keys or API keys;
 - payment-card numbers stored as Customer Content;
 - highly sensitive personal information unrelated to legitimate laboratory workflow use;
-- regulated GxP, GLP, GMP, or 21 CFR Part 11 records where LabFlow is expected to serve as the regulated system of record; or
-- other information prohibited by LabFlow's Pilot Data Policy.
+- regulated GxP, GLP, GMP, or 21 CFR Part 11 records where Labfluss is expected to serve as the regulated system of record; or
+- other information prohibited by Labfluss's Pilot Data Policy.
 
 Separate HIPAA, FERPA, and export-control scope statements provide additional restrictions.
 
-Customers must not use LabFlow for prohibited categories of information unless LabFlow has expressly agreed in writing to support the applicable use case.
+Customers must not use Labfluss for prohibited categories of information unless Labfluss has expressly agreed in writing to support the applicable use case.
 
 ## 8. How We Disclose Information
 
-LabFlow does not disclose personal information except as described in this Privacy Policy or as otherwise authorized by the applicable customer.
+Labfluss does not disclose personal information except as described in this Privacy Policy or as otherwise authorized by the applicable customer.
 
 ### 8.1 Service providers and subprocessors
 
-We use service providers to operate LabFlow.
+We use service providers to operate Labfluss.
 
 These providers perform functions including:
 
@@ -263,15 +263,15 @@ These providers perform functions including:
 
 These providers may process personal information only to the extent necessary to provide their services or as otherwise permitted by applicable agreements and law.
 
-LabFlow maintains a separate Subprocessor Inventory describing the primary production providers that may process customer-related information.
+Labfluss maintains a separate Subprocessor Inventory describing the primary production providers that may process customer-related information.
 
-**Subprocessor information:** Available upon request through the LabFlow privacy contact.
+**Subprocessor information:** Available upon request through the Labfluss privacy contact.
 
 ### 8.2 Organizational customers and authorized users
 
 Information may be visible to other users within the same organization when required by their role, permissions, project membership, or the functionality of the service.
 
-LabFlow uses authorization controls intended to prevent users from accessing information belonging to organizations for which they are not authorized.
+Labfluss uses authorization controls intended to prevent users from accessing information belonging to organizations for which they are not authorized.
 
 ### 8.3 Legal and safety purposes
 
@@ -279,32 +279,32 @@ We may disclose information where reasonably necessary to:
 
 - comply with applicable law, regulation, subpoena, court order, or other valid legal process;
 - respond to lawful governmental requests;
-- protect the security or integrity of LabFlow;
+- protect the security or integrity of Labfluss;
 - investigate fraud, abuse, or security incidents;
 - enforce contractual rights; or
-- protect the rights, safety, or property of LabFlow, our customers, users, or others.
+- protect the rights, safety, or property of Labfluss, our customers, users, or others.
 
-Where legally permitted and appropriate, LabFlow may seek to notify the affected customer before disclosing Customer Content in response to compulsory legal process.
+Where legally permitted and appropriate, Labfluss may seek to notify the affected customer before disclosing Customer Content in response to compulsory legal process.
 
 ### 8.4 Business transactions
 
-If LabFlow or the business operating LabFlow is involved in a merger, acquisition, financing, reorganization, sale of assets, or similar transaction, information may be transferred as part of that transaction subject to applicable law and contractual requirements.
+If Labfluss or the business operating Labfluss is involved in a merger, acquisition, financing, reorganization, sale of assets, or similar transaction, information may be transferred as part of that transaction subject to applicable law and contractual requirements.
 
 ## 9. Sale, Sharing, and Advertising
 
-LabFlow does not currently sell personal information.
+Labfluss does not currently sell personal information.
 
-LabFlow does not currently use Customer Content for targeted or cross-context behavioral advertising.
+Labfluss does not currently use Customer Content for targeted or cross-context behavioral advertising.
 
-LabFlow does not currently operate advertising networks within the LabFlow application.
+Labfluss does not currently operate advertising networks within the Labfluss application.
 
-The production LabFlow frontend currently does not intentionally use web analytics or session-replay services for pilot users.
+The production Labfluss frontend currently does not intentionally use web analytics or session-replay services for pilot users.
 
 If these practices materially change, this Privacy Policy and any legally required privacy notices or controls will be updated before the new processing is introduced.
 
 ## 10. Cookies and Similar Technologies
 
-LabFlow may use cookies, browser storage, authentication state, or similar technical mechanisms where necessary to:
+Labfluss may use cookies, browser storage, authentication state, or similar technical mechanisms where necessary to:
 
 - authenticate users;
 - maintain secure sessions;
@@ -312,13 +312,13 @@ LabFlow may use cookies, browser storage, authentication state, or similar techn
 - provide application functionality; and
 - protect the service.
 
-LabFlow does not currently use these technologies within the production application for behavioral advertising.
+Labfluss does not currently use these technologies within the production application for behavioral advertising.
 
-If non-essential analytics, advertising, or similar technologies are introduced, LabFlow will evaluate applicable notice and consent requirements before deployment.
+If non-essential analytics, advertising, or similar technologies are introduced, Labfluss will evaluate applicable notice and consent requirements before deployment.
 
 ## 11. Data Retention
 
-LabFlow retains personal information only for as long as reasonably necessary for the purposes for which it is processed, subject to:
+Labfluss retains personal information only for as long as reasonably necessary for the purposes for which it is processed, subject to:
 
 - customer instructions;
 - contractual requirements;
@@ -326,17 +326,17 @@ LabFlow retains personal information only for as long as reasonably necessary fo
 - security requirements;
 - dispute or legal obligations;
 - backup and recovery requirements; and
-- the LabFlow Retention Policy.
+- the Labfluss Retention Policy.
 
-Customer Content is generally retained while the applicable organization remains active or until the information is deleted in accordance with customer instructions and LabFlow's procedures.
+Customer Content is generally retained while the applicable organization remains active or until the information is deleted in accordance with customer instructions and Labfluss's procedures.
 
 Following organization offboarding or deletion, information may remain temporarily in backups, point-in-time recovery systems, provider retention systems, logs, or other recovery mechanisms until the applicable retention period expires or the information is overwritten.
 
-LabFlow maintains documented organization offboarding, deletion, and customer-export procedures.
+Labfluss maintains documented organization offboarding, deletion, and customer-export procedures.
 
 ## 12. Data Security
 
-LabFlow uses technical and organizational safeguards intended to protect information against unauthorized access, use, alteration, disclosure, or destruction.
+Labfluss uses technical and organizational safeguards intended to protect information against unauthorized access, use, alteration, disclosure, or destruction.
 
 Depending on the system involved, safeguards include:
 
@@ -364,32 +364,32 @@ No system can guarantee absolute security.
 
 Users are responsible for protecting their credentials and should promptly report suspected unauthorized access.
 
-Additional information about LabFlow's security safeguards is available in the LabFlow Security Safeguards document.
+Additional information about Labfluss's security safeguards is available in the Labfluss Security Safeguards document.
 
 ## 13. International Processing and Data Locations
 
-Although the initial paid pilot is intended for United States university laboratories, LabFlow and its service providers may process information in multiple countries.
+Although the initial paid pilot is intended for United States university laboratories, Labfluss and its service providers may process information in multiple countries.
 
-Current production infrastructure may involve processing or storage in locations including:
+Current production infrastructure and service providers may involve processing or storage in locations including:
 
-- Germany;
+- Germany, including AWS production infrastructure in the Europe (Frankfurt) Region;
 - other locations within the European Union or European Economic Area;
-- the United States; and
+- the United States, including current transactional-email processing; and
 - other locations used by applicable service providers and their authorized subprocessors.
 
 The specific provider configuration may change over time.
 
-LabFlow maintains a Subprocessor Inventory containing current information about its primary production service providers and known production-region configuration.
+Labfluss maintains a Subprocessor Inventory containing current information about its primary production service providers and known production-region configuration.
 
-Customers that require a specific data-residency arrangement should raise that requirement before transmitting customer data to LabFlow.
+Customers that require a specific data-residency arrangement should raise that requirement before transmitting customer data to Labfluss.
 
-LabFlow will not represent the service as providing US-only or another specific residency arrangement unless that configuration has been specifically verified and agreed.
+Labfluss will not represent the service as providing US-only or another specific residency arrangement unless that configuration has been specifically verified and agreed.
 
 ## 14. State Privacy Rights
 
 Residents of certain United States states may have privacy rights under applicable state law.
 
-Depending on the law and whether it applies to LabFlow in the particular circumstances, those rights may include the right to:
+Depending on the law and whether it applies to Labfluss in the particular circumstances, those rights may include the right to:
 
 - request access to personal information;
 - request correction of inaccurate information;
@@ -401,9 +401,9 @@ Depending on the law and whether it applies to LabFlow in the particular circums
 
 Not every state privacy law applies to every organization, service, or processing activity.
 
-Nothing in this Privacy Policy is intended to represent that a particular statute applies to LabFlow where its legal applicability thresholds or other requirements are not met.
+Nothing in this Privacy Policy is intended to represent that a particular statute applies to Labfluss where its legal applicability thresholds or other requirements are not met.
 
-LabFlow does not currently sell personal information or use personal information for targeted or cross-context behavioral advertising.
+Labfluss does not currently sell personal information or use personal information for targeted or cross-context behavioral advertising.
 
 To submit a privacy request, contact:
 
@@ -415,11 +415,11 @@ If the information is controlled by a university or other organizational custome
 
 Authorized agents may submit requests where required by applicable law, subject to appropriate verification of their authority.
 
-LabFlow will not discriminate against an individual for exercising a privacy right provided by applicable law.
+Labfluss will not discriminate against an individual for exercising a privacy right provided by applicable law.
 
 ## 15. California Residents
 
-If the California Consumer Privacy Act, as amended, applies to LabFlow's processing of a particular California resident's personal information, that resident may have rights provided by the CCPA.
+If the California Consumer Privacy Act, as amended, applies to Labfluss's processing of a particular California resident's personal information, that resident may have rights provided by the CCPA.
 
 Those rights may include rights concerning:
 
@@ -432,37 +432,37 @@ Those rights may include rights concerning:
 - use or disclosure of sensitive personal information in certain circumstances; and
 - non-discrimination for exercising applicable privacy rights.
 
-LabFlow does not currently sell personal information and does not currently share personal information for cross-context behavioral advertising.
+Labfluss does not currently sell personal information and does not currently share personal information for cross-context behavioral advertising.
 
-Because the applicability of the CCPA depends on statutory requirements and circumstances, this section does not constitute a representation that LabFlow is presently a "business" subject to every requirement of the CCPA.
+Because the applicability of the CCPA depends on statutory requirements and circumstances, this section does not constitute a representation that Labfluss is presently a "business" subject to every requirement of the CCPA.
 
 Requests may be submitted using the contact information in Section 14.
 
 ## 16. Children's Privacy
 
-LabFlow is intended for university research laboratories and professional or academic research users.
+Labfluss is intended for university research laboratories and professional or academic research users.
 
 The service is not directed to children under 13.
 
-LabFlow does not knowingly seek to collect personal information directly from children under 13 through the general LabFlow service.
+Labfluss does not knowingly seek to collect personal information directly from children under 13 through the general Labfluss service.
 
 If we learn that personal information has been collected directly from a child under 13 in circumstances where collection is not permitted, we will take appropriate steps to address the information.
 
-If you believe a child under 13 has provided personal information to LabFlow, contact:
+If you believe a child under 13 has provided personal information to Labfluss, contact:
 
 **[PRIVACY EMAIL ADDRESS]**
 
 ## 17. University Students
 
-Use by university students does not, by itself, mean that LabFlow is intended to act as an institutional student-record system.
+Use by university students does not, by itself, mean that Labfluss is intended to act as an institutional student-record system.
 
-Customers must follow LabFlow's FERPA Scope Statement and their own institutional policies when determining what student-related information may be entered into LabFlow.
+Customers must follow Labfluss's FERPA Scope Statement and their own institutional policies when determining what student-related information may be entered into Labfluss.
 
 ## 18. Security Incidents
 
-LabFlow maintains procedures for responding to suspected security incidents.
+Labfluss maintains procedures for responding to suspected security incidents.
 
-If an incident affects customer information, LabFlow will investigate the incident and provide notifications when required by applicable law, contractual obligations, or customer agreements.
+If an incident affects customer information, Labfluss will investigate the incident and provide notifications when required by applicable law, contractual obligations, or customer agreements.
 
 Customers should report suspected security incidents to:
 
@@ -477,17 +477,17 @@ Authorized organizational representatives may request:
 - organization deletion; or
 - other account-administration actions
 
-through the applicable LabFlow support or administrative process.
+through the applicable Labfluss support or administrative process.
 
 Individual users seeking access, correction, or deletion should contact their organizational administrator where the requested information is controlled by that organization.
 
-Users may also contact LabFlow using the privacy contact provided in this Policy.
+Users may also contact Labfluss using the privacy contact provided in this Policy.
 
 ## 20. Third-Party Services and Links
 
-LabFlow may contain links to third-party websites or services.
+Labfluss may contain links to third-party websites or services.
 
-This Privacy Policy does not govern independently operated third-party websites or services that are not acting as LabFlow service providers.
+This Privacy Policy does not govern independently operated third-party websites or services that are not acting as Labfluss service providers.
 
 Users should review the privacy practices of those third parties separately.
 
@@ -495,7 +495,7 @@ Users should review the privacy practices of those third parties separately.
 
 We may update this Privacy Policy when:
 
-- LabFlow functionality changes;
+- Labfluss functionality changes;
 - our information practices change;
 - service providers change;
 - legal requirements change; or
@@ -507,7 +507,7 @@ Material changes will not be applied retroactively in a manner inconsistent with
 
 ## 22. Contact Us
 
-Questions, requests, or concerns concerning this Privacy Policy or LabFlow's privacy practices may be directed to:
+Questions, requests, or concerns concerning this Privacy Policy or Labfluss's privacy practices may be directed to:
 
 Philip Davis
 Heinrichstraße 94
@@ -517,4 +517,4 @@ Germany
 **Privacy:** [PRIVACY EMAIL ADDRESS]
 **Security:** [SECURITY EMAIL ADDRESS]
 
-For Customer Content controlled by a university or laboratory organization, users may also contact their organization's LabFlow administrator.
+For Customer Content controlled by a university or laboratory organization, users may also contact their organization's Labfluss administrator.

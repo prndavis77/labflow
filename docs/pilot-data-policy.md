@@ -1,4 +1,4 @@
-# LabFlow Pilot Data Policy
+# Labfluss Pilot Data Policy
 
 **Version:** 1.0  
 **Effective date:** [pilot launch date]  
@@ -6,9 +6,9 @@
 
 ## Purpose
 
-This policy defines what data may and may not be stored in LabFlow during the initial paid pilot stage.
+This policy defines what data may and may not be stored in Labfluss during the initial paid pilot stage.
 
-LabFlow is intended during this stage for United States university research laboratories using ordinary, non-regulated laboratory project-management and research-operations data.
+Labfluss is intended during this stage for United States university research laboratories using ordinary, non-regulated laboratory project-management and research-operations data.
 
 The paid pilot is not intended for clinical, regulated, classified, export-controlled, or similarly high-risk workloads.
 
@@ -16,7 +16,7 @@ The paid pilot is not intended for clinical, regulated, classified, export-contr
 
 This policy applies to:
 
-- LabFlow organizations and user accounts
+- Labfluss organizations and user accounts
 - projects
 - tasks
 - experiments
@@ -32,7 +32,7 @@ This policy applies to:
 
 ## Permitted Data
 
-The following data may be stored in LabFlow during the pilot.
+The following data may be stored in Labfluss during the pilot.
 
 ### 1. Normal user and account information
 
@@ -41,7 +41,7 @@ Permitted examples include:
 - researcher, supervisor, and administrator names
 - university or institutional email addresses
 - department or laboratory affiliation
-- LabFlow user roles
+- Labfluss user roles
 - project membership
 - ordinary account and application activity records
 
@@ -113,7 +113,7 @@ Permitted attachments may include:
 - instrument SOPs
 - ordinary project documentation
 
-Uploads remain subject to LabFlow's supported file types and technical attachment limits.
+Uploads remain subject to Labfluss's supported file types and technical attachment limits.
 
 ### 7. Research data that is not regulated or highly sensitive
 
@@ -132,7 +132,7 @@ When there is uncertainty about whether a dataset is sensitive or regulated, it 
 
 ## Prohibited Data
 
-The following information must not be stored, uploaded, pasted, or otherwise entered into LabFlow during the paid pilot.
+The following information must not be stored, uploaded, pasted, or otherwise entered into Labfluss during the paid pilot.
 
 ### 1. Protected Health Information and identifiable human health data
 
@@ -149,13 +149,13 @@ Do not store:
 - health-insurance information
 - other individually identifiable health information
 
-LabFlow does not support the storage or processing of PHI or ePHI during the initial pilot. LabFlow is not offered for use cases that require a Business Associate Agreement (BAA).
+Labfluss does not support the storage or processing of PHI or ePHI during the initial pilot. Labfluss is not offered for use cases that require a Business Associate Agreement (BAA).
 
 De-identified research data may be considered only where the laboratory has independently confirmed that it has been appropriately de-identified and is permitted for the intended use.
 
 ### 2. FERPA-protected education records
 
-Do not store FERPA-protected education records in LabFlow during the pilot or use LabFlow as an institutional system of record for such information.
+Do not store FERPA-protected education records in Labfluss during the pilot or use Labfluss as an institutional system of record for such information.
 
 Prohibited examples include:
 
@@ -166,7 +166,7 @@ Prohibited examples include:
 - student ID numbers combined with protected education information
 - institutional records maintained for academic decision-making
 
-Ordinary LabFlow account information and research-work assignments for graduate students or student researchers are not intended to function as official education records.
+Ordinary Labfluss account information and research-work assignments for graduate students or student researchers are not intended to function as official education records.
 
 If a university determines that particular information constitutes a FERPA-protected education record, that information must not be stored in the pilot system.
 
@@ -180,7 +180,7 @@ Do not store information subject to:
 
 Examples include controlled technical drawings, specifications, defense-related research information, controlled software, or restricted technical data.
 
-Pilot laboratories are responsible for identifying research subject to export-control restrictions before using LabFlow.
+Pilot laboratories are responsible for identifying research subject to export-control restrictions before using Labfluss.
 
 ### 4. Classified or government-controlled information
 
@@ -191,7 +191,7 @@ Do not store:
 - information requiring FedRAMP, FISMA, NIST 800-171, CMMC, or comparable government-controlled environments
 - government credentials or restricted government records
 
-unless LabFlow is separately upgraded, assessed, and contractually approved for that use.
+unless Labfluss is separately upgraded, assessed, and contractually approved for that use.
 
 ### 5. Regulated laboratory records
 
@@ -204,11 +204,11 @@ Do not use the pilot as a regulated system of record for:
 - electronic records or signatures subject to FDA 21 CFR Part 11
 - legally required regulated laboratory records
 
-LabFlow may be evaluated for ordinary workflow management in research environments, but the current pilot has not undergone computerized-system validation for regulated GxP use.
+Labfluss may be evaluated for ordinary workflow management in research environments, but the current pilot has not undergone computerized-system validation for regulated GxP use.
 
 ### 6. Credentials and authentication secrets
 
-Do not store in projects, notes, attachments, or other LabFlow fields:
+Do not store in projects, notes, attachments, or other Labfluss fields:
 
 - passwords
 - API keys
@@ -254,7 +254,7 @@ The laboratory should consult its institutional research, information-security, 
 
 Human-subject research is not automatically prohibited.
 
-However, during the pilot, LabFlow may only be used where the data entered into LabFlow does not contain identifiable or regulated participant information.
+However, during the pilot, Labfluss may only be used where the data entered into Labfluss does not contain identifiable or regulated participant information.
 
 Acceptable examples may include:
 
@@ -268,7 +268,7 @@ Participant identifiers, PHI, identifiable clinical data, consent forms containi
 
 ## Student Researchers
 
-Students may have LabFlow user accounts and may participate in research projects.
+Students may have Labfluss user accounts and may participate in research projects.
 
 Permitted information includes ordinary operational data such as:
 
@@ -280,11 +280,11 @@ Permitted information includes ordinary operational data such as:
 - equipment bookings
 - workflow permissions
 
-LabFlow must not be used as the official academic record system for grades, academic standing, disciplinary decisions, or other FERPA-protected education records.
+Labfluss must not be used as the official academic record system for grades, academic standing, disciplinary decisions, or other FERPA-protected education records.
 
 ## Intellectual Property
 
-Ordinary unpublished research information may be used during a pilot only where the laboratory is comfortable storing that information in the approved LabFlow pilot environment.
+Ordinary unpublished research information may be used during a pilot only where the laboratory is comfortable storing that information in the approved Labfluss pilot environment.
 
 The customer remains responsible for determining whether sponsor agreements, grant terms, university intellectual-property policies, nondisclosure agreements, or other contractual restrictions prohibit storage in an external SaaS platform.
 
@@ -292,24 +292,24 @@ The customer remains responsible for determining whether sponsor agreements, gra
 
 The pilot customer is responsible for:
 
-- determining the classification of the data it enters into LabFlow
+- determining the classification of the data it enters into Labfluss
 - ensuring users understand this policy
 - preventing prohibited data from being uploaded
 - consulting institutional compliance, export-control, privacy, legal, or information-security personnel where necessary
-- notifying LabFlow promptly if prohibited data is entered accidentally
+- notifying Labfluss promptly if prohibited data is entered accidentally
 
-LabFlow does not independently determine whether customer research is subject to HIPAA, FERPA, export controls, GxP requirements, sponsor restrictions, or other institution-specific rules.
+Labfluss does not independently determine whether customer research is subject to HIPAA, FERPA, export controls, GxP requirements, sponsor restrictions, or other institution-specific rules.
 
-LabFlow remains responsible for operating and protecting the service in accordance with the applicable pilot agreement, documented security controls, and other commitments made to the customer.
+Labfluss remains responsible for operating and protecting the service in accordance with the applicable pilot agreement, documented security controls, and other commitments made to the customer.
 
 ## Accidental Upload of Prohibited Data
 
-If prohibited data is accidentally entered into LabFlow:
+If prohibited data is accidentally entered into Labfluss:
 
 1. the customer should stop further use or distribution of the affected data
-2. the customer should notify the designated LabFlow support contact promptly
+2. the customer should notify the designated Labfluss support contact promptly
 3. access to the affected information should be restricted where practical
-4. LabFlow and the customer should determine the appropriate containment, removal, and incident-response actions
+4. Labfluss and the customer should determine the appropriate containment, removal, and incident-response actions
 5. affected application data and attachment objects should be removed where appropriate and permitted
 6. sufficient incident records should be preserved without unnecessarily retaining the prohibited content itself
 7. credentials or access tokens should be revoked or rotated if exposure is suspected
@@ -318,9 +318,9 @@ If prohibited data is accidentally entered into LabFlow:
 
 ## Relationship to Pilot Agreement
 
-This policy supplements the applicable LabFlow pilot agreement. If the pilot agreement establishes stricter data-use restrictions, the stricter requirements apply.
+This policy supplements the applicable Labfluss pilot agreement. If the pilot agreement establishes stricter data-use restrictions, the stricter requirements apply.
 
-Any exception to this policy must be agreed to in writing before the affected data is stored or processed in LabFlow.
+Any exception to this policy must be agreed to in writing before the affected data is stored or processed in Labfluss.
 
 ## Pilot Acceptance
 
@@ -329,4 +329,4 @@ Before pilot activation, an authorized representative of the customer should con
 - the pilot is not intended for prohibited data
 - pilot users will be informed of the permitted-use restrictions
 - the laboratory has identified an appropriate administrator
-- the laboratory understands that LabFlow is not currently designed, assessed, validated, or contractually approved for workloads requiring HIPAA compliance, regulated GxP use, ITAR/EAR-controlled technical data, CUI, classified information, or similar specialized compliance controls
+- the laboratory understands that Labfluss is not currently designed, assessed, validated, or contractually approved for workloads requiring HIPAA compliance, regulated GxP use, ITAR/EAR-controlled technical data, CUI, classified information, or similar specialized compliance controls

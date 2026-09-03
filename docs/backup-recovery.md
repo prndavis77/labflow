@@ -1,23 +1,23 @@
-# LabFlow Backup and Recovery
+# Labfluss Backup and Recovery
 
 ## Purpose
 
-This document defines the backup inventory, recovery requirements, and recovery objectives for the deployed LabFlow application.
+This document defines the backup inventory, recovery requirements, and recovery objectives for the deployed Labfluss application.
 
-The purpose of backup and disaster-recovery planning is to ensure that LabFlow can be reconstructed after accidental deletion, data corruption, infrastructure failure, credential loss, or provider-level disruption.
+The purpose of backup and disaster-recovery planning is to ensure that Labfluss can be reconstructed after accidental deletion, data corruption, infrastructure failure, credential loss, or provider-level disruption.
 
-The current LabFlow deployment is intended for portfolio demonstrations, controlled pilots, invited testers, and non-sensitive test data. The recovery objectives in this document are appropriate for that deployment stage and do not represent an institutional SLA.
+The current Labfluss deployment is intended for portfolio demonstrations, controlled pilots, invited testers, and non-sensitive test data. The recovery objectives in this document are appropriate for that deployment stage and do not represent an institutional SLA.
 
 ## Production Recovery Inventory
 
-LabFlow depends on several independent production systems. A complete recovery plan must account for all of them.
+Labfluss depends on several independent production systems. A complete recovery plan must account for all of them.
 
 ### 1. PostgreSQL database
 
 Provider:
 
 ```text
-Neon PostgreSQL
+Amazon RDS PostgreSQL
 ```
 
 Contains recoverable application state including:
@@ -37,11 +37,11 @@ Contains recoverable application state including:
 - audit-log records
 - attachment metadata
 - archived/restored resource state
-- other relational application data stored by LabFlow
+- other relational application data stored by Labfluss
 
 The PostgreSQL database is the primary source of application metadata and relational state.
 
-Loss of the production database would prevent normal LabFlow operation even if all other services remained available.
+Loss of the production database would prevent normal Labfluss operation even if all other services remained available.
 
 Recovery priority:
 
@@ -53,7 +53,7 @@ Provider:
 
 Cloudflare R2
 
-Contains the binary objects associated with LabFlow attachment metadata.
+Contains the binary objects associated with Labfluss attachment metadata.
 
 Examples include uploaded:
 
@@ -96,11 +96,11 @@ Recovery priority:
 
 Critical
 
-### 4. Render backend configuration
+### 4. AWS Lightsail backend configuration
 
 Provider:
 
-Render
+AWS Lightsail
 
 Contains deployment-specific configuration including:
 
@@ -120,11 +120,11 @@ Recovery priority:
 
 High
 
-### 5. Vercel frontend configuration
+### 5. AWS Amplify frontend configuration
 
 Provider:
 
-Vercel
+AWS Amplify
 
 Contains deployment-specific configuration including:
 
@@ -158,7 +158,7 @@ Recoverable configuration includes:
 - DNS configuration
 - API credentials or the ability to generate replacement credentials
 
-Historical delivered email messages are not part of the LabFlow application backup requirement.
+Historical delivered email messages are not part of the Labfluss application backup requirement.
 
 Recovery priority:
 
@@ -178,7 +178,7 @@ Contains:
 - responder/contact configuration
 - alert-delivery configuration
 
-Loss of Better Stack configuration would not destroy LabFlow application data, but it would remove external outage detection.
+Loss of Better Stack configuration would not destroy Labfluss application data, but it would remove external outage detection.
 
 Recovery priority:
 
@@ -186,7 +186,7 @@ Medium
 
 ## Data Relationships
 
-A complete LabFlow recovery requires consistency between PostgreSQL and R2.
+A complete Labfluss recovery requires consistency between PostgreSQL and R2.
 
 For an attachment to function correctly after recovery:
 
@@ -208,11 +208,11 @@ Some production components can be reconstructed rather than restored byte-for-by
 
 ### Frontend deployment artifacts
 
-Vercel deployment artifacts can be regenerated from the GitHub source repository and documented project configuration.
+AWS Amplify deployment artifacts can be regenerated from the GitHub source repository and documented project configuration.
 
 ### Backend deployment artifacts
 
-Render deployment artifacts can be rebuilt from:
+AWS Lightsail deployment artifacts can be rebuilt from:
 
 - GitHub source
 - documented service configuration
@@ -226,7 +226,7 @@ Dependencies are reconstructed from the package manifests and lock files.
 
 ### Generated logs
 
-Render application logs are useful operational evidence but are not currently treated as authoritative LabFlow business data.
+AWS Lightsail application logs are useful operational evidence but are not currently treated as authoritative Labfluss business data.
 
 Long-term log archival is outside the scope of the current recovery requirement.
 
@@ -242,7 +242,7 @@ They should be regenerated when required.
 
 Recovery Point Objective, or RPO, defines the maximum acceptable amount of recently created data that could be lost during a recovery.
 
-For the current LabFlow demo/pilot deployment:
+For the current Labfluss demo/pilot deployment:
 
 Target RPO: 24 hours or less
 
@@ -256,7 +256,7 @@ For destructive production changes such as important database migrations, an add
 
 Recovery Time Objective, or RTO, defines the target time required to return the application to a usable state after a recoverable failure.
 
-For the current LabFlow deployment:
+For the current Labfluss deployment:
 
 Target RTO: 4 hours
 
@@ -304,7 +304,7 @@ Recover schema and data to a known-good pre-migration state.
 
 Required capability:
 
-Restore PostgreSQL into a replacement Neon database/project if necessary.
+Restore PostgreSQL into a replacement Amazon RDS for PostgreSQL DB instance if necessary.
 
 ### Individual attachment loss
 
@@ -322,13 +322,13 @@ Recover attachment objects and reconcile them with restored PostgreSQL metadata.
 
 Required capability:
 
-Recreate the Render service from GitHub and restored configuration.
+Recreate the AWS Lightsail service from GitHub and restored configuration.
 
 ### Frontend hosting loss
 
 Required capability:
 
-Recreate the Vercel project from GitHub and restored configuration.
+Recreate the AWS Amplify project from GitHub and restored configuration.
 
 ### Credential compromise or loss
 
@@ -346,7 +346,7 @@ Recreate the documented Better Stack monitors and responder configuration.
 
 ## Backup Principles
 
-LabFlow backup and recovery will follow these principles:
+Labfluss backup and recovery will follow these principles:
 
 1.  A backup is not considered reliable until a restore has been tested.
 2.  Production restore testing should use an isolated recovery environment whenever possible.
@@ -361,13 +361,15 @@ LabFlow backup and recovery will follow these principles:
 
 ## Current Provider Capabilities
 
-### Neon PostgreSQL
+### Amazon RDS for PostgreSQL
 
-Neon provides point-in-time recovery within the configured restore-history window.
+Amazon RDS provides automated backups and point-in-time recovery within the configured backup-retention period.
 
-Neon also supports database snapshots. Snapshots can capture a point-in-time database state and can be restored either directly or through a temporary branch for inspection before finalizing a restore.
+The current production DB instance uses a 7-day automated-backup retention period. Point-in-time recovery creates a new RDS DB instance at the selected recovery point.
 
-Current Neon production capabilities have been reviewed against the deployment plan. The verified Free-plan baseline includes a 6-hour restore-history window, one manual snapshot, no scheduled snapshots, and portable logical backups for additional recovery coverage.
+Manual DB snapshots may also be created to preserve known-good recovery points, particularly before significant schema or data changes.
+
+Portable PostgreSQL logical backups provide an additional recovery mechanism outside the RDS provider environment.
 
 ### Cloudflare R2
 
@@ -381,29 +383,29 @@ The current strategy uses private production R2 storage together with independen
 
 A representative attachment restore into an isolated R2 recovery bucket has been successfully tested with SHA-256 integrity verification.
 
-### Render
+### AWS Lightsail
 
-Render production environment variables and secrets are managed outside the source repository.
+AWS Lightsail production environment variables and secrets are managed outside the source repository.
 
 A recovery plan must document which configuration keys are required without recording plaintext production values in Git.
 
-### Vercel
+### AWS Amplify
 
-Vercel environment variables are also managed separately from source-controlled application code.
+AWS Amplify environment variables are also managed separately from source-controlled application code.
 
 Project configuration represented in repository files is recoverable through Git, while dashboard-only configuration must be documented sufficiently to recreate it.
 
 ## Current Recovery Status
 
-| Component                  | Backup/recovery state                                                                                           | Restore tested                      |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| PostgreSQL                 | Backup and restore procedures verified                                                                          | Yes, isolated restore               |
-| R2 attachments             | Dated backup and recovery procedures verified                                                                   | Yes, restore and reconciliation     |
-| GitHub source              | Version controlled                                                                                              | Yes, normal clone/redeploy workflow |
-| Render configuration       | Production service and cron configuration inventoried; secret regeneration and recreation procedures documented | No                                  |
-| Vercel configuration       | Production frontend configuration inventoried; recreation procedure documented                                  | No                                  |
-| Mailgun configuration      | Current sending infrastructure inventoried; credential regeneration procedure documented                        | No                                  |
-| Better Stack configuration | Production monitors and notification routing inventoried; recreation procedure documented                       | No                                  |
+| Component                   | Backup/recovery state                                                                                                    | Restore tested                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| PostgreSQL                  | Backup and restore procedures verified                                                                                   | Yes, isolated restore               |
+| R2 attachments              | Dated backup and recovery procedures verified                                                                            | Yes, restore and reconciliation     |
+| GitHub source               | Version controlled                                                                                                       | Yes, normal clone/redeploy workflow |
+| AWS Lightsail configuration | Production service and systemd timer configuration inventoried; secret regeneration and recreation procedures documented | No                                  |
+| AWS Amplify configuration   | Production frontend configuration inventoried; recreation procedure documented                                           | No                                  |
+| Mailgun configuration       | Current sending infrastructure inventoried; credential regeneration procedure documented                                 | No                                  |
+| Better Stack configuration  | Production monitors and notification routing inventoried; recreation procedure documented                                | No                                  |
 
 The isolated PostgreSQL restore, application-level recovery validation, and combined PostgreSQL/attachment-backup reconciliation were completed successfully during Phase 25B.7.
 
@@ -413,109 +415,74 @@ Remaining backup-hardening gaps include automated daily attachment backups and a
 
 ### Objective
 
-The PostgreSQL backup strategy protects LabFlow relational data against:
+The PostgreSQL backup strategy protects Labfluss relational data against:
 
 - accidental record deletion
 - incorrect bulk updates
 - application defects that corrupt stored data
 - failed or destructive migrations
 - production database loss
-- Neon project loss
+- Amazon RDS DB instance loss
 - situations requiring recovery into a replacement PostgreSQL environment
 
 The strategy uses multiple recovery mechanisms because no single backup method protects against every failure scenario.
 
 ## Backup Layers
 
-### Layer 1: Neon point-in-time restore
+### Layer 1: Amazon RDS automated backups and point-in-time recovery
 
-Neon point-in-time restore is the primary recovery mechanism for recent logical database failures.
+Amazon RDS automated backups are the primary recovery mechanism for recent logical database failures.
 
-The current LabFlow production project is on the Neon Free plan.
-
-Verified production restore-history window:
+Verified production backup retention:
 
 ```text
-6 hours
+7 days
 ```
 
-This provides fine-grained recovery for failures discovered within the previous six hours.
+This exceeds Labfluss's current target RPO of 24 hours.
 
-The current restore-history window does not independently satisfy LabFlow's broader target of retaining a recoverable state from within the previous 24 hours.
+Amazon RDS point-in-time recovery can restore the database to a selected point within the retained backup window by creating a new DB instance.
 
-The 24-hour recovery objective will therefore be satisfied through the combined backup strategy rather than PITR alone.
+Labfluss will use:
 
-LabFlow will use:
+- Amazon RDS point-in-time recovery for recent failures
+- manual RDS DB snapshots for important known-good recovery points
+- portable PostgreSQL logical backups for provider-independent recovery
 
-- Neon PITR for very recent failures
-- manual Neon snapshots for important known-good recovery points
-- external PostgreSQL logical backups for portable recovery outside the PITR window
+### Layer 2: Amazon RDS manual DB snapshots
 
-If LabFlow moves to a paid Neon plan in the future, extending the restore-history window to at least 24 hours is preferred.
+Amazon RDS manual DB snapshots provide named database recovery points that are retained until explicitly deleted.
 
-### Layer 2: Neon snapshots
-
-Neon snapshots provide named database recovery points.
-
-Verified current production capability:
-
-```text
-Manual snapshots: Available
-Manual snapshot limit on current Free plan: 1
-Scheduled snapshots: Not available on current plan
-```
-
-The Neon Console currently provides a manual Create snapshot action and requires an upgrade for snapshot schedules.
-
-For the current LabFlow deployment, manual snapshots should be created:
+Manual snapshots should be created:
 
 - before meaningful production database migrations
 - before risky data-changing maintenance
 - before significant database restructuring
-- before other production changes where a known-good database recovery point is valuable
+- before other production changes where a known-good recovery point is valuable
 
-Because only one manual snapshot is available on the current plan, the existing snapshot may need to be replaced when creating a newer recovery point.
+Before deleting a manual snapshot, confirm that it is no longer required for an unresolved incident or recent production change.
 
-Before deleting or replacing an existing snapshot, confirm that it is no longer the recovery point required for an unresolved incident or recent production change.
-
-Automated daily Neon snapshots are not part of the current Free-plan backup strategy.
-
-### Manual Snapshot Replacement Procedure
-
-The current Neon Free plan permits one manual snapshot.
-
-When a new recovery snapshot is required and an existing manual snapshot already exists:
-
-1. Confirm there is no active incident or unresolved production change that still depends on the existing snapshot.
-2. Record the existing snapshot creation time and purpose if it is operationally relevant.
-3. Create or verify an external `pg_dump` backup when additional protection is appropriate.
-4. Delete the existing Neon snapshot only after confirming it is safe to replace.
-5. Create a new manual snapshot from the `production` branch.
-6. Confirm the new snapshot appears in Neon Backup & Restore.
-7. Record the new snapshot creation time.
-8. Do not use the Restore action during snapshot replacement.
-
-Snapshot replacement is a destructive action with respect to the previous named recovery point. It must not be performed casually.
+A post-cutover production snapshot has been created for the current RDS deployment.
 
 ### Layer 3: Portable PostgreSQL logical export
 
-LabFlow should maintain the ability to create an independent logical PostgreSQL backup using `pg_dump`.
+Labfluss should maintain the ability to create an independent logical PostgreSQL backup using `pg_dump`.
 
 This backup is intended primarily for:
 
-- migration to another Neon project
+- migration to another RDS DB instance or PostgreSQL provider
 - migration to another PostgreSQL provider
 - recovery when provider-native restore mechanisms are unavailable
-- retaining an external copy outside the normal Neon recovery timeline
+- retaining an external copy outside the normal Amazon RDS PostgreSQL recovery timeline
 - disaster-recovery testing
 
 Logical exports are not the primary mechanism for routine point-in-time recovery.
 
 ## pg_dump Requirements
 
-`pg_dump` must use an unpooled Neon connection string.
+`pg_dump` must use a direct PostgreSQL connection to the RDS DB instance.
 
-Do not use the PgBouncer/pooled connection string for backup exports.
+Because the production RDS instance is private-only, backup tooling must run from a host with network access to the private RDS endpoint, such as the production Lightsail instance or another authorized host connected to the VPC.
 
 Preferred backup format:
 
@@ -525,7 +492,7 @@ Example:
 
 pg_dump --format=custom --no-owner --no-acl --file="labflow-production-YYYYMMDD-HHMM.dump" "$env:DATABASE_URL"
 
-The environment variable used for this command must contain an unpooled production connection string.
+The environment variable used for this command must contain a direct production PostgreSQL connection string.
 
 Do not place the production connection string directly in:
 
@@ -563,7 +530,7 @@ This backup was restore-verified successfully during Phase 25B.7.
 
 ## Backup Storage Security
 
-Logical backup files may contain the complete LabFlow production database.
+Logical backup files may contain the complete Labfluss production database.
 
 They must therefore be treated as sensitive production data.
 
@@ -609,68 +576,40 @@ Do not include:
 
 ## Retention Strategy
 
-For the current LabFlow demo/pilot deployment:
+For the current Labfluss demo/pilot deployment:
 
-### Neon point-in-time history
-
-```text
-Current production window: 6 hours
-Preferred: longer when plan and cost permit
-```
-
-The current Free-plan PITR window protects against recent failures discovered within six hours.
-
-The broader 24-hour LabFlow recovery objective is achieved through the combined use of PITR, manual snapshots, and portable logical backups rather than PITR alone.
-
-If LabFlow moves to a paid Neon plan, a restore-history window of at least 24 hours is preferred.
-
-### Neon snapshots
-
-Current plan:
+### Amazon RDS automated backup retention
 
 ```text
-Manual snapshots: 1
-Scheduled snapshots: unavailable
+Current production retention: 7 days
 ```
 
-A manual snapshot should normally be maintained around meaningful production changes.
+Amazon RDS automated backups provide point-in-time recovery throughout the configured seven-day retention period.
 
-The snapshot should not be treated as the only database backup because:
+This exceeds Labfluss's current target RPO of 24 hours.
 
-- only one manual snapshot is available
-- snapshot replacement removes the older named recovery point
-- snapshots remain within the Neon provider ecosystem
+### Amazon RDS manual snapshots
 
-External logical backups provide the additional portable recovery layer.
+Manual snapshots are used for known-good recovery points, particularly before significant production changes.
+
+Manual RDS snapshots are retained until explicitly deleted and are not limited to a single snapshot by the previous Neon Free-plan constraint.
 
 ### External logical backups
 
-At this stage, logical backups are not required daily.
+Portable PostgreSQL logical backups remain an additional provider-independent recovery layer.
 
 The current production strategy uses:
 
-- 6-hour Neon PITR
-- one manually maintained Neon snapshot
-- periodic portable logical backups
-
-Because scheduled Neon snapshots are unavailable on the current plan, periodic logical exports provide an important recovery point outside the short PITR window.
-
-Create an external logical backup:
-
-- before major database restructuring when additional protection is appropriate
-- before migrations judged higher risk
-- before moving between database providers or Neon projects
-- for periodic disaster-recovery validation
-- when a portable off-provider recovery copy is required
-
-A future institutional deployment should define a stricter automated external-backup retention policy.
+- 7-day Amazon RDS automated backup retention and point-in-time recovery
+- manually created RDS DB snapshots around significant production changes
+- periodic portable PostgreSQL logical backups
 
 ## Pre-Migration Backup Policy
 
 Before a production migration with meaningful schema or data risk:
 
-1. confirm current Neon restore capability
-2. create a manual Neon snapshot where supported
+1. confirm current Amazon RDS PostgreSQL restore capability
+2. create a manual Amazon RDS PostgreSQL snapshot where supported
 3. record the snapshot creation time
 4. optionally create a `pg_dump` for higher-risk migrations
 5. confirm the backup/snapshot exists
@@ -678,36 +617,35 @@ Before a production migration with meaningful schema or data risk:
 7. verify migration status afterward
 8. perform application smoke testing
 
-Simple low-risk migrations may not require a separate logical export if Neon PITR and snapshots are confirmed available.
+Simple low-risk migrations may not require a separate logical export if Amazon RDS PostgreSQL PITR and snapshots are confirmed available.
 
 ## Provider Failure Consideration
 
-Neon-native PITR and Neon snapshots are stored within the same provider ecosystem.
+Amazon RDS PostgreSQL-native PITR and Amazon RDS PostgreSQL snapshots are stored within the same provider ecosystem.
 
 They provide strong protection against many application and user errors but should not be treated as a complete independent off-provider disaster-recovery copy.
 
-A `pg_dump` stored outside Neon provides an additional recovery path if:
+A `pg_dump` stored outside Amazon RDS PostgreSQL provides an additional recovery path if:
 
-- the original Neon project becomes unavailable
-- the project is accidentally deleted
+- the original RDS DB instance becomes unavailable
+- the DB instance is accidentally deleted
 - provider-native restore access is unavailable
-- LabFlow must be moved to another PostgreSQL provider
+- Labfluss must be moved to another PostgreSQL provider
 
-This is the primary reason LabFlow retains a logical-export capability even when Neon-native backup features are enabled.
+This is the primary reason Labfluss retains a logical-export capability even when Amazon RDS PostgreSQL-native backup features are enabled.
 
 ## Production Backup Verification Checklist
 
 Before considering the PostgreSQL backup strategy operational, verify:
 
-- [x] Production Neon plan identified as Free
-- [x] Production Neon restore-history window identified as 6 hours
-- [x] Manual snapshot capability verified
-- [x] Current Free-plan manual snapshot limit identified as 1
-- [x] Scheduled snapshots confirmed unavailable on the current plan
-- [x] One manual recovery snapshot created
+- [x] Production RDS DB instance configuration verified
+- [x] Automated backup retention verified as 7 days
+- [x] Point-in-time recovery capability verified
+- [x] Manual DB snapshot capability verified
+- [x] Post-cutover manual DB snapshot created
+- [x] Production RDS instance confirmed private-only
 - [x] Manual snapshot creation procedure verified
-- [x] Manual snapshot replacement procedure documented
-- [x] An unpooled production connection string is available for `pg_dump`
+- [x] A direct production PostgreSQL connection is available for `pg_dump`
 - [x] PostgreSQL client tools are available locally
 - [x] A logical backup can be created without exposing credentials
 - [x] The logical backup can be inspected with `pg_restore --list`
@@ -718,21 +656,15 @@ Before considering the PostgreSQL backup strategy operational, verify:
 ## Current PostgreSQL Backup Status
 
 ```text
-Neon plan: Free
-PITR window: 6 hours, verified
-Manual snapshots: Available, limit 1
-Scheduled snapshots: Not available on current plan
-Manual recovery snapshot: Created
-Snapshot branch: production
-Snapshot created: 2026-08-09 12:30:17 UTC
-Snapshot size: 33.17 MB
-Snapshot expiration: none shown by Neon
-External logical backup: Created
-Logical backup file: labflow-production-20260809-1506.dump
-Logical backup size: 107006 bytes
-Logical backup format: PostgreSQL custom format
-Logical backup archive inspection: Successful
-Actual isolated restore: Successfully tested on 2026-08-11
+Provider: Amazon RDS for PostgreSQL
+DB instance: labflow-production
+PostgreSQL version: 17.11
+Automated backups: Enabled
+Backup retention: 7 days
+Point-in-time recovery: Available within retained backup window
+Manual snapshot capability: Available
+Post-cutover manual snapshot: Created
+Public accessibility: No
 ```
 
 The PostgreSQL logical-backup recovery path has been restore-verified successfully through the isolated Phase 25B.7 recovery drill.
@@ -741,7 +673,7 @@ The PostgreSQL logical-backup recovery path has been restore-verified successful
 
 ### Objective
 
-The PostgreSQL restore procedure defines how LabFlow relational data should be recovered without unnecessarily modifying or overwriting the current production database.
+The PostgreSQL restore procedure defines how Labfluss relational data should be recovered without unnecessarily modifying or overwriting the current production database.
 
 The preferred recovery approach is:
 
@@ -755,25 +687,25 @@ Production must not be overwritten merely to prove that a backup can be restored
 
 ## Restore Methods
 
-LabFlow currently has three PostgreSQL recovery paths:
+Labfluss currently has three PostgreSQL recovery paths:
 
-1. Neon point-in-time restore
-2. Neon snapshot restore
+1. Amazon RDS PostgreSQL point-in-time restore
+2. Amazon RDS PostgreSQL snapshot restore
 3. portable `pg_dump` / `pg_restore` recovery
 
 The appropriate method depends on the failure scenario and age of the required recovery point.
 
 ### Recovery Method Selection
 
-| Scenario                                               | Preferred recovery method                        |
-| ------------------------------------------------------ | ------------------------------------------------ |
-| Recent accidental DELETE or UPDATE within PITR history | Neon point-in-time restore                       |
-| Recent bad migration within PITR history               | Neon point-in-time restore                       |
-| Known-good manual snapshot exists                      | Neon snapshot restore                            |
-| Recovery point is outside current PITR window          | Portable logical backup                          |
-| Original Neon project is unavailable                   | Portable logical backup into replacement project |
-| Provider migration is required                         | Portable logical backup                          |
-| Restore procedure is being tested                      | Isolated recovery database/project               |
+| Scenario                                               | Preferred recovery method                            |
+| ------------------------------------------------------ | ---------------------------------------------------- |
+| Recent accidental DELETE or UPDATE within PITR history | Amazon RDS PostgreSQL point-in-time restore          |
+| Recent bad migration within PITR history               | Amazon RDS PostgreSQL point-in-time restore          |
+| Known-good manual snapshot exists                      | Amazon RDS PostgreSQL snapshot restore               |
+| Recovery point is outside current PITR window          | Portable logical backup                              |
+| Original RDS DB instance is unavailable                | Portable logical backup into replacement DB instance |
+| Provider migration is required                         | Portable logical backup                              |
+| Restore procedure is being tested                      | Isolated recovery DB instance or database            |
 
 ## General Restore Safety Rules
 
@@ -784,8 +716,8 @@ Before any restore:
 3. Record the current production state and recovery decision.
 4. Do not run application tests against the production database.
 5. Do not overwrite production solely to test recovery capability.
-6. Prefer an isolated recovery branch, database, or project for inspection.
-7. Use direct, unpooled database connections for restore tooling.
+6. Prefer an isolated recovery DB instance or database for inspection.
+7. Use direct PostgreSQL database connections for restore tooling.
 8. Never paste production database credentials into documentation, screenshots, Git, or shared logs.
 9. Keep the production backend pointed at the existing production database until the recovered database has been validated.
 10. Treat a restore as a potentially destructive production operation.
@@ -800,7 +732,7 @@ Identify:
 
 - when the destructive operation occurred
 - when the problem was discovered
-- whether the required point is within Neon's current 6-hour PITR history
+- whether the required point is within Amazon RDS PostgreSQL's current 7-day automated-backup retention window
 - whether the current manual snapshot predates the incident
 - whether a suitable external logical backup exists
 
@@ -837,43 +769,36 @@ This preserves the post-incident state for:
 
 If the database is unavailable or too badly corrupted to export safely, document that limitation.
 
-## Neon Point-in-Time Restore Procedure
+## Amazon RDS Point-in-Time Restore Procedure
 
-Use Neon point-in-time recovery when:
+Use Amazon RDS point-in-time recovery when the required recovery point falls within the configured automated-backup retention period.
 
-- the required recovery point is within the retained history window
-- the approximate safe timestamp is known
-- restoring the full relational database state is appropriate
-
-Current LabFlow production PITR history:
+Current production retention:
 
 ```text
-6 hours
+7 days
 ```
 
 ### Procedure
 
-1. Open the Neon production project.
-2. Open Backup & Restore.
-3. Select the `production` branch.
-4. Choose the intended recovery timestamp.
-5. Use Neon's preview capability where available to inspect the selected point before committing a restore.
-6. Verify representative tables and records.
-7. Confirm the chosen timestamp predates the destructive operation.
-8. Assess what newer valid data would be lost.
-9. Preserve the current production state with a logical export when practical.
-10. Only after validation, perform the restore if production recovery is actually required.
-11. Confirm Neon reports the restore operation as completed.
-12. Verify database connectivity.
-13. Verify Sequelize migration state.
-14. Verify representative LabFlow data.
-15. Verify `/api/ready`.
-16. Perform a production application smoke test.
-17. Monitor structured backend logs for database or application errors.
+1. Open Amazon RDS in the AWS Console.
+2. Open Databases and select labflow-production.
+3. Choose the point-in-time restore action.
+4. Select the intended recovery timestamp.
+5. Configure a new recovery DB instance identifier.
+6. Preserve the current production database before destructive changes where practical.
+7. Restore to the new DB instance.
+8. Wait for the recovered instance to become available.
+9. Verify database connectivity.
+10. Verify Sequelize migration state.
+11. Verify representative Labfluss data.
+12. Verify organization isolation and account-security state.
+13. Point only an isolated backend at the recovered database for validation.
+14. Verify /api/health and /api/ready.
+15. Perform representative application-level testing.
+16. Do not change the production backend database target until the recovered instance has passed validation.
 
-Do not experiment with the production Restore action during routine verification.
-
-## Neon Snapshot Restore Procedure
+## Amazon RDS PostgreSQL Snapshot Restore Procedure
 
 Use a manual snapshot when:
 
@@ -881,24 +806,21 @@ Use a manual snapshot when:
 - the required recovery point is older than the current PITR window
 - the snapshot was intentionally retained for a migration or production change
 
-Current baseline snapshot:
-
 ```text
-Branch: production
-Created: 2026-08-09 12:30:17 UTC
-Size: 33.17 MB
-Expiration: none shown by Neon
+A post-cutover manual RDS DB snapshot has been created for the current production deployment.
+
+The snapshot should be identified by its RDS snapshot identifier and creation time when needed for recovery.
 ```
 
 ### Procedure
 
-1. Open Neon Backup & Restore.
+1. Open Amazon RDS in the AWS Console and open Snapshots.
 2. Locate the intended manual snapshot.
 3. Confirm the snapshot creation time.
 4. Confirm the snapshot predates the incident.
 5. Determine what newer production data would be lost.
 6. Preserve the current database with a logical backup when practical.
-7. Prefer restoring or inspecting the snapshot through an isolated branch or equivalent recovery workflow where Neon permits it.
+7. Restore the snapshot into a new isolated RDS DB instance.
 8. Validate representative data before using the recovered state as production.
 9. If a production restore is required, explicitly confirm the destructive operation.
 10. After recovery, verify migrations, application data, readiness, and application functionality.
@@ -907,7 +829,7 @@ Do not delete the existing snapshot while it is required for an active recovery 
 
 ## Portable Logical Backup Restore
 
-LabFlow uses PostgreSQL custom-format logical backups created with `pg_dump`.
+Labfluss uses PostgreSQL custom-format logical backups created with `pg_dump`.
 
 Verified backup example:
 
@@ -919,25 +841,25 @@ The archive was successfully restored and validated in an isolated PostgreSQL 17
 
 ### Isolated Restore Requirement
 
-A logical backup must first be restored into a database that is not the active LabFlow production database.
+A logical backup must first be restored into a database that is not the active Labfluss production database.
 
 Recommended targets include:
 
-- a dedicated recovery database in Neon
-- a separate Neon recovery project
+- a separate recovery RDS DB instance
+- a dedicated recovery database on another isolated PostgreSQL server
 - another isolated PostgreSQL instance
 
-For the Phase 25B.7 restore drill, a separate Neon recovery target was used because it closely reproduced the production PostgreSQL environment without placing production data at risk.
+For the Phase 25B.7 restore drill, a separate Neon recovery project was used because Neon was the production PostgreSQL provider at the time of the drill.
 
 ### Preparing a Recovery Database
 
 Before restoring a logical backup:
 
-1. Create an isolated PostgreSQL database or Neon project.
+1. Create an isolated PostgreSQL database or RDS recovery DB instance.
 2. Use the same major PostgreSQL version where practical.
-3. Obtain a direct, unpooled connection string for the recovery database.
+3. Obtain a direct PostgreSQL connection string for the recovery database.
 4. Confirm the target is not the production database.
-5. Confirm no deployed LabFlow service is using the recovery target.
+5. Confirm no deployed Labfluss service is using the recovery target.
 6. Confirm the target database can safely be replaced or recreated during testing.
 
 Never reuse the production `DATABASE_URL` as the restore target.
@@ -962,7 +884,7 @@ pg_restore `
   "$backupFile"
 ```
 
-The recovery connection string must be direct and unpooled.
+The recovery connection string must connect directly to the isolated PostgreSQL recovery target.
 
 Do not paste the recovery connection string into:
 
@@ -989,7 +911,7 @@ False
 
 A full logical restore should normally target an empty database.
 
-Restoring a full archive into a database that already contains LabFlow tables can produce:
+Restoring a full archive into a database that already contains Labfluss tables can produce:
 
 - duplicate-object errors
 - conflicting enum types
@@ -998,7 +920,7 @@ Restoring a full archive into a database that already contains LabFlow tables ca
 - sequence inconsistencies
 - misleading partial restores
 
-For a recovery drill, prefer creating a clean database rather than trying to merge a full dump into an existing LabFlow schema.
+For a recovery drill, prefer creating a clean database rather than trying to merge a full dump into an existing Labfluss schema.
 
 ### Restore Error Handling
 
@@ -1027,7 +949,7 @@ Confirm that PostgreSQL accepts connections.
 
 ### Schema presence
 
-Verify expected LabFlow tables exist.
+Verify expected Labfluss tables exist.
 
 Examples include:
 
@@ -1109,7 +1031,7 @@ R2 object consistency is evaluated separately under the attachment-recovery subp
 
 ## Application-Level Recovery Validation
 
-A database restore is not fully validated until the LabFlow application can operate against the recovered database.
+A database restore is not fully validated until the Labfluss application can operate against the recovered database.
 
 During the dedicated restore drill:
 
@@ -1138,7 +1060,7 @@ A PostgreSQL restore is considered successful only when:
 - account-security state is coherent
 - the backend can connect to the recovered database
 - `/api/ready` succeeds against the recovery environment
-- representative LabFlow workflows can read the recovered data
+- representative Labfluss workflows can read the recovered data
 
 ## Production Cutover After Disaster
 
@@ -1209,7 +1131,7 @@ The PostgreSQL logical-backup recovery procedure is now restore-verified through
 
 ### Objective
 
-The Cloudflare R2 recovery strategy protects LabFlow attachment objects against failures that provider durability alone does not address, including:
+The Cloudflare R2 recovery strategy protects Labfluss attachment objects against failures that provider durability alone does not address, including:
 
 - accidental logical deletion
 - application or cleanup defects
@@ -1219,7 +1141,7 @@ The Cloudflare R2 recovery strategy protects LabFlow attachment objects against 
 - loss of the production R2 bucket
 - recovery into isolated replacement object storage
 
-Cloudflare R2 remains the production object store for LabFlow attachments. Attachment metadata remains in PostgreSQL.
+Cloudflare R2 remains the production object store for Labfluss attachments. Attachment metadata remains in PostgreSQL.
 
 A complete attachment recovery therefore requires both:
 
@@ -1245,7 +1167,7 @@ Local Uploads: Disabled
 
 The production bucket remains private.
 
-The current CORS configuration permits the deployed LabFlow frontend and local Vite development origin to perform the required browser operations.
+The current CORS configuration permits the deployed Labfluss frontend and local Vite development origin to perform the required browser operations.
 
 The production bucket currently has no object-expiration lifecycle rule.
 
@@ -1299,7 +1221,7 @@ Reason:
 
 The current object-key hierarchy does not separate pending upload objects from completed attachment objects.
 
-LabFlow's expired-pending-upload cleanup process intentionally deletes partial R2 objects before changing the associated PostgreSQL attachment record to `failed`.
+Labfluss's expired-pending-upload cleanup process intentionally deletes partial R2 objects before changing the associated PostgreSQL attachment record to `failed`.
 
 A retention lock applied to the current attachment prefixes could therefore block legitimate cleanup deletion and cause normal maintenance failures.
 
@@ -1311,7 +1233,7 @@ organizations/
 
 or an organization/entity prefix would also apply to pending upload objects stored under that prefix.
 
-LabFlow will not redesign the object-key hierarchy solely to support bucket locking during the current production-hardening phase.
+Labfluss will not redesign the object-key hierarchy solely to support bucket locking during the current production-hardening phase.
 
 A future design may reconsider prefix-scoped retention if temporary and durable attachment objects are separated into distinct namespaces.
 
@@ -1322,7 +1244,7 @@ The current recovery strategy uses two layers:
 1. Cloudflare R2 as the private production object store.
 2. Independent dated attachment backup copies stored outside the production R2 bucket.
 
-The independent copy is required because R2 durability does not independently protect LabFlow from logical deletion, application defects, credential misuse, or destructive object operations.
+The independent copy is required because R2 durability does not independently protect Labfluss from logical deletion, application defects, credential misuse, or destructive object operations.
 
 For the current demo/pilot deployment, the first independent copy is stored locally in an access-controlled backup location.
 
@@ -1347,7 +1269,7 @@ A dated copy is preferred over a destructive mirror because deletion from produc
 
 ### Attachment Backup RPO
 
-LabFlow's overall recovery target remains:
+Labfluss's overall recovery target remains:
 
 ```text
 RPO: 24 hours or less
@@ -1449,7 +1371,7 @@ Bucket lock rules: None
 Default storage class: Standard
 ```
 
-The recovery bucket is not used by the production LabFlow application.
+The recovery bucket is not used by the production Labfluss application.
 
 It exists only as an isolated recovery target.
 
@@ -1529,7 +1451,7 @@ For recovery of one or more attachment objects:
 8. Download the restored object from the recovery bucket.
 9. Compare the recovered file hash with the backup manifest.
 10. Only after validation, decide whether the restored object should be copied into replacement or production storage.
-11. Verify that LabFlow attachment metadata points to the correct storage key.
+11. Verify that Labfluss attachment metadata points to the correct storage key.
 12. Verify application-level download behavior after recovery.
 
 Do not delete a production object merely to test recovery.
@@ -1546,7 +1468,7 @@ After any database restore, attachment reconciliation must identify at least:
 - attachment records whose expected storage key differs from recovered storage
 - pending attachment rows that should not be treated as completed attachment recovery targets
 
-The database remains authoritative for LabFlow attachment metadata and workflow state.
+The database remains authoritative for Labfluss attachment metadata and workflow state.
 
 R2 remains authoritative for the binary object content at the referenced storage key.
 
@@ -1620,7 +1542,7 @@ Combined PostgreSQL/attachment-backup reconciliation was completed successfully 
 
 ### Objective
 
-LabFlow depends on production configuration that is not fully represented in source control.
+Labfluss depends on production configuration that is not fully represented in source control.
 
 Source code, migrations, package manifests, and operational documentation are recoverable from GitHub, but several production platforms also contain:
 
@@ -1645,7 +1567,7 @@ Plaintext production credentials must never be added to this document.
 
 ### Secret Classification
 
-For recovery purposes, LabFlow configuration is classified as follows.
+For recovery purposes, Labfluss configuration is classified as follows.
 
 #### Secret
 
@@ -1701,37 +1623,35 @@ Examples include:
 
 These values should be documented sufficiently to recreate production behavior.
 
-### Render Backend Configuration
+### AWS Lightsail Backend Configuration
 
 #### Verified Web Service
 
 Current backend service:
 
 ```text
-Provider: Render
-Service: labflow-backend
-Service type: Web Service
-Runtime: Node
-Region: Frankfurt (EU Central)
-Instance: Free
+Provider: AWS Lightsail
+Instance: labflow-backend-production
+Region: Europe (Frankfurt)
+OS: Ubuntu 24.04 LTS
+Plan: General purpose, 2 GB RAM, 2 vCPU, 60 GB SSD
 Repository: prndavis77/labflow
-Branch: main
-Root directory: labflow-backend
-Build command: npm install
-Pre-deploy command: none
-Start command: npm start
-Auto-deploy: On Commit
-Build filters: none configured
-Custom domain: none
-Render subdomain: enabled
-PR previews: off
-Health-check path: /api/ready
-Maintenance mode: disabled
+Repository path: /opt/labflow
+Backend path: /opt/labflow/labflow-backend
+Production service: labflow-backend.service
+Environment file: /opt/labflow/labflow-backend/.env
+Application port: 5000
+Reverse proxy: Nginx
+Production API: https://api.labfluss.com
+TLS: Let's Encrypt / Certbot
+Process supervision: systemd
+Deployment method: Git pull + service restart
+Database connectivity: private VPC peering to RDS
 ```
 
-The Render-generated service identifier does not need to be preserved when recreating the service.
+The AWS Lightsail-generated service identifier does not need to be preserved when recreating the service.
 
-A replacement Render service may receive a different service ID and hostname.
+A replacement AWS Lightsail service may receive a different service ID and hostname.
 
 #### Backend Environment Variables
 
@@ -1760,9 +1680,9 @@ R2_BUCKET_NAME
 R2_SECRET_ACCESS_KEY
 ```
 
-PORT is supplied by the Render runtime and is not currently a manually managed LabFlow environment variable.
+The backend listens on port 5000, and Nginx proxies production API traffic to 127.0.0.1:5000.
 
-#### Render Secret Classification
+#### AWS Lightsail Secret Classification
 
 ```text
 Secret:
@@ -1798,51 +1718,41 @@ ATTACHMENT_PENDING_TTL_MINUTES
 ATTACHMENT_UPLOAD_URL_TTL_SECONDS
 ```
 
-#### Render Recovery Source
+#### AWS Lightsail Recovery Source
 
 Recover service configuration from:
 
 - this recovery document
 - GitHub repository contents
-- Render configuration if the original account/service remains accessible
+- AWS Lightsail configuration if the original account/service remains accessible
 - provider dashboards for replacement credential generation
 
-Do not rely on the current Render service as the only record of required variable names.
+Do not rely on the current AWS Lightsail service as the only record of required variable names.
 
-#### Render Deploy Hook
+### Attachment Cleanup systemd timer on Lightsail
 
-A private deploy hook currently exists for the backend service.
+A production configuration gap was discovered during Phase 26C after retirement of the former Render cron job and was corrected by recreating the scheduler as a Lightsail systemd timer.
 
-The deploy-hook URL is a secret-capable trigger and must not be committed to Git.
-
-If the hook is lost or compromised:
-
-1. regenerate the hook in Render
-2. update any external system that legitimately uses it
-3. do not attempt to preserve the previous plaintext hook URL
-
-### Attachment Cleanup Cron Job
-
-A production configuration gap was discovered during Phase 25B.5 inventory and corrected.
-
-Current cron job:
+Current scheduled cleanup configuration:
 
 ```text
-Provider: Render
-Name: labflow-attachment-cleanup
-Type: Cron Job
-Repository: prndavis77/labflow
-Branch: main
-Region: Frankfurt (EU Central)
-Root directory: labflow-backend
-Build command: npm install
-Command: npm run cleanup:attachments
-Schedule: */15 * * * *
-Instance: Starter
-NODE_ENV: production
+Provider: AWS Lightsail
+Scheduler: systemd timer
+Service unit: labflow-attachment-cleanup.service
+Timer unit: labflow-attachment-cleanup.timer
+Working directory: /opt/labflow/labflow-backend
+Environment file: /opt/labflow/labflow-backend/.env
+Command: /usr/bin/npm run cleanup:attachments
+Timer:
+  OnBootSec=5min
+  OnUnitActiveSec=15min
+  Persistent=true
+Status: enabled and active
+Manual execution: verified
+Timer scheduling: verified
 ```
 
-The cron job uses the production database and attachment-storage configuration required by the cleanup process.
+The systemd service uses the production database and attachment-storage configuration required by the cleanup process.
 
 Required environment variables include:
 
@@ -1863,63 +1773,59 @@ R2_SECRET_ACCESS_KEY
 
 Mailgun, JWT, and frontend variables are not required by the cleanup process.
 
-#### Cron Job Verification
+#### Lightsail systemd Timer Verification
 
-The cron job was verified through both manual and scheduled execution.
+The cleanup service was executed manually and completed successfully.
 
-Observed successful scheduled run:
+First verified execution:
 
-Command: npm run cleanup:attachments
-Result:
+```text
+scanned: 2
+cleaned: 2
+skipped: 0
+failed: 0
+```
+
+A subsequent manual execution reported:
+
+```text
 scanned: 0
 cleaned: 0
 skipped: 0
 failed: 0
+```
 
-Observed total runtime: approximately 9 seconds
+The timer was verified as enabled and active, with the next invocation scheduled approximately 15 minutes after the preceding execution.
 
-The job completed successfully.
-
-A PostgreSQL client warning concerning future sslmode=require semantics was observed during the run.
-
-The warning did not cause cleanup failure and is tracked as a future dependency/configuration-hardening concern rather than a Phase 25B.5 blocker.
-
-### Vercel Frontend Configuration
+### AWS Amplify Frontend Configuration
 
 #### Verified Project Configuration
 
 ```config
-Provider: Vercel
-Project: labflow
-Plan: Hobby
+Provider: AWS Amplify Hosting
+App name: labfluss
 Repository: prndavis77/labflow
 Production branch: main
-Framework preset: Vite
-Root directory: labflow-frontend
+Monorepo app root: labflow-frontend
+Pre-build command: npm ci
 Build command: npm run build
-Build-command override: enabled
 Output directory: dist
-Output-directory override: disabled
-Install command: npm install
-Install-command override: enabled
-Development command: vite
-Development-command override: disabled
+VITE_API_URL: https://api.labfluss.com/api
+AMPLIFY_MONOREPO_APP_ROOT: labflow-frontend
+Production custom domain: https://app.labfluss.com
+Certificate: Amplify-managed
+Root labfluss.com: excluded from this Amplify app
 ```
-
-Additional verified build behavior:
-
-- Include files outside root directory in build step: enabled
-- Skip deployments when root/dependencies have no changes: enabled
 
 #### Production Domain
 
 Current production frontend origin:
 
-https://labflow-brown.vercel.app
+https://app.labfluss.com
 
-The production domain is currently a Vercel-managed domain.
+`app.labfluss.com` is the production custom domain attached to AWS Amplify Hosting. TLS certificate management for this domain is handled by Amplify.
 
-No custom LabFlow domain is currently configured.
+The root `labfluss.com` domain is intentionally excluded from this Amplify application and reserved for the future marketing site.
 
 Production branch tracking is:
 
@@ -1931,48 +1837,25 @@ Automatic assignment of production domains is enabled.
 
 #### Frontend Environment Variables
 
-Verified LabFlow-defined project variable:
+Verified Labfluss-defined project variable:
 
 VITE_API_URL
 
-Current scope:
-
-```text
-Production
-Preview
-```
-
 VITE_API_URL is not an authentication secret, but it is deployment-specific configuration.
 
-Vercel System Environment Variables access is enabled.
-
-#### Deployment Protection
-
-Verified current settings include:
-
-- Vercel Authentication: enabled
-- Protection mode: Standard Protection
-- Password protection: not configured
-- Trusted-IP restriction: disabled
-- Protection-bypass secret: not configured
-- OPTIONS allowlist: disabled
-- Protected sourcemaps: enabled
-
-#### Vercel Git Integration
+#### AWS Amplify Git Integration
 
 The project is linked to:
 
 prndavis77/labflow
 
-Git LFS is disabled.
+No AWS Amplify deploy hooks are currently configured.
 
-No Vercel deploy hooks are currently configured.
-
-#### Vercel Recovery
+#### AWS Amplify Recovery
 
 To recreate the frontend:
 
-1. connect Vercel to prndavis77/labflow
+1. connect AWS Amplify to prndavis77/labflow
 2. select labflow-frontend as the root directory
 3. select Vite
 4. restore the documented build settings
@@ -1985,71 +1868,59 @@ To recreate the frontend:
 11. update Better Stack frontend monitoring if the origin changed
 12. perform frontend smoke testing
 
-A replacement Vercel Project ID does not need to match the current project ID.
+A replacement AWS Amplify App ID does not need to match the current App ID.
 
-### Neon PostgreSQL Configuration
+### Amazon RDS PostgreSQL Configuration
 
 #### Verified Project Configuration
 
 ```text
-Provider: Neon
-Project name: labflow
-Plan: Free
-Region: AWS Europe Central 1 (Frankfurt)
-PostgreSQL version: 17
-Default branch: production
-Default compute size: 0.25 ↔ 2 CU
-Scale to zero: 5 minutes
-History retention: 6 hours
+Provider: Amazon RDS for PostgreSQL
+DB instance identifier: labflow-production
+Database: labflow
+Engine: PostgreSQL 17.11
+Region: Europe (Frankfurt), eu-central-1
+Instance class: db.t4g.micro
+Deployment: Single-AZ
+Storage: 20 GiB gp3
+Encryption at rest: Enabled
+Automated backups: Enabled
+Backup retention: 7 days
+Publicly accessible: No
+Network access: private through Lightsail VPC peering
 ```
 
 Current production database:
 
 ```text
-Database: neondb
-Owner/role: neondb_owner
+Database: labflow
+DB instance: labflow-production
 ```
 
-Existing branches:
+#### Amazon RDS Networking and Features
+
+Verified current production configuration:
 
 ```text
-production
-labflow_test
+Publicly accessible: No
+VPC: vpc-030e833bfb4f3adba
+RDS security group: labflow-rds-production
+RDS security group ID: sg-06fcc6e2c96140efe
+Lightsail private IPv4: 172.26.2.216
+RDS private IPv4: 172.31.1.27
+VPC peering: active
+Database port: 5432
 ```
 
-production is the default production branch.
+Production database access is restricted to the private Lightsail-to-RDS network path.
 
-labflow_test is a child of production and is not required for disaster recovery because it can be recreated.
+#### Amazon RDS Connection Configuration
 
-#### Neon Networking and Features
+The production backend connects directly to the private RDS PostgreSQL endpoint.
 
-Verified current configuration:
+The RDS hostname resolves to the private database address from Lightsail.
 
-- Public internet access: enabled
-- IP restrictions: none
-- VPC: not configured
-- Data API: disabled
-- Logical replication: disabled
-- HIPAA compliance: disabled / unavailable on current plan
-
-A recreated Neon environment must remain reachable by the Render backend unless a deliberately different networking architecture is introduced.
-
-#### Neon Connection Configuration
-
-Verified production connection configuration:
-
-```text
-Branch: production
-Compute: Primary
-Database: neondb
-Role: neondb_owner
-Direct/unpooled connection: available
-Connection pooling: available but currently not selected
-sslmode: require
-channel_binding: require
-```
-
-Direct, unpooled connections must be used for the documented `pg_dump` and `pg_restore` procedures.
+TLS certificate verification is enabled in production using the AWS RDS CA bundle.
 
 #### Database Credential Recovery
 
@@ -2057,12 +1928,12 @@ Direct, unpooled connections must be used for the documented `pg_dump` and `pg_r
 
 If the current database password or connection string is lost:
 
-1. access the Neon project if available
+1. access the RDS DB instance if available
 2. reset or regenerate the database-role password as appropriate
 3. obtain a new production connection string
-4. use the correct production branch, database, and role
-5. update `DATABASE_URL` in the Render backend
-6. update `DATABASE_URL` in the attachment-cleanup cron job
+4. use the correct production database, and database user
+5. update `DATABASE_URL` in the AWS Lightsail backend
+6. update `DATABASE_URL` in the attachment-cleanup systemd service
 7. restart/redeploy affected services
 8. verify `/api/ready`
 9. verify the cleanup job
@@ -2070,7 +1941,7 @@ If the current database password or connection string is lost:
 
 Do not attempt to recover the old database password from Git.
 
-If the Neon project itself is lost, create a replacement PostgreSQL environment and restore the database using the documented PostgreSQL recovery procedure.
+If the production RDS DB instance itself is lost, create a replacement RDS DB instance or another suitable PostgreSQL recovery environment and restore the database using the documented PostgreSQL recovery procedure.
 
 ### Cloudflare R2 Configuration
 
@@ -2095,7 +1966,7 @@ Local Uploads: disabled
 Production CORS allows:
 
 ```text
-https://labflow-brown.vercel.app
+https://app.labfluss.com
 http://localhost:5173
 ```
 
@@ -2134,11 +2005,11 @@ R2_BUCKET_NAME
 
 If the production R2 application credential is lost or compromised:
 
-1. create a new credential scoped only as broadly as required by LabFlow
+1. create a new credential scoped only as broadly as required by Labfluss
 2. ensure the credential can perform the operations required by production attachment workflows
 3. ensure cleanup has the required object-deletion capability
-4. update Render backend credentials
-5. update the attachment-cleanup cron job
+4. update AWS Lightsail backend credentials
+5. update the attachment-cleanup systemd service environment
 6. restart/redeploy affected services
 7. verify upload initiation
 8. verify upload completion
@@ -2170,7 +2041,7 @@ Current Mailgun sending domain:
 
 mg.cockadoodlemeatmarket.com
 
-This domain is shared infrastructure from another project and is being used temporarily by LabFlow.
+This domain is shared infrastructure from another project and is being used temporarily by Labfluss.
 
 A Mailgun sending key currently exists with the description:
 
@@ -2200,7 +2071,7 @@ mxa.mailgun.org: verified
 mxb.mailgun.org: unverified
 ```
 
-The unverified second MX record is relevant primarily to receiving mail and does not currently block LabFlow's outbound transactional-email use case.
+The unverified second MX record is relevant primarily to receiving mail and does not currently block Labfluss's outbound transactional-email use case.
 
 Other verified domain settings:
 
@@ -2238,7 +2109,7 @@ If the Mailgun sending credential is lost or compromised:
 
 1. create a replacement sending/API credential
 2. restrict it appropriately for the Mailgun integration
-3. update MAILGUN_API_KEY in Render
+3. update MAILGUN_API_KEY in AWS Lightsail
 4. restart/redeploy the backend
 5. verify invitation email delivery
 6. verify password-reset delivery
@@ -2247,45 +2118,43 @@ If the Mailgun sending credential is lost or compromised:
 
 Do not recover Mailgun credentials from Git history.
 
-#### Future Dedicated Product Domain
+#### Current Transactional Email Domain Status
 
-LabFlow is expected to be renamed.
+Labfluss now uses `labfluss.com` as its production product domain.
 
-For that reason, a dedicated LabFlow-branded Mailgun domain will not be created before the final product name and domain are selected.
+The current Mailgun integration still temporarily uses the shared sending domain:
 
-Current status:
+`mg.cockadoodlemeatmarket.com`
 
-```text
-Current Mailgun domain:
-mg.cockadoodlemeatmarket.com
+This temporary dependency will be removed during Phase 26C.5 when transactional email is migrated from Mailgun to Amazon SES.
 
-Status:
-Temporary/shared demo infrastructure
-```
+A dedicated Labfluss transactional-email identity and required DNS authentication records will be configured as part of that migration.
 
-Before a real external/customer pilot under the final product identity:
+Before the first paid pilot, Phase 26C.5 will migrate Labfluss transactional email from Mailgun to Amazon SES.
 
-1. acquire or confirm the final product domain
-2. create a dedicated Mailgun sending subdomain
-3. configure SPF
-4. configure DKIM
-5. configure DMARC
-6. verify the sending domain
-7. create a dedicated production sending credential
-8. update Render Mailgun configuration
-9. update the sender identity
-10. verify all transactional email flows
+That migration will include:
 
-The temporary shared sending domain should then be retired from LabFlow.
+1. configure the Labfluss SES sending identity
+2. configure the required domain authentication records
+3. verify SPF/DKIM and the intended DMARC alignment
+4. configure an appropriately scoped production sending identity
+5. update the Labfluss backend email-provider configuration
+6. verify invitation email delivery
+7. verify password-reset email delivery
+8. verify email-verification delivery
+9. remove the temporary Mailgun dependency from Labfluss
+10. revoke or retire Labfluss access to the shared Mailgun sending infrastructure when no longer required
+
+The temporary shared Mailgun sending domain must not remain a production dependency for the paid pilot after Phase 26C.5 is complete.
 
 ### Better Stack Configuration
 
-Current Better Stack configuration contains three active LabFlow monitors.
+Current Better Stack configuration contains three active Labfluss monitors.
 
 #### Frontend
 
 ```text
-URL: https://labflow-brown.vercel.app
+URL: https://app.labfluss.com
 Check interval: 3 minutes
 Alert condition: URL becomes unavailable
 ```
@@ -2324,7 +2193,7 @@ The current configuration is appropriate for the present demo/pilot deployment.
 
 #### Better Stack Recovery
 
-Better Stack does not contain authoritative LabFlow business data.
+Better Stack does not contain authoritative Labfluss business data.
 
 If its configuration is lost:
 
@@ -2347,7 +2216,7 @@ It must not be stored in Git.
 If the existing JWT secret is permanently lost or suspected compromised:
 
 1. generate a new cryptographically strong secret
-2. update `JWT_SECRET` in the Render backend
+2. update `JWT_SECRET` in the AWS Lightsail backend
 3. restart/redeploy the backend
 4. expect existing JWTs signed with the previous secret to become invalid
 5. require affected users to authenticate again
@@ -2359,18 +2228,18 @@ The previous secret should not be recovered from Git history.
 
 ### Configuration Recovery Sources
 
-| Component                        | Recovery source                                  | Secret recovery method                                   |
-| -------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| GitHub source                    | GitHub repository                                | Not applicable                                           |
-| Render service definition        | This document + GitHub + Render if accessible    | Recreate service                                         |
-| Render environment configuration | Variable-name inventory in this document         | Regenerate/recover secret values from owning providers   |
-| Render cleanup cron              | This document + GitHub                           | Recreate cron job                                        |
-| Vercel frontend                  | This document + GitHub                           | Recreate project/configuration                           |
-| Neon database                    | Neon if available + PostgreSQL backups           | Reset database credential or create replacement database |
-| Cloudflare R2                    | This document + attachment backups               | Generate replacement scoped R2 credential                |
-| Mailgun                          | This document + Mailgun domain/DNS configuration | Generate replacement sending/API credential              |
-| Better Stack                     | This document                                    | Recreate monitors and notification routing               |
-| JWT secret                       | Render if still securely available               | Generate a new secret if lost                            |
+| Component                               | Recovery source                                         | Secret recovery method                                   |
+| --------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| GitHub source                           | GitHub repository                                       | Not applicable                                           |
+| AWS Lightsail service definition        | This document + GitHub + AWS Lightsail if accessible    | Recreate service                                         |
+| AWS Lightsail environment configuration | Variable-name inventory in this document                | Regenerate/recover secret values from owning providers   |
+| AWS Lightsail cleanup systemd timer     | This document + systemd unit definitions                | Recreate service and timer units                         |
+| AWS Amplify frontend                    | This document + GitHub                                  | Recreate project/configuration                           |
+| Amazon RDS PostgreSQL database          | Amazon RDS PostgreSQL if available + PostgreSQL backups | Reset database credential or create replacement database |
+| Cloudflare R2                           | This document + attachment backups                      | Generate replacement scoped R2 credential                |
+| Mailgun                                 | This document + Mailgun domain/DNS configuration        | Generate replacement sending/API credential              |
+| Better Stack                            | This document                                           | Recreate monitors and notification routing               |
+| JWT secret                              | AWS Lightsail if still securely available               | Generate a new secret if lost                            |
 
 ### Credential Regeneration Principles
 
@@ -2404,7 +2273,7 @@ Confirm the intended application revision before creating replacement infrastruc
 
 #### 2. Recover PostgreSQL
 
-Restore or recreate Neon/PostgreSQL using the PostgreSQL recovery procedure.
+Restore or recreate Amazon RDS PostgreSQL/PostgreSQL using the PostgreSQL recovery procedure.
 
 Confirm:
 
@@ -2430,7 +2299,7 @@ Restore attachment objects as required.
 
 Reconcile PostgreSQL attachment metadata with R2 before declaring attachment recovery complete.
 
-#### 4. Recreate Render backend
+#### 4. Recreate AWS Lightsail backend
 
 Recreate:
 
@@ -2457,7 +2326,7 @@ Verify:
 - structured logs
 - database connectivity
 
-#### 5. Recreate attachment-cleanup cron
+#### 5. Recreate attachment-cleanup systemd timer
 
 Recreate:
 
@@ -2475,7 +2344,7 @@ failed: 0
 
 Only then rely on the scheduled cleanup.
 
-#### 6. Recreate Vercel frontend
+#### 6. Recreate AWS Amplify frontend
 
 Recreate the frontend from GitHub.
 
@@ -2485,12 +2354,11 @@ Restore:
 - root directory
 - build configuration
 - VITE_API_URL
-- deployment protection
 - production domain configuration
 
 If the frontend origin changes:
 
-1. update Render FRONTEND_URL
+1. update AWS Lightsail FRONTEND_URL
 2. update R2 CORS
 3. redeploy/restart affected services
 4. update Better Stack monitoring
@@ -2547,19 +2415,13 @@ After rebuilding configuration, verify at least:
 - Better Stack test notification is received
 - no replacement secrets appear in Git or documentation
 
-### Phase 25B.5 Verification Checklist
+### Historical Phase 25B.5 Verification Checklist
 
 - [x] Render environment-variable inventory verified
 - [x] Render web-service configuration verified
-- [x] Render secret and non-secret configuration classified
 - [x] Vercel environment-variable inventory verified
-- [x] Vercel build and Git configuration verified
-- [x] Vercel production branch verified
 - [x] Vercel production domain verified
 - [x] Neon project configuration verified
-- [x] Neon database, branch, and role configuration verified
-- [x] Neon direct connection configuration verified
-- [x] Neon networking configuration reviewed
 - [x] Cloudflare R2 production configuration verified
 - [x] R2 credential recovery method documented
 - [x] Mailgun configuration inventoried
@@ -2567,23 +2429,37 @@ After rebuilding configuration, verify at least:
 - [x] Temporary shared Mailgun-domain dependency identified
 - [x] Better Stack monitors inventoried
 - [x] Better Stack notification configuration verified
+- [x] Manual cron execution verified
+- [x] Scheduled cron execution verified
+
+### Current Phase 26C Production Configuration Verification
+
+- [x] AWS Lightsail environment-variable inventory verified
+- [x] AWS Lightsail web-service configuration verified
+- [x] AWS Lightsail secret and non-secret configuration classified
+- [x] AWS Amplify environment-variable inventory verified
+- [x] AWS Amplify build and Git configuration verified
+- [x] AWS Amplify production branch verified
+- [x] AWS Amplify production domain verified
+- [x] Amazon RDS PostgreSQL DB instance configuration verified
+- [x] Amazon RDS PostgreSQL database configuration verified
+- [x] Amazon RDS PostgreSQL direct connection configuration verified
+- [x] Amazon RDS PostgreSQL networking configuration reviewed
 - [x] Secret classification documented
 - [x] Secret regeneration policy documented
 - [x] Configuration restore order documented
 - [x] Missing production attachment-cleanup scheduler discovered
-- [x] Render attachment-cleanup cron job created
-- [x] Manual cron execution verified
-- [x] Scheduled cron execution verified
-- [x] Cron cleanup result verified with zero failures
+- [x] AWS Lightsail attachment-cleanup systemd timer created
+- [x] systemd timer on Lightsail cleanup result verified with zero failures
 
 ### Current Configuration Recovery Status
 
 ```text
-Render backend configuration: Inventoried
-Render backend environment variables: Inventoried
-Render attachment-cleanup cron: Configured and verified
-Vercel frontend configuration: Inventoried
-Neon platform configuration: Inventoried
+AWS Lightsail backend configuration: Inventoried
+AWS Lightsail backend environment variables: Inventoried
+AWS Lightsail attachment-cleanup systemd timer: Configured and verified
+AWS Amplify frontend configuration: Inventoried
+Amazon RDS PostgreSQL platform configuration: Inventoried
 Cloudflare R2 configuration: Inventoried
 Mailgun configuration: Inventoried
 Better Stack configuration: Inventoried
@@ -2601,7 +2477,7 @@ The production infrastructure can now be reconstructed from source-controlled ap
 
 ### Objective
 
-Phase 25B.6 consolidates the previously documented LabFlow backup, restore, attachment-recovery, and configuration-recovery procedures into one operational disaster-recovery sequence.
+Phase 25B.6 consolidates the previously documented Labfluss backup, restore, attachment-recovery, and configuration-recovery procedures into one operational disaster-recovery sequence.
 
 The purpose of this section is not to replace the detailed procedures documented earlier in this file.
 
@@ -2622,7 +2498,7 @@ Detailed component-specific recovery instructions remain authoritative in their 
 
 ### Recovery Objectives
 
-The current LabFlow demo/pilot recovery objectives remain:
+The current Labfluss demo/pilot recovery objectives remain:
 
 ```text
 Target RPO: 24 hours or less
@@ -2635,7 +2511,7 @@ Recovery should prioritize correctness and preservation of valid data over attem
 
 ### Disaster-Recovery Safety Rules
 
-The following rules apply to every LabFlow disaster-recovery event:
+The following rules apply to every Labfluss disaster-recovery event:
 
 1. Do not overwrite production merely to test whether recovery works.
 2. Preserve the current production state before destructive recovery where practical.
@@ -2660,9 +2536,9 @@ Identify whether the incident affects one or more of the following:
 - PostgreSQL availability
 - R2 attachment objects
 - attachment metadata/object consistency
-- Render backend deployment
-- attachment-cleanup cron job
-- Vercel frontend deployment
+- AWS Lightsail backend deployment
+- attachment-cleanup systemd timer
+- AWS Amplify frontend deployment
 - production credentials
 - Mailgun transactional email
 - Better Stack monitoring
@@ -2699,17 +2575,17 @@ If the affected service is already unavailable, document that limitation rather 
 
 If PostgreSQL recovery is required, determine which documented recovery method is appropriate.
 
-| Situation                                                       | Preferred recovery method                           |
-| --------------------------------------------------------------- | --------------------------------------------------- |
-| Failure occurred within the current Neon restore-history window | Neon point-in-time recovery                         |
-| A known-good manual snapshot represents the required state      | Neon snapshot recovery                              |
-| Required state falls outside provider-native recovery history   | Portable logical backup                             |
-| Original Neon project is unavailable                            | Portable logical backup into replacement PostgreSQL |
-| Recovery capability is being tested                             | Isolated recovery target                            |
+| Situation                                                                        | Preferred recovery method                           |
+| -------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Failure occurred within the current Amazon RDS PostgreSQL restore-history window | Amazon RDS PostgreSQL point-in-time recovery        |
+| A known-good manual snapshot represents the required state                       | Amazon RDS PostgreSQL snapshot recovery             |
+| Required state falls outside provider-native recovery history                    | Portable logical backup                             |
+| Original RDS DB instance is unavailable                                          | Portable logical backup into replacement PostgreSQL |
+| Recovery capability is being tested                                              | Isolated recovery target                            |
 
-Current Neon production recovery history:
+Current Amazon RDS PostgreSQL production recovery history:
 
-6 hours
+7-day RDS automated-backup retention window
 
 Before selecting an earlier recovery point, determine what valid data would be lost by restoring to that point.
 
@@ -2803,7 +2679,7 @@ Recover or recreate:
 - application credential
 - expected storage configuration
 
-#### 3. Render backend
+#### 3. AWS Lightsail backend
 
 Recreate:
 
@@ -2821,11 +2697,12 @@ Verify:
 - database connectivity
 - structured logs
 
-#### 4. Attachment-cleanup cron
+#### 4. Attachment-cleanup systemd timer
 
 Recreate:
 
-`labflow-attachment-cleanup`
+`labflow-attachment-cleanup.service`
+`labflow-attachment-cleanup.timer`
 
 Restore its documented PostgreSQL and R2 configuration.
 
@@ -2837,15 +2714,15 @@ Expected successful execution includes:
 failed: 0
 ```
 
-#### 5. Vercel frontend
+#### 5. AWS Amplify frontend
 
-Recreate the frontend from GitHub using the documented Vercel configuration.
+Recreate the frontend from GitHub using the documented AWS Amplify configuration.
 
 Restore `VITE_API_URL`.
 
 If the production frontend origin changes:
 
-1. update Render `FRONTEND_URL`
+1. update AWS Lightsail `FRONTEND_URL`
 2. update R2 CORS
 3. redeploy or restart affected services
 4. update Better Stack monitoring
@@ -2870,7 +2747,6 @@ JWT_SECRET
 MAILGUN_API_KEY
 R2_ACCESS_KEY_ID
 R2_SECRET_ACCESS_KEY
-Render deploy hook
 ```
 
 After generating a replacement credential:
@@ -2974,7 +2850,7 @@ Once the recovered application is stable:
 2. confirm monitors report healthy status
 3. confirm email notifications are configured
 4. send a test alert where appropriate
-5. confirm the attachment-cleanup cron is running on schedule
+5. confirm the attachment-cleanup systemd timer is running on schedule
 6. confirm no temporary recovery credentials remain in production
 7. remove temporary environment variables used during recovery
 8. revoke temporary or superseded credentials when safe
@@ -2984,7 +2860,7 @@ Do not remove recovery evidence until the incident has been reviewed.
 
 ### Recovery Completion Criteria
 
-A LabFlow disaster recovery may be declared complete only when:
+A Labfluss disaster recovery may be declared complete only when:
 
 - the intended PostgreSQL recovery point is known
 - PostgreSQL recovery has been validated
@@ -3082,7 +2958,7 @@ Production cutover drill: Not performed
 
 Phase 25B.6 is complete for the current demo/pilot production-hardening stage.
 
-The LabFlow recovery procedures are now consolidated into a single operational sequence that can be followed from incident discovery through isolated recovery, data reconciliation, infrastructure reconstruction, application validation, production cutover, and post-recovery verification.
+The Labfluss recovery procedures are now consolidated into a single operational sequence that can be followed from incident discovery through isolated recovery, data reconciliation, infrastructure reconstruction, application validation, production cutover, and post-recovery verification.
 
 ## Phase 25B.7: Isolated PostgreSQL Restore and PostgreSQL/Attachment Recovery Reconciliation Drill
 
@@ -3090,10 +2966,10 @@ The LabFlow recovery procedures are now consolidated into a single operational s
 
 Phase 25B.7 validates the disaster-recovery procedures documented in the preceding backup and recovery phases through an actual isolated recovery drill.
 
-The drill verifies that LabFlow can:
+The drill verifies that Labfluss can:
 
 - restore the retained PostgreSQL logical backup into an isolated PostgreSQL environment
-- recover the expected LabFlow schema
+- recover the expected Labfluss schema
 - recover representative relational application data
 - verify Sequelize migration state
 - preserve organization-scoped data relationships
@@ -3110,7 +2986,7 @@ The purpose is to demonstrate recovery capability safely in isolated infrastruct
 
 The recovery drill was performed under the following safety requirements:
 
-- the active LabFlow production database was not used as the restore target
+- the active Labfluss production database was not used as the restore target
 - the production PostgreSQL database was not overwritten
 - the production R2 bucket was not deleted, modified, or used as the recovery target
 - no production backend service was pointed at the recovery database
@@ -3175,13 +3051,12 @@ Region: AWS Europe Central 1 (Frankfurt)
 PostgreSQL version: 17
 Branch: production
 Database: neondb
-Role: neondb_owner
 Connection type used for restore: Direct / unpooled
 ```
 
-The recovery project is separate from the active LabFlow production Neon project.
+The recovery project was separate from the active Labfluss production Neon project used at the time of the drill.
 
-No deployed LabFlow service was configured to use the recovery project.
+No deployed Labfluss service was configured to use the recovery project.
 
 ### Empty Recovery-Target Verification
 
@@ -3197,7 +3072,7 @@ Observed result:
 Did not find any relations.
 ```
 
-This confirmed that the recovery target did not already contain LabFlow tables.
+This confirmed that the recovery target did not already contain Labfluss tables.
 
 ### PostgreSQL Logical Restore
 
@@ -3224,7 +3099,7 @@ No production database connection was used as the restore destination.
 
 ### Recovered Schema Verification
 
-After the restore, PostgreSQL relation inspection showed 17 LabFlow tables:
+After the restore, PostgreSQL relation inspection showed 17 Labfluss tables:
 
 ```text
 SequelizeMeta
@@ -3252,7 +3127,7 @@ Recovered table count:
 17
 ```
 
-This confirmed that the expected LabFlow relational schema was present in the recovery database.
+This confirmed that the expected Labfluss relational schema was present in the recovery database.
 
 ### Sequelize Migration Verification
 
@@ -3318,7 +3193,7 @@ Representative organization-scoped records, projects, tasks, experiments, protoc
 
 ### Application-Level Recovery Validation
 
-After database-level validation, a local isolated LabFlow backend process was started against the recovered `labflow-recovery-test` PostgreSQL database.
+After database-level validation, a local isolated Labfluss backend process was started against the recovered `labflow-recovery-test` PostgreSQL database.
 
 The production Render backend and production Vercel frontend were not modified.
 
@@ -3374,7 +3249,7 @@ Recovered database connectivity through application: PASS
 
 #### Authentication Verification
 
-A restored LabFlow account was used to authenticate against the isolated backend.
+A restored Labfluss account was used to authenticate against the isolated backend.
 
 Observed results:
 
@@ -3404,7 +3279,7 @@ GET /api/projects: success
 GET /api/tasks: success
 ```
 
-These calls verified that the running LabFlow backend could read restored relational application data through normal authenticated API workflows.
+These calls verified that the running Labfluss backend could read restored relational application data through normal authenticated API workflows.
 
 No create, update, archive, restore, or delete operations were performed during this validation.
 
@@ -3631,7 +3506,7 @@ Phase 25B.7 disaster-recovery drill result: PASS
 Isolated PostgreSQL recovery target: Successful
 Logical PostgreSQL restore: Successful
 Recovered schema: Successful
-Recovered LabFlow tables: 17
+Recovered Labfluss tables: 17
 Migration-state verification: Successful
 Applied migrations verified: 14
 Representative relational data recovery: Successful
@@ -3756,7 +3631,7 @@ Temporary isolated-backend port variable cleared: Yes
 - [x] Existing PostgreSQL logical backup restored
 - [x] Production PostgreSQL database left unchanged
 - [x] Recovered schema verified
-- [x] Seventeen LabFlow tables recovered
+- [x] Seventeen Labfluss tables recovered
 - [x] Sequelize migration state verified
 - [x] Fourteen applied migrations verified directly in recovered `SequelizeMeta`
 - [x] Representative relational application data recovered
@@ -3815,4 +3690,4 @@ Phase 25B.7 is complete for the current demo/pilot production-hardening stage.
 
 The previously unverified PostgreSQL logical backup has now been restored successfully into an isolated PostgreSQL 17 recovery environment, representative relational data and migration state have been validated, and recovered attachment metadata has been reconciled successfully with the dated independent attachment backup.
 
-The drill demonstrates that LabFlow's documented PostgreSQL and attachment recovery procedures can recover and validate application data without modifying active production infrastructure.
+The drill demonstrates that Labfluss's documented PostgreSQL and attachment recovery procedures can recover and validate application data without modifying active production infrastructure.

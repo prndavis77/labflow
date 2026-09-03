@@ -1,16 +1,16 @@
-# LabFlow HIPAA Scope Statement
+# Labflow HIPAA Scope Statement
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
-**Last reviewed:** 2026-08-26
+**Last reviewed:** 2026-09-02
 
 ## 1. Purpose
 
-This document defines the HIPAA-related scope and restrictions that apply to the initial LabFlow paid pilot.
+This document defines the HIPAA-related scope and restrictions that apply to the initial Labflow paid pilot.
 
-LabFlow is a project-management and laboratory-workflow platform intended for university research laboratories.
+Labflow is a project-management and laboratory-workflow platform intended for university research laboratories.
 
-For the initial paid pilot, LabFlow is not offered as a system for storing, transmitting, maintaining, or otherwise processing Protected Health Information or electronic Protected Health Information subject to the Health Insurance Portability and Accountability Act of 1996 and its implementing regulations.
+For the initial paid pilot, Labflow is not offered as a system for storing, transmitting, maintaining, or otherwise processing Protected Health Information or electronic Protected Health Information subject to the Health Insurance Portability and Accountability Act of 1996 and its implementing regulations.
 
 This statement should be read together with:
 
@@ -27,23 +27,23 @@ The HIPAA Privacy, Security, and Breach Notification Rules apply to covered enti
 
 A software provider may become a HIPAA business associate when it creates, receives, maintains, or transmits Protected Health Information on behalf of a HIPAA covered entity or another business associate.
 
-For the initial LabFlow paid pilot:
+For the initial Labflow paid pilot:
 
-- LabFlow is not intended to act as a HIPAA business associate;
-- LabFlow does not offer HIPAA-regulated processing as part of the pilot;
-- LabFlow does not enter into Business Associate Agreements for the initial pilot unless the service and contractual framework are specifically changed in the future; and
-- customers must not use LabFlow to create, receive, maintain, transmit, upload, or otherwise process PHI or ePHI.
+- Labflow is not intended to act as a HIPAA business associate;
+- Labflow does not offer HIPAA-regulated processing as part of the pilot;
+- Labflow does not enter into Business Associate Agreements for the initial pilot unless the service and contractual framework are specifically changed in the future; and
+- customers must not use Labflow to create, receive, maintain, transmit, upload, or otherwise process PHI or ePHI.
 
 ## 3. Prohibited HIPAA-Regulated Data
 
-Customers and users must not enter or upload PHI or ePHI into LabFlow.
+Customers and users must not enter or upload PHI or ePHI into Labflow.
 
 This includes information that is both:
 
 1. individually identifiable health information; and
 2. protected under HIPAA because of the circumstances in which it is created, received, maintained, or transmitted.
 
-Examples of information that must not be entered into LabFlow when it constitutes PHI include:
+Examples of information that must not be entered into Labflow when it constitutes PHI include:
 
 - patient names associated with health information;
 - medical record numbers;
@@ -62,13 +62,13 @@ Examples of information that must not be entered into LabFlow when it constitute
 
 The fact that information relates to biology, medicine, health, or biomedical research does not by itself determine whether it is PHI.
 
-The customer is responsible for determining whether information is subject to HIPAA before entering it into LabFlow.
+The customer is responsible for determining whether information is subject to HIPAA before entering it into Labflow.
 
 ## 4. Research Data
 
 HIPAA does not prohibit research generally.
 
-Research laboratories may use LabFlow for ordinary research workflow information that is permitted under the LabFlow Pilot Data Policy and that does not constitute PHI or ePHI requiring HIPAA-regulated handling.
+Research laboratories may use Labflow for ordinary research workflow information that is permitted under the Labflow Pilot Data Policy and that does not constitute PHI or ePHI requiring HIPAA-regulated handling.
 
 Examples that may be appropriate, subject to institutional and contractual requirements, include:
 
@@ -85,46 +85,46 @@ Examples that may be appropriate, subject to institutional and contractual requi
 
 Researchers must not assume that removing a name alone makes health information de-identified.
 
-The institution or researcher responsible for the data must determine whether health information has been properly de-identified before it is entered into LabFlow.
+The institution or researcher responsible for the data must determine whether health information has been properly de-identified before it is entered into Labflow.
 
 ## 5. De-Identified Health Information
 
 HIPAA permits health information that has been properly de-identified under applicable HIPAA requirements to be used or disclosed without being treated as PHI under the Privacy Rule.
 
-LabFlow may be used for properly de-identified research information only when:
+Labflow may be used for properly de-identified research information only when:
 
 - the applicable institution has determined that the information satisfies its required de-identification standard;
 - the information is permitted by institutional policies, research agreements, consent requirements, and other applicable restrictions;
-- no prohibited identifiers are reintroduced into LabFlow; and
-- the information otherwise complies with the LabFlow Pilot Data Policy.
+- no prohibited identifiers are reintroduced into Labflow; and
+- the information otherwise complies with the Labflow Pilot Data Policy.
 
-LabFlow does not independently certify that customer-provided information has been properly de-identified.
+Labflow does not independently certify that customer-provided information has been properly de-identified.
 
 ## 6. Business Associate Agreements
 
-LabFlow does not offer a Business Associate Agreement as part of the initial paid pilot.
+Labflow does not offer a Business Associate Agreement as part of the initial paid pilot.
 
-A customer must not transmit PHI or ePHI to LabFlow on the assumption that:
+A customer must not transmit PHI or ePHI to Labflow on the assumption that:
 
 - use of encryption alone removes HIPAA obligations;
-- the data is permitted because LabFlow cannot readily interpret it;
+- the data is permitted because Labflow cannot readily interpret it;
 - the information is permitted because access is restricted;
 - the information is permitted because an attachment is privately stored; or
 - the information is permitted because a downstream cloud provider offers HIPAA-capable services.
 
 HIPAA obligations depend on the processing relationship and the nature of the information, not merely on whether the information is encrypted or difficult for a service provider to access.
 
-If a future customer requires LabFlow to create, receive, maintain, or transmit ePHI on its behalf, that use case must not proceed under the initial pilot configuration.
+If a future customer requires Labflow to create, receive, maintain, or transmit ePHI on its behalf, that use case must not proceed under the initial pilot configuration.
 
 ## 7. Infrastructure and Subprocessors
 
-LabFlow uses third-party infrastructure and service providers to operate the service.
+Labflow uses third-party infrastructure and service providers to operate the service.
 
-The fact that an individual provider may offer HIPAA-eligible products or may enter into BAAs with some customers does not make the overall LabFlow service HIPAA-ready.
+The fact that an individual provider may offer HIPAA-eligible products or may enter into BAAs with some customers does not make the overall Labflow service HIPAA-ready.
 
 HIPAA support would require a separate review of, at minimum:
 
-- the LabFlow service architecture;
+- the Labflow service architecture;
 - every provider that could create, receive, maintain, or transmit ePHI;
 - applicable provider BAAs;
 - subcontractor relationships;
@@ -144,11 +144,11 @@ HIPAA support would require a separate review of, at minimum:
 - workforce policies and training; and
 - customer contractual requirements.
 
-No representation should be made that LabFlow is HIPAA compliant based solely on individual infrastructure-provider capabilities.
+No representation should be made that Labflow is HIPAA compliant based solely on individual infrastructure-provider capabilities.
 
 ## 8. Security Controls Do Not Expand the Permitted Data Scope
 
-LabFlow currently implements security controls including:
+Labflow currently implements security controls including:
 
 - authentication;
 - role-based authorization;
@@ -165,42 +165,42 @@ LabFlow currently implements security controls including:
 - backup and recovery procedures; and
 - availability monitoring.
 
-These safeguards support the general security of LabFlow.
+These safeguards support the general security of Labflow.
 
-They do not constitute a representation that LabFlow satisfies all requirements applicable to HIPAA-regulated systems.
+They do not constitute a representation that Labflow satisfies all requirements applicable to HIPAA-regulated systems.
 
-Customers must continue to follow the prohibition on PHI and ePHI even where LabFlow security controls would technically permit the information to be uploaded.
+Customers must continue to follow the prohibition on PHI and ePHI even where Labflow security controls would technically permit the information to be uploaded.
 
 ## 9. Customer Responsibilities
 
-Before entering information into LabFlow, the customer and its authorized users are responsible for:
+Before entering information into Labflow, the customer and its authorized users are responsible for:
 
 - determining whether the information constitutes PHI or ePHI;
 - complying with institutional privacy and information-security policies;
 - complying with IRB, research-protocol, consent, sponsor, and contractual restrictions where applicable;
 - ensuring that research data is appropriately de-identified where de-identification is relied upon;
-- ensuring that LabFlow is an approved system for the intended data; and
+- ensuring that Labflow is an approved system for the intended data; and
 - preventing prohibited health information from being uploaded.
 
-A customer's internal approval to use LabFlow does not override this HIPAA Scope Statement unless LabFlow has expressly agreed in writing to a different service scope.
+A customer's internal approval to use Labflow does not override this HIPAA Scope Statement unless Labflow has expressly agreed in writing to a different service scope.
 
 ## 10. Accidental Submission of PHI
 
-If a user believes that PHI or ePHI has accidentally been entered into LabFlow, the user or customer should:
+If a user believes that PHI or ePHI has accidentally been entered into Labflow, the user or customer should:
 
 1. stop further submission of the information;
 2. avoid unnecessarily copying or redistributing the affected information;
 3. notify the applicable institutional privacy or security contact as required by institutional policy;
-4. notify LabFlow through the designated security or privacy contact; and
-5. provide sufficient information for LabFlow to identify the affected organization and records without unnecessarily transmitting additional PHI.
+4. notify Labflow through the designated security or privacy contact; and
+5. provide sufficient information for Labflow to identify the affected organization and records without unnecessarily transmitting additional PHI.
 
-LabFlow will evaluate appropriate containment, deletion, preservation, notification, and other response actions based on the circumstances and applicable obligations.
+Labflow will evaluate appropriate containment, deletion, preservation, notification, and other response actions based on the circumstances and applicable obligations.
 
-An accidental submission does not expand LabFlow's permitted data scope or convert the pilot into an approved HIPAA service.
+An accidental submission does not expand Labflow's permitted data scope or convert the pilot into an approved HIPAA service.
 
 ## 11. No HIPAA Compliance Representation
 
-For the initial paid pilot, LabFlow must not be described as:
+For the initial paid pilot, Labflow must not be described as:
 
 - HIPAA compliant;
 - HIPAA certified;
@@ -214,9 +214,9 @@ Marketing materials, sales communications, customer onboarding materials, and su
 
 ## 12. Future HIPAA Support
 
-LabFlow may evaluate HIPAA support in a future product phase.
+Labflow may evaluate HIPAA support in a future product phase.
 
-Before PHI or ePHI could be accepted, LabFlow would need to complete a separate HIPAA readiness program that may include:
+Before PHI or ePHI could be accepted, Labflow would need to complete a separate HIPAA readiness program that may include:
 
 - legal review of covered-entity and business-associate relationships;
 - execution of appropriate BAAs;
@@ -231,13 +231,13 @@ Before PHI or ePHI could be accepted, LabFlow would need to complete a separate 
 - audit-control review; and
 - contractual changes.
 
-Until such a program is completed and LabFlow expressly authorizes HIPAA-regulated use in writing, PHI and ePHI remain prohibited.
+Until such a program is completed and Labflow expressly authorizes HIPAA-regulated use in writing, PHI and ePHI remain prohibited.
 
-## 13. Relationship to Other LabFlow Policies
+## 13. Relationship to Other Labflow Policies
 
-This HIPAA Scope Statement supplements the LabFlow Pilot Data Policy and Privacy Policy.
+This HIPAA Scope Statement supplements the Labflow Pilot Data Policy and Privacy Policy.
 
-If another LabFlow document appears to permit information that this statement prohibits, the more restrictive HIPAA-related limitation applies for the initial paid pilot unless LabFlow expressly approves a different arrangement in writing.
+If another Labflow document appears to permit information that this statement prohibits, the more restrictive HIPAA-related limitation applies for the initial paid pilot unless Labflow expressly approves a different arrangement in writing.
 
 ## 14. Review and Change Management
 
@@ -247,7 +247,7 @@ This statement should be reviewed:
 - before onboarding a customer that conducts clinical or patient-related research;
 - before accepting any request for a Business Associate Agreement;
 - after material infrastructure or subprocessor changes;
-- when the LabFlow permitted-data scope changes; and
+- when the Labflow permitted-data scope changes; and
 - at least annually.
 
 Any proposal to permit PHI or ePHI must trigger a separate legal, security, infrastructure, and contractual review before the change is implemented.
@@ -258,7 +258,7 @@ Any proposal to permit PHI or ePHI must trigger a separate legal, security, infr
 
 **Business Associate Agreement offered:** No.
 
-**LabFlow represented as HIPAA compliant:** No.
+**Labflow represented as HIPAA compliant:** No.
 
 **HIPAA-regulated system of record:** No.
 

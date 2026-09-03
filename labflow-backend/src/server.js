@@ -91,7 +91,7 @@ app.use(helmet());
 app.get("/api/health", (req, res) => {
   return res.status(200).json({
     status: "success",
-    message: "Labflow API is running",
+    message: "Labfluss API is running",
   });
 });
 
@@ -103,7 +103,7 @@ app.get("/api/ready", async (req, res) => {
 
     return res.status(200).json({
       status: "success",
-      message: "LabFlow API is ready",
+      message: "Labfluss API is ready",
       checks: {
         database: "ready",
       },
@@ -117,7 +117,7 @@ app.get("/api/ready", async (req, res) => {
 
     return res.status(503).json({
       status: "error",
-      message: "LabFlow API is not ready",
+      message: "Labfluss API is not ready",
       checks: {
         database: "unavailable",
       },
@@ -210,7 +210,7 @@ function startServer({ connect = connectDatabase } = {}) {
       {
         port: Number(PORT),
       },
-      "LabFlow API server started",
+      "Labfluss API server started",
     );
   });
 

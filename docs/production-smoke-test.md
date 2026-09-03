@@ -1,45 +1,63 @@
-# LabFlow Production Smoke Test
+# Labfluss Production Smoke Test
 
-Last verified: 2026-08-08
+Last verified: 2026-09-01
 
 ## Purpose
 
-This checklist verifies that the deployed LabFlow frontend, backend, database, email service, object storage, authentication workflows, and organization-isolation controls are operating correctly.
+This checklist verifies that the deployed Labfluss frontend, backend, database, email service, object storage, authentication workflows, and organization-isolation controls are operating correctly.
 
 The production smoke test must use synthetic or non-sensitive test data only.
 
 ## Deployment
 
-- [x] Intended backend commit deployed to Render
-- [x] Intended frontend commit deployed to Vercel
-- [x] Render deployment completed successfully
-- [x] Vercel deployment completed successfully
+- [x] Intended backend commit deployed to AWS Lightsail
+- [x] Intended frontend commit deployed to AWS Amplify Hosting
+- [x] Lightsail backend service started successfully
+- [x] Amplify frontend deployment completed successfully
+- [x] Production custom frontend domain is available at `https://app.labfluss.com`
+- [x] Production API domain is available at `https://api.labfluss.com`
 - [x] Backend starts without missing environment-variable errors
 - [x] Production database migrations completed successfully
-- [x] Temporary local production database environment variables were cleared
-- [ ] Kaspersky reanalysis completed
+- [x] Amazon RDS production database is private-only
+- [x] Lightsail-to-RDS private connectivity verified
+- [x] Backend liveness and readiness endpoints return HTTP 200
+- [x] Attachment-cleanup systemd timer is enabled and active
 
-### Current access limitation
+### Historical frontend reputation issue
 
-Kaspersky currently classifies the generated Vercel hostname as phishing and may block the frontend JavaScript and CSS assets.
+During the earlier Vercel-hosted deployment, Kaspersky classified the generated Vercel hostname as phishing and could block frontend JavaScript and CSS assets.
 
-A reanalysis request has been submitted. The application currently requires temporary local protection pausing on the affected test system during initial loading. Users must not be instructed to disable or pause antivirus protection as a normal access procedure.
+This issue affected the former generated Vercel hostname rather than the current AWS Amplify deployment. The production frontend is now served from:
+
+```text
+https://app.labfluss.com
+```
+
+Users should never be instructed to disable or pause antivirus protection as a normal access procedure.
 
 ## Production environment
 
 ### Frontend
 
-Provider: Vercel
+Provider: AWS Amplify Hosting
 
 Verified variables:
 
 - `VITE_API_URL`
 
+Production frontend origin:
+
+- `https://app.labfluss.com`
+
+Production API target:
+
+- `https://api.labfluss.com/api`
+
 The frontend contains no database, JWT, Mailgun, or Cloudflare R2 secret credentials.
 
 ### Backend
 
-Provider: Render
+Provider: AWS Lightsail
 
 Verified configuration areas:
 
@@ -50,9 +68,38 @@ Verified configuration areas:
 - Mailgun email delivery
 - Cloudflare R2 attachment storage
 
-Render does not require a manually configured `PORT` environment variable for the current deployment. The service uses the runtime port supplied by Render.
+The backend application listens on port 5000. Nginx proxies public HTTPS API traffic to `127.0.0.1:5000`.
+
+The production backend is supervised by `labflow-backend.service` under systemd.
+
+Production backend origin:
+
+- `https://api.labfluss.com`
+
+Backend path:
+
+- `/opt/labflow/labflow-backend`
+
+Environment file:
+
+- `/opt/labflow/labflow-backend/.env`
 
 Secret values are stored only in the hosting environment and are not recorded in this document.
+
+### Database
+
+Provider: Amazon RDS for PostgreSQL
+
+Verified production configuration:
+
+- DB instance: `labflow-production`
+- Database: `labflow`
+- PostgreSQL: 17.11
+- Region: `eu-central-1`
+- Deployment: Single-AZ
+- Publicly accessible: No
+- Automated backup retention: 7 days
+- Lightsail-to-RDS private connectivity: verified
 
 ## Backend health and readiness
 
@@ -82,8 +129,9 @@ https://api.labfluss.com/api/health
 
 Readiness endpoint:
 
-````text
+```text
 https://api.labfluss.com/api/ready
+```
 
 ## Observability and operational monitoring
 
@@ -119,6 +167,16 @@ https://api.labfluss.com/api/ready
 - [x] Rollback failures are logged separately as `attachment_cleanup_rollback_failed`
 - [x] Cleanup failure logs do not intentionally expose storage keys
 
+### Attachment-cleanup scheduler
+
+- [x] `labflow-attachment-cleanup.service` exists on the Lightsail host
+- [x] `labflow-attachment-cleanup.timer` exists on the Lightsail host
+- [x] Timer is enabled
+- [x] Timer is active and waiting
+- [x] Next timer invocation is scheduled
+- [x] Manual cleanup execution completed successfully
+- [x] Verified cleanup run processed 2 expired items with 0 failures
+
 ### External uptime monitoring
 
 - [x] Better Stack frontend monitor configured
@@ -133,9 +191,9 @@ https://api.labfluss.com/api/ready
 
 - [x] Login page loads
 - [x] Registration page loads
-- [x] Application uses the deployed Render API
+- [x] Application uses the deployed AWS Lightsail API at `https://api.labfluss.com`
 - [x] No requests are sent to a localhost backend
-- [x] JavaScript and CSS assets load when not interrupted by Kaspersky
+- [x] JavaScript and CSS assets load successfully from the AWS Amplify frontend
 - [x] Authenticated navigation works
 - [x] Protected routes require authentication
 
@@ -245,9 +303,9 @@ The backend resend workflow is implemented and covered by automated tests, but i
 - [x] Cloudflare R2 accepts the CORS preflight request
 - [x] Direct browser-to-R2 upload succeeds
 - [x] Backend completion verification succeeds
-- [x] Attachment becomes available in LabFlow
+- [x] Attachment becomes available in Labfluss
 
-The production R2 bucket CORS policy permits the deployed Vercel frontend and the local Vite development origin.
+The production R2 bucket CORS policy permits the deployed AWS Amplify frontend and the local Vite development origin.
 
 ### Download
 
@@ -312,16 +370,16 @@ Verified coverage includes:
 
 ## Open items
 
-- Kaspersky reanalysis is pending.
-- Production invitation resend has not been manually verified.
-- Backup restoration has not yet been manually tested.
-- Additional security hardening remains planned.
+- Production invitation resend has not yet been manually re-verified after the AWS migration.
 - Automated frontend/E2E testing remains planned.
-- Privacy, data-lifecycle, and tenant-administration hardening remains planned.
+- Automated daily attachment backup remains to be implemented.
+- Off-machine or off-provider attachment backup remains to be implemented.
+- Mailgun remains the current transactional-email provider pending the planned email-infrastructure migration.
+- Further institutional tenant-administration capabilities remain future work.
 
 ## Current result
 
-The deployed LabFlow MVP has passed production verification for:
+The deployed Labfluss application has passed production verification for:
 
 - Backend health
 - Frontend-to-backend connectivity
@@ -346,6 +404,13 @@ The deployed LabFlow MVP has passed production verification for:
 - Attachment-cleanup failure visibility
 - Better Stack external uptime monitoring
 - Verified Better Stack email alert delivery
+- AWS Amplify production frontend
+- AWS Lightsail production backend
+- Amazon RDS PostgreSQL production database
+- Private Lightsail-to-RDS connectivity
+- HTTPS on `app.labfluss.com` and `api.labfluss.com`
+- systemd backend supervision
+- systemd attachment-cleanup scheduling
 
 ## Phase 24A.9 Completion
 
@@ -365,7 +430,9 @@ The production smoke-test baseline now documents:
 - Automated backend regression results
 - Known production limitations and open operational items
 
-The following items remain outside the scope of Phase 24A.9 and are carried forward:
+The following items were outside the scope of Phase 24A.9 and were carried forward at that time:
+
+This list reflects the unresolved items at the time Phase 24A.9 was completed and is retained for historical traceability.
 
 - Kaspersky reanalysis
 - Manual production verification of invitation resend
@@ -377,9 +444,11 @@ The following items remain outside the scope of Phase 24A.9 and are carried forw
 
 ## Phase 24A Completion Decision
 
+This section is a historical record of the production state verified during Phase 24A. The application was later migrated to AWS during Phase 26C.
+
 Phase 24A is complete with documented carry-forward items.
 
-The deployed LabFlow application has been verified across its primary production dependencies and critical workflows:
+The deployed Labfluss application has been verified across its primary production dependencies and critical workflows:
 
 - Vercel frontend deployment
 - Render backend deployment
@@ -392,14 +461,13 @@ The deployed LabFlow application has been verified across its primary production
 - Attachment metadata, archive, and restoration
 - Backend health and automated regression testing
 
-The following items do not block completion of Phase 24A and are carried forward:
+The following items were still outstanding at the time Phase 24A was completed. Several were completed in later production-hardening phases.
 
-- Kaspersky hostname reanalysis, which depends on an external reputation-service decision
-- Manual production verification of invitation resend
 - External uptime monitoring
 - Separate liveness and readiness endpoints
 - Backup restoration testing
-- Centralized production logging and alerting
+- Password reset and email verification
+- Centralized logging and production monitoring
 
 Phase 24A establishes a verified production deployment baseline. It does not represent full production readiness for sensitive or regulated research data.
 
@@ -429,8 +497,8 @@ The current automated backend regression baseline is:
 Test Suites: 36 passed, 36 total
 Tests: 525 passed, 525 total
 Snapshots: 0 total
-````
+```
 
-Phase 25A improves observability and operational reliability. It does not by itself make LabFlow ready for sensitive, regulated, or institutional production data.
+Phase 25A improves observability and operational reliability. It does not by itself make Labfluss ready for sensitive, regulated, or institutional production data.
 
-The next production-hardening area is backup, restore, and disaster recovery.
+At the completion of Phase 25A, the next production-hardening area was backup, restore, and disaster recovery. That work was subsequently addressed in Phase 25B.

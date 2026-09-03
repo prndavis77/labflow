@@ -1,16 +1,16 @@
-# LabFlow Security Safeguards
+# Labfluss Security Safeguards
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
-**Last reviewed:** 2026-08-26
+**Last reviewed:** 2026-09-02
 
 ## 1. Purpose
 
-This document describes the technical and organizational safeguards currently used to protect LabFlow and customer information during the initial paid pilot.
+This document describes the technical and organizational safeguards currently used to protect Labfluss and customer information during the initial paid pilot.
 
-LabFlow is a project-management and laboratory-workflow platform intended for university research laboratories.
+Labfluss is a project-management and laboratory-workflow platform intended for university research laboratories.
 
-This document is intended to provide customers and institutional reviewers with a practical overview of LabFlow's current security controls.
+This document is intended to provide customers and institutional reviewers with a practical overview of Labfluss's current security controls.
 
 It is not:
 
@@ -40,7 +40,7 @@ This document should be read together with:
 
 ## 2. Security Objectives
 
-LabFlow's security controls are designed to support:
+Labfluss's security controls are designed to support:
 
 - confidentiality of customer information;
 - integrity of application data;
@@ -56,32 +56,32 @@ LabFlow's security controls are designed to support:
 
 ## 3. Security Responsibility Model
 
-LabFlow operates as a cloud-hosted software service using third-party infrastructure providers.
+Labfluss operates as a cloud-hosted software service using third-party infrastructure providers.
 
 Security responsibility is shared among:
 
-- LabFlow;
+- Labfluss;
 - its infrastructure and service providers;
 - organizational customers; and
 - authorized users.
 
-LabFlow is responsible for safeguards within the application and configurations under its control.
+Labfluss is responsible for safeguards within the application and configurations under its control.
 
 Infrastructure providers are responsible for safeguards applicable to their underlying hosted services according to their respective service agreements.
 
 Customers are responsible for:
 
-- determining whether LabFlow is approved for their intended information;
+- determining whether Labfluss is approved for their intended information;
 - authorizing appropriate users;
 - assigning appropriate roles;
 - protecting their account credentials;
 - complying with institutional security and privacy requirements;
-- preventing prohibited data from being entered into LabFlow; and
+- preventing prohibited data from being entered into Labfluss; and
 - promptly reporting suspected unauthorized access or security incidents.
 
 ## 4. Application Authentication
 
-LabFlow requires authenticated access for protected application functionality.
+Labfluss requires authenticated access for protected application functionality.
 
 Current authentication safeguards include:
 
@@ -100,7 +100,7 @@ Temporary token values may be transmitted through transactional email where requ
 
 ## 5. Password Protection
 
-LabFlow does not store plaintext user passwords.
+Labfluss does not store plaintext user passwords.
 
 Passwords are stored using cryptographic password hashing.
 
@@ -113,11 +113,11 @@ Users remain responsible for:
 - avoiding credential sharing; and
 - reporting suspected account compromise.
 
-LabFlow does not currently claim to provide enterprise identity federation, institutional single sign-on, or mandatory multi-factor authentication for all pilot users unless such functionality is separately implemented and verified.
+Labfluss does not currently claim to provide enterprise identity federation, institutional single sign-on, or mandatory multi-factor authentication for all pilot users unless such functionality is separately implemented and verified.
 
 ## 6. Authorization and Role-Based Access Control
 
-LabFlow uses role-based authorization.
+Labfluss uses role-based authorization.
 
 Current application roles include:
 
@@ -131,7 +131,7 @@ Role assignment does not replace customer responsibility for determining which u
 
 ## 7. Organization and Tenant Isolation
 
-LabFlow is designed as a multi-tenant application.
+Labfluss is designed as a multi-tenant application.
 
 Customer organizations are logically separated through organization-scoped access controls.
 
@@ -153,16 +153,20 @@ Organization-scoped controls apply to areas including:
 
 Security regression testing includes organization-isolation and authorization behavior.
 
-No multi-tenant system can guarantee that implementation defects will never occur. LabFlow treats tenant-isolation failures as security defects requiring remediation.
+No multi-tenant system can guarantee that implementation defects will never occur. Labfluss treats tenant-isolation failures as security defects requiring remediation.
 
 ## 8. Database Security
 
-LabFlow uses PostgreSQL for relational application data.
+Labfluss uses PostgreSQL for relational application data.
 
 Database safeguards include:
 
 - authenticated database access;
 - encrypted database transport for hosted production connections;
+- private-only production Amazon RDS database access;
+- private Lightsail-to-RDS connectivity;
+- encrypted RDS storage;
+- Amazon RDS automated backups with a 7-day retention window;
 - production configuration validation;
 - restricted database connection information;
 - environment-based credential management;
@@ -177,13 +181,11 @@ Development setup utilities are designed not to act as production schema-managem
 
 Hosted production database connections use TLS.
 
-LabFlow's database configuration supports certificate validation and configurable certificate-authority information.
+Labfluss production database connections use certificate validation with the applicable Amazon RDS certificate-authority bundle.
 
 Production configuration rejects certain insecure or ambiguous database SSL connection patterns.
 
-Where certificate verification is intentionally disabled as an explicit exceptional configuration, that configuration must be deliberately set rather than silently assumed.
-
-LabFlow does not represent that database TLS alone provides complete protection of customer data.
+Labfluss does not represent that database TLS alone provides complete protection of customer data.
 
 ## 10. Attachment Storage
 
@@ -231,7 +233,7 @@ Temporary staging objects are subject to scheduled cleanup procedures.
 
 Attachment downloads require authorization.
 
-LabFlow uses short-lived signed object-storage URLs rather than exposing permanent public attachment URLs.
+Labfluss uses short-lived signed object-storage URLs rather than exposing permanent public attachment URLs.
 
 The object-storage bucket used for production attachments is not intentionally configured as a public file repository.
 
@@ -239,7 +241,7 @@ Signed URLs should be treated as sensitive while valid and should not be shared 
 
 ## 13. File-Type Restrictions
 
-LabFlow does not permit arbitrary unrestricted file upload.
+Labfluss does not permit arbitrary unrestricted file upload.
 
 Supported attachment types are subject to application validation.
 
@@ -257,7 +259,7 @@ Customers should continue to use endpoint protection and institutional security 
 
 ## 14. Network Transport Security
 
-LabFlow production services are accessed using HTTPS.
+Labfluss production services are accessed using HTTPS.
 
 TLS is used for network communications between users and externally exposed production application services.
 
@@ -265,11 +267,11 @@ Hosted production database communication uses encrypted transport.
 
 Object-storage communication uses TLS-supported provider endpoints.
 
-LabFlow does not intentionally transmit customer application content over plaintext public HTTP in the production configuration.
+Labfluss does not intentionally transmit customer application content over plaintext public HTTP in the production configuration.
 
 ## 15. Application Security Headers
 
-LabFlow uses application-level HTTP security controls intended to reduce common web risks.
+Labfluss uses application-level HTTP security controls intended to reduce common web risks.
 
 These include security headers applied through the backend security middleware.
 
@@ -289,7 +291,7 @@ Production-origin configuration should be reviewed whenever the production front
 
 ## 17. Proxy and Client Address Handling
 
-LabFlow validates its reverse-proxy configuration.
+Labfluss validates its reverse-proxy configuration.
 
 Production deployments use an explicitly controlled trusted-proxy configuration rather than automatically trusting arbitrary proxy chains.
 
@@ -320,7 +322,7 @@ Input validation reduces risk but does not replace authorization checks.
 
 ## 19. Error Handling
 
-LabFlow uses centralized error handling.
+Labfluss uses centralized error handling.
 
 Production error responses are intended to avoid unnecessarily exposing:
 
@@ -338,7 +340,7 @@ Internal logs may contain more diagnostic information than user-facing responses
 
 ## 20. Logging and Sensitive-Data Redaction
 
-LabFlow uses centralized structured application logging.
+Labfluss uses centralized structured application logging.
 
 Security-related logging safeguards include:
 
@@ -356,7 +358,7 @@ No logging system can guarantee that application defects will never cause uninte
 
 ## 21. Audit Logging
 
-LabFlow maintains application audit information for certain security and workflow actions.
+Labfluss maintains application audit information for certain security and workflow actions.
 
 Audit data may include:
 
@@ -379,7 +381,7 @@ The current audit system should not be represented as a certified regulatory aud
 
 ## 22. Production Configuration Validation
 
-LabFlow validates security-sensitive configuration at application startup.
+Labfluss validates security-sensitive configuration at application startup.
 
 Production validation includes controls relating to:
 
@@ -394,7 +396,7 @@ The application is designed to fail or report configuration problems rather than
 
 ## 23. JWT Security
 
-LabFlow uses JSON Web Tokens as part of its authentication mechanism.
+Labfluss uses JSON Web Tokens as part of its authentication mechanism.
 
 Production configuration requires an appropriately sized JWT secret.
 
@@ -404,7 +406,9 @@ Authentication tokens should be treated as sensitive credentials.
 
 ## 24. Secrets Management
 
-Production secrets are supplied through deployment-provider environment configuration.
+Production backend secrets are supplied through restricted environment configuration on the AWS Lightsail host.
+
+The production backend environment file is restricted at the operating-system level and is not committed to source control.
 
 Sensitive values include items such as:
 
@@ -432,7 +436,7 @@ Production seed operations require explicit authorization rather than running au
 
 ## 26. Availability Monitoring
 
-LabFlow uses external availability monitoring.
+Labfluss uses Better Stack for external availability monitoring.
 
 Current monitoring includes checks for:
 
@@ -451,7 +455,7 @@ This separation improves operational visibility and reduces the risk of treating
 
 ## 27. Dependency and Service Failure Handling
 
-LabFlow is designed so that failure of a critical dependency does not necessarily prevent the application process from starting.
+Labfluss is designed so that failure of a critical dependency does not necessarily prevent the application process from starting.
 
 When the database is unavailable:
 
@@ -463,12 +467,13 @@ This behavior supports clearer monitoring and operational response.
 
 ## 28. Backup and Recovery
 
-LabFlow maintains documented backup and recovery procedures.
+Labfluss maintains documented backup and recovery procedures.
 
 Current recovery measures include:
 
-- database point-in-time recovery capabilities provided by the database provider;
-- manual database snapshots where supported;
+- Amazon RDS automated backups with a 7-day retention window;
+- Amazon RDS point-in-time recovery within the retained backup window;
+- a post-cutover manual Amazon RDS DB snapshot;
 - portable PostgreSQL logical backups;
 - attachment backup procedures;
 - recovery validation;
@@ -487,20 +492,20 @@ Current recovery capability and provider limits are documented separately and sh
 
 The initial pilot recovery architecture has operational limitations.
 
-Current limitations may include:
+Current limitations include:
 
-- provider-plan recovery-history limits;
-- manual rather than fully automated backup steps;
-- incomplete infrastructure reconstruction automation;
-- reliance on provider control planes;
-- no completed full production infrastructure cutover exercise; and
-- attachment backup processes that may require further automation.
+- automated recurring attachment backups are not yet implemented;
+- the independent attachment backup is currently stored locally;
+- no off-machine or off-provider attachment backup copy is currently configured;
+- full infrastructure reconstruction has not been drill-tested;
+- a production disaster-recovery cutover has not been drill-tested; and
+- some recovery procedures still depend on provider control planes and documented manual operations.
 
 These limitations are tracked as pre-pilot or operational-improvement items.
 
 ## 30. Customer Data Export
 
-LabFlow maintains a documented customer-data export workflow.
+Labfluss maintains a documented customer-data export workflow.
 
 Organization exports are designed to include permitted organization-owned data and attachments while excluding security-sensitive internal information.
 
@@ -510,7 +515,7 @@ Security-sensitive fields such as authentication tokens and internal storage imp
 
 ## 31. Organization Offboarding and Deletion
 
-LabFlow maintains documented organization offboarding and deletion procedures.
+Labfluss maintains documented organization offboarding and deletion procedures.
 
 Offboarding includes controls intended to:
 
@@ -525,7 +530,7 @@ Organization deletion is treated as an operator-controlled administrative proces
 
 ## 32. Access Freeze
 
-LabFlow supports organization access-freeze behavior as part of offboarding.
+Labfluss supports organization access-freeze behavior as part of offboarding.
 
 Freezing an organization is intended to prevent continued user access while administrative export or deletion procedures are performed.
 
@@ -533,7 +538,7 @@ Access freezing does not substitute for final deletion.
 
 ## 33. Data Minimization
 
-LabFlow attempts to collect and retain only information reasonably required for the service.
+Labfluss attempts to collect and retain only information reasonably required for the service.
 
 The Pilot Data Policy further restricts categories of information that users may enter.
 
@@ -552,7 +557,7 @@ The initial paid pilot prohibits or restricts categories including:
 
 ## 34. Data Retention
 
-LabFlow maintains a documented retention policy.
+Labfluss maintains a documented retention policy.
 
 Retention depends on:
 
@@ -568,7 +573,7 @@ Deleted information may remain temporarily in backups or provider recovery syste
 
 ## 35. Data Locations and Subprocessors
 
-LabFlow uses third-party service providers for functions including:
+Labfluss uses third-party service providers for functions including:
 
 - frontend hosting;
 - backend hosting;
@@ -577,15 +582,15 @@ LabFlow uses third-party service providers for functions including:
 - transactional email; and
 - uptime monitoring.
 
-Provider information and known production-region configuration are maintained in the LabFlow Subprocessor Inventory.
+Provider information and known production-region configuration are maintained in the Labfluss Subprocessor Inventory.
 
-LabFlow does not currently represent that all customer data remains exclusively within the United States.
+Labfluss does not currently represent that all customer data remains exclusively within the United States.
 
 Customers with specific residency requirements must raise those requirements before transmitting customer data.
 
 ## 36. Service Provider Review
 
-LabFlow reviews material production providers with attention to:
+Labfluss reviews material production providers with attention to:
 
 - service purpose;
 - production region;
@@ -603,7 +608,7 @@ Customers should refer to provider documentation and contractual materials where
 
 ## 37. Security Monitoring
 
-LabFlow currently uses external uptime and readiness monitoring.
+Labfluss currently uses external uptime and readiness monitoring.
 
 The monitoring configuration is intentionally limited and does not rely on broad browser-session replay or customer-content analytics as part of the initial pilot configuration.
 
@@ -611,7 +616,7 @@ Additional monitoring may be introduced later following privacy and security rev
 
 ## 38. Security Testing
 
-LabFlow maintains automated security-related regression tests.
+Labfluss maintains automated security-related regression tests.
 
 Testing includes areas such as:
 
@@ -635,7 +640,7 @@ Automated testing reduces regression risk but does not replace:
 
 ## 39. Dependency Management
 
-LabFlow uses third-party software dependencies.
+Labfluss uses third-party software dependencies.
 
 Dependencies are reviewed using package-management security tooling.
 
@@ -648,7 +653,7 @@ Known dependency findings are evaluated based on:
 - compatibility impact; and
 - risk of introducing a more serious regression through forced upgrades.
 
-LabFlow does not automatically apply breaking dependency downgrades or forced fixes solely to eliminate an audit warning.
+Labfluss does not automatically apply breaking dependency downgrades or forced fixes solely to eliminate an audit warning.
 
 Accepted dependency risk should be documented and revisited periodically.
 
@@ -669,7 +674,7 @@ Security-sensitive changes should be tested before deployment.
 
 ## 41. Source Control
 
-LabFlow source code is maintained using Git.
+Labfluss source code is maintained using Git.
 
 Production secrets must not be committed to source control.
 
@@ -685,7 +690,7 @@ Source-code availability alone does not provide full infrastructure disaster rec
 
 ## 42. Incident Response
 
-Suspected security incidents should be reported to the designated LabFlow security contact.
+Suspected security incidents should be reported to the designated Labfluss security contact.
 
 Incident response may include:
 
@@ -705,7 +710,7 @@ Specific legal or contractual notification requirements depend on the circumstan
 
 ## 43. Prohibited Data Incident Handling
 
-If prohibited sensitive information is accidentally entered into LabFlow, handling should follow the applicable scope document.
+If prohibited sensitive information is accidentally entered into Labfluss, handling should follow the applicable scope document.
 
 Examples include:
 
@@ -763,7 +768,7 @@ The initial pilot does not claim mature enterprise privileged-access-management 
 
 ## 48. Personnel Security
 
-The initial pilot does not currently represent that LabFlow maintains:
+The initial pilot does not currently represent that Labfluss maintains:
 
 - a large dedicated security team;
 - formal 24-hour security operations;
@@ -776,15 +781,15 @@ These areas should be expanded as personnel and customer requirements grow.
 
 ## 49. Physical Security
 
-LabFlow does not operate its own production data centers.
+Labfluss does not operate its own production data centers.
 
 Physical infrastructure security is primarily provided by the cloud infrastructure providers used for production services.
 
-LabFlow does not independently represent or certify provider physical-security controls beyond information made available by those providers.
+Labfluss does not independently represent or certify provider physical-security controls beyond information made available by those providers.
 
 ## 50. Business Continuity
 
-LabFlow maintains recovery procedures intended to support service restoration following operational failure.
+Labfluss maintains recovery procedures intended to support service restoration following operational failure.
 
 Current continuity planning includes:
 
@@ -795,35 +800,35 @@ Current continuity planning includes:
 - provider configuration documentation; and
 - operational monitoring.
 
-A complete automated multi-provider infrastructure reconstruction and production cutover exercise has not yet been completed for the initial pilot.
+A complete automated infrastructure reconstruction and disaster-recovery production cutover exercise has not yet been completed for the initial pilot.
 
 ## 51. Security Limitations and Open Items
 
 The following areas are recognized as requiring continued improvement before or during broader production use:
 
-- production infrastructure capacity appropriate for paid customers;
-- automated recurring database backups;
 - automated recurring object-storage backups;
 - independent off-provider or off-machine attachment backup;
 - full infrastructure reconstruction testing;
-- custom production domain deployment;
-- final production CORS update;
-- dedicated LabFlow transactional-email domain;
+- disaster-recovery production cutover testing;
+- dedicated Labfluss transactional-email domain;
+- dedicated production transactional-email configuration, including either hardened Mailgun production use or migration to Amazon SES;
+- review of whether the localhost development origin should remain allowed on the production R2 bucket;
 - production-provider account hardening;
 - enforcement of appropriate multi-factor authentication on provider administrative accounts;
 - disabling unnecessary provider AI or telemetry features where applicable;
 - formal vulnerability scanning;
 - independent penetration testing;
-- broader security incident-response exercises; and
-- expanded operational monitoring where justified.
+- broader security incident-response exercises;
+- automated frontend/E2E testing; and
+- expanded centralized log aggregation and retention where justified.
 
 Open items must not be represented as completed controls.
 
 ## 52. Regulated Data Limitations
 
-The initial LabFlow pilot is intentionally restricted.
+The initial Labfluss pilot is intentionally restricted.
 
-LabFlow is not currently represented as:
+Labfluss is not currently represented as:
 
 - HIPAA compliant;
 - a HIPAA business associate service;
@@ -841,7 +846,7 @@ Applicable scope documents define these limitations in more detail.
 
 ## 53. Customer Security Review
 
-LabFlow may provide customers with available security documentation to support institutional review.
+Labfluss may provide customers with available security documentation to support institutional review.
 
 Customers may request clarification regarding:
 
@@ -860,7 +865,7 @@ Customers may request clarification regarding:
 - incident response; and
 - known service limitations.
 
-LabFlow should answer such requests based on verified current controls and should not claim controls that have not been implemented or tested.
+Labfluss should answer such requests based on verified current controls and should not claim controls that have not been implemented or tested.
 
 ## 54. Change Management
 
@@ -900,6 +905,10 @@ This document should be reviewed:
 
 **Hosted database transport encryption:** Implemented.
 
+**Private-only production database:** Implemented.
+
+**Private Lightsail-to-RDS connectivity:** Implemented.
+
 **Private attachment storage:** Implemented.
 
 **Short-lived signed attachment URLs:** Implemented.
@@ -912,11 +921,13 @@ This document should be reviewed:
 
 **Production configuration validation:** Implemented.
 
-**Database backup and recovery procedures:** Implemented, with current provider and automation limitations.
+**Database backup and recovery procedures:** Implemented, including 7-day Amazon RDS automated backups, point-in-time recovery capability, a manual post-cutover snapshot, and tested portable PostgreSQL restore procedures.
 
 **Attachment backup and recovery procedures:** Implemented, with further automation required.
 
 **External availability monitoring:** Implemented.
+
+**Production custom HTTPS domains:** Implemented.
 
 **Automated security regression tests:** Implemented.
 

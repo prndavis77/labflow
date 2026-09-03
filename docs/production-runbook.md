@@ -1,18 +1,18 @@
-# LabFlow Production Runbook
+# Labfluss Production Runbook
 
 ## Purpose
 
-This runbook describes how to diagnose and respond to operational problems in the deployed LabFlow application.
+This runbook describes how to diagnose and respond to operational problems in the deployed Labfluss application.
 
-It is intended for the current LabFlow production/demo environment.
+It is intended for the current Labfluss production/demo environment.
 
-LabFlow is currently suitable for portfolio demonstrations, controlled pilot demonstrations, invited testers, and non-sensitive test data. This runbook does not imply readiness for regulated or sensitive research data.
+Labfluss is currently suitable for portfolio demonstrations, controlled pilot demonstrations, invited testers, and non-sensitive test data. This runbook does not imply readiness for regulated or sensitive research data.
 
 ## Production Services
 
-- Frontend: Vercel
-- Backend: Render
-- Database: Neon PostgreSQL
+- Frontend: AWS Amplify Hosting
+- Backend: AWS Lightsail
+- Database: Amazon RDS for PostgreSQL
 - Attachment storage: Cloudflare R2
 - Transactional email: Mailgun
 - External uptime monitoring: Better Stack
@@ -22,7 +22,7 @@ LabFlow is currently suitable for portfolio demonstrations, controlled pilot dem
 Frontend:
 
 ```text
-https://labflow-brown.vercel.app
+https://app.labfluss.com
 ```
 
 Backend liveness:
@@ -35,7 +35,7 @@ https://api.labfluss.com/api/ready
 
 ## Health Model
 
-LabFlow uses separate liveness and readiness checks.
+Labfluss uses separate liveness and readiness checks.
 
 ### Liveness
 
@@ -46,7 +46,7 @@ Expected response:
 ```json
 {
   "status": "success",
-  "message": "Labflow API is running"
+  "message": "Labfluss API is running"
 }
 ```
 
@@ -63,7 +63,7 @@ Expected healthy response:
 ```json
 {
   "status": "success",
-  "message": "LabFlow API is ready",
+  "message": "Labfluss API is ready",
   "checks": {
     "database": "ready"
   }
@@ -78,7 +78,7 @@ If PostgreSQL cannot be reached, readiness returns HTTP 503 with a safe response
 
 Better Stack monitors:
 
-1. LabFlow frontend
+1. Labfluss frontend
 2. Backend liveness
 3. Backend readiness
 
@@ -92,14 +92,14 @@ The readiness monitor should be treated as the primary backend availability sign
 
 Likely area:
 
-- Vercel deployment
+- AWS Amplify deployment
 - frontend asset delivery
 - frontend routing
 - frontend configuration
 
 Check:
 
-1. Vercel deployment status.
+1. AWS Amplify deployment status.
 2. Browser network errors.
 3. VITE_API_URL.
 4. Recent frontend deployment.
@@ -109,7 +109,7 @@ Check:
 
 Likely area:
 
-- Render service unavailable
+- AWS Lightsail service unavailable
 - backend crash
 - deployment failure
 - startup failure
@@ -117,9 +117,9 @@ Likely area:
 
 Check:
 
-1. Render service status.
-2. Render deployment status.
-3. Render application logs.
+1. AWS Lightsail instance status.
+2. `labflow-backend.service` status.
+3. systemd journal logs for `labflow-backend.service`.
 4. Backend startup logs.
 5. Recent commits and deployments.
 6. Missing or invalid production environment variables.
@@ -129,7 +129,7 @@ Check:
 Likely area:
 
 - PostgreSQL connectivity
-- Neon availability
+- Amazon RDS availability
 - database credentials
 - SSL configuration
 - connection exhaustion
@@ -137,11 +137,12 @@ Likely area:
 
 Check:
 
-1. Neon project status.
-2. Render logs for database errors.
-3. DATABASE_URL configuration.
+1. Amazon RDS DB instance status.
+2. Lightsail backend logs for database errors.
+3. `DATABASE_URL` configuration.
 4. Recent database or deployment changes.
-5. Whether the failure is temporary or persistent.
+5. Whether the Lightsail-to-RDS private connection is reachable.
+6. Whether the failure is temporary or persistent.
 
 Do not weaken TLS/SSL validation merely to suppress connection warnings.
 
@@ -156,7 +157,13 @@ Likely area:
 
 Use the request correlation ID from the failed API request where available.
 
-Search Render logs for the same requestId.
+Search the Lightsail backend journal for the same `requestId`.
+
+A useful concrete command is:
+
+```bash
+sudo journalctl -u labflow-backend.service --since "30 minutes ago"
+```
 
 ## Structured Logging
 
@@ -215,7 +222,7 @@ Feature-specific controllers may also log contextual delivery failures.
 
 If email delivery fails:
 
-1. Check Render logs for email_delivery_failed.
+1. Check the Lightsail backend journal for `email_delivery_failed`.
 2. Check the associated feature-specific event.
 3. Check Mailgun status and configuration.
 4. Verify the configured domain and sender.
@@ -226,8 +233,8 @@ If email delivery fails:
 
 Attachment cleanup failure events include:
 
-attachment_cleanup_item_failed
-attachment_cleanup_rollback_failed
+`attachment_cleanup_item_failed`
+`attachment_cleanup_rollback_failed`
 
 A failed item should not prevent other cleanup candidates from being attempted.
 
@@ -239,13 +246,24 @@ If cleanup failures occur:
 4. Verify the object-storage configuration.
 5. Do not log or expose the attachment storage key unnecessarily.
 6. Do not expose signed URLs.
+7. Check `labflow-attachment-cleanup.timer`.
+8. Check `labflow-attachment-cleanup.service`.
+9. Review the cleanup journal for the failed execution.
+
+Useful commands:
+
+```bash
+sudo systemctl status labflow-attachment-cleanup.timer --no-pager
+sudo systemctl status labflow-attachment-cleanup.service --no-pager
+sudo journalctl -u labflow-attachment-cleanup.service -n 100 --no-pager
+```
 
 ## HTTP 500 Investigation
 
 When an API request returns HTTP 500:
 
 1. Capture the response requestId if present.
-2. Search Render logs for that request ID.
+2. Search the Lightsail backend journal for that request ID.
 3. Find the structured application error event.
 4. Identify the controller/service involved.
 5. Reproduce locally with non-sensitive test data if practical.
@@ -267,15 +285,15 @@ Before deployment:
 
 After deployment:
 
-1. Confirm Render deployment succeeds.
-2. Confirm Vercel deployment succeeds if frontend changed.
-3. Check:
-   `GET /api/health`
-   `GET /api/ready`
-4. Confirm Better Stack reports all permanent monitors as Up.
-5. Check Render logs for startup or repeated error events.
-6. Perform a basic login and application load.
-7. Verify the changed production workflow when applicable.
+1. Confirm the AWS Lightsail backend update completed successfully.
+2. Confirm the AWS Amplify deployment succeeds if the frontend changed.
+3. Confirm `labflow-backend.service` is active.
+4. Confirm `GET /api/health` returns HTTP 200.
+5. Confirm `GET /api/ready` returns HTTP 200.
+6. Confirm Better Stack reports all permanent monitors as Up.
+7. Check the Lightsail backend journal for startup or repeated error events.
+8. Perform a basic login and application load.
+9. Verify the changed production workflow when applicable.
 
 ## Production Database Safety
 
@@ -285,11 +303,14 @@ Never run seed commands against production unless intentionally resetting demo d
 
 Before production migrations:
 
-1. Confirm the intended migration files.
-2. Check migration status.
-3. Apply migrations intentionally.
-4. Check migration status again.
-5. Remove temporary local production environment variables immediately afterward.
+1. Connect to the authorized Lightsail backend host.
+2. Change to `/opt/labflow/labflow-backend`.
+3. Confirm the intended migration files.
+4. Check migration status.
+5. Apply migrations intentionally using the production environment configuration.
+6. Check migration status again.
+
+Do not copy the production `DATABASE_URL` to an unrelated local machine merely to run migrations.
 
 See:
 
@@ -312,8 +333,9 @@ Target RTO: 4 hours
 
 Current verified recovery capabilities include:
 
-- Neon PostgreSQL point-in-time recovery with a current 6-hour history window
-- one manually maintained Neon recovery snapshot
+- Amazon RDS automated backups with a 7-day retention window
+- Amazon RDS point-in-time recovery within the retained backup window
+- a post-cutover manual Amazon RDS DB snapshot
 - portable PostgreSQL logical backups
 - a successfully tested isolated PostgreSQL logical restore
 - independent dated Cloudflare R2 attachment backups
@@ -351,7 +373,7 @@ The test database guard must not be weakened.
 
 If tests cannot establish that they are using the test database, fix the test environment rather than bypassing the guard.
 
-Never point Jest or integration tests at the production Neon database.
+Never point Jest or integration tests at the production Amazon RDS database.
 
 ## Security During Incident Response
 
@@ -373,7 +395,7 @@ When an alert arrives:
 1. Identify the failed monitor.
 2. Compare the three permanent monitor states.
 3. Use the health/readiness matrix in this runbook.
-4. Check Render or Vercel depending on the failure pattern.
+4. Check AWS Lightsail or AWS Amplify depending on the failure pattern.
 5. Use structured logs and request IDs for backend failures.
 6. Acknowledge the incident after investigation begins.
 7. Confirm recovery in Better Stack after the underlying service recovers.
@@ -383,14 +405,14 @@ When an alert arrives:
 | Frontend | Health | Readiness | Likely interpretation                     |
 | -------- | ------ | --------- | ----------------------------------------- |
 | Up       | Up     | Up        | Core platform available                   |
-| Down     | Up     | Up        | Frontend/Vercel issue                     |
+| Down     | Up     | Up        | Frontend/AWS Amplify issue                |
 | Up       | Up     | Down      | Database/dependency issue                 |
-| Up       | Down   | Down      | Backend/Render issue                      |
+| Up       | Down   | Down      | Backend/AWS Lightsail issue               |
 | Down     | Down   | Down      | Broad deployment or infrastructure outage |
 
 ## Known Operational Boundaries
 
-The current LabFlow deployment is not yet intended for:
+The current Labfluss deployment is not yet intended for:
 
 - regulated laboratory records
 - sensitive research data
@@ -399,7 +421,7 @@ The current LabFlow deployment is not yet intended for:
 
 Backup and recovery hardening has been completed for the current demo/pilot stage, including an isolated PostgreSQL restore drill and attachment-recovery reconciliation.
 
-Remaining hardening phases cover security, automated frontend/E2E testing, and privacy/data lifecycle controls.
+Remaining pre-pilot hardening includes automated frontend/E2E testing, automated and off-provider attachment backups, transactional-email production cleanup, and final customer/compliance readiness work.
 
 ## Related Documentation
 

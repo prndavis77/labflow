@@ -1,16 +1,16 @@
-# LabFlow Export-Control Restriction
+# Labfluss Export-Control Restriction
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
-**Last reviewed:** 2026-08-26
+**Last reviewed:** 2026-09-02
 
 ## 1. Purpose
 
-This document defines the export-control restrictions that apply to the initial LabFlow paid pilot.
+This document defines the export-control restrictions that apply to the initial Labfluss paid pilot.
 
-LabFlow is a project-management and laboratory-workflow platform intended for university research laboratories.
+Labfluss is a project-management and laboratory-workflow platform intended for university research laboratories.
 
-For the initial paid pilot, LabFlow is not offered as a system for storing, transmitting, maintaining, or otherwise processing export-controlled technical data, technology, software, defense articles, classified information, or other information requiring specialized export-control safeguards unless LabFlow has expressly agreed in writing to support the specific use case.
+For the initial paid pilot, Labfluss is not offered as a system for storing, transmitting, maintaining, or otherwise processing export-controlled technical data, technology, software, defense articles, classified information, or other information requiring specialized export-control safeguards unless Labfluss has expressly agreed in writing to support the specific use case.
 
 This statement should be read together with:
 
@@ -35,17 +35,17 @@ Relevant regimes may include:
 - sanctions and embargo restrictions administered by relevant U.S. authorities; and
 - other applicable national-security or trade-control requirements.
 
-For the initial LabFlow paid pilot:
+For the initial Labfluss paid pilot:
 
-- LabFlow does not determine export-control classifications for customer information;
-- LabFlow does not determine whether a license, authorization, exception, exemption, or other approval is available;
-- LabFlow does not represent that its infrastructure is approved for ITAR-controlled technical data or other restricted export-controlled information;
-- customers must not use LabFlow for information requiring export-control safeguards that LabFlow has not expressly agreed to provide; and
-- customers remain responsible for obtaining appropriate institutional export-control review before entering potentially controlled information into LabFlow.
+- Labfluss does not determine export-control classifications for customer information;
+- Labfluss does not determine whether a license, authorization, exception, exemption, or other approval is available;
+- Labfluss does not represent that its infrastructure is approved for ITAR-controlled technical data or other restricted export-controlled information;
+- customers must not use Labfluss for information requiring export-control safeguards that Labfluss has not expressly agreed to provide; and
+- customers remain responsible for obtaining appropriate institutional export-control review before entering potentially controlled information into Labfluss.
 
 ## 3. Prohibited Export-Controlled Information
 
-Customers and users must not enter or upload information into LabFlow when the information requires export-control handling that is outside the supported pilot scope.
+Customers and users must not enter or upload information into Labfluss when the information requires export-control handling that is outside the supported pilot scope.
 
 Prohibited information includes, where applicable:
 
@@ -65,14 +65,14 @@ Prohibited information includes, where applicable:
 - controlled production or development information;
 - controlled defense-related research information;
 - data received under a Technology Control Plan that prohibits use of an unapproved cloud service;
-- information restricted to U.S. persons where LabFlow has not expressly agreed to enforce that restriction; and
-- other export-controlled information that the customer's institution has not approved for use in LabFlow.
+- information restricted to U.S. persons where Labfluss has not expressly agreed to enforce that restriction; and
+- other export-controlled information that the customer's institution has not approved for use in Labfluss.
 
-This restriction applies whether the information is entered directly into application fields, uploaded as an attachment, copied into notebook entries, included in comments, or otherwise stored through LabFlow.
+This restriction applies whether the information is entered directly into application fields, uploaded as an attachment, copied into notebook entries, included in comments, or otherwise stored through Labfluss.
 
 ## 4. Export-Control Classification
 
-LabFlow does not classify customer information under the EAR, ITAR, or any other export-control regime.
+Labfluss does not classify customer information under the EAR, ITAR, or any other export-control regime.
 
 Customers are responsible for determining, where applicable:
 
@@ -88,7 +88,7 @@ Customers are responsible for determining, where applicable:
 - whether a particular end use is restricted; and
 - whether access by a foreign person is permitted.
 
-Users must not rely on the absence of an export-control label within LabFlow as evidence that information is not controlled.
+Users must not rely on the absence of an export-control label within Labfluss as evidence that information is not controlled.
 
 ## 5. Fundamental Research
 
@@ -130,13 +130,13 @@ Users must not assume that information is unrestricted merely because:
 - the research is federally funded; or
 - the information is labeled "fundamental research."
 
-Where export-control status is uncertain, the customer must obtain appropriate institutional review before entering the information into LabFlow.
+Where export-control status is uncertain, the customer must obtain appropriate institutional review before entering the information into Labfluss.
 
 ## 7. ITAR-Controlled Technical Data
 
-The initial LabFlow paid pilot is not approved for ITAR-controlled technical data.
+The initial Labfluss paid pilot is not approved for ITAR-controlled technical data.
 
-Customers must not use LabFlow to create, receive, maintain, transmit, upload, or otherwise process ITAR-controlled technical data.
+Customers must not use Labfluss to create, receive, maintain, transmit, upload, or otherwise process ITAR-controlled technical data.
 
 Examples may include controlled information required for the:
 
@@ -165,11 +165,11 @@ Where a project has any connection to:
 - U.S.-person-only access requirements; or
 - Technology Control Plans,
 
-the customer must obtain appropriate export-control review before using LabFlow.
+the customer must obtain appropriate export-control review before using Labfluss.
 
 ## 8. EAR-Controlled Technology and Software
 
-The initial pilot is not approved for EAR-controlled technology or software that requires access restrictions, licensing, or other controls that LabFlow has not expressly agreed to support.
+The initial pilot is not approved for EAR-controlled technology or software that requires access restrictions, licensing, or other controls that Labfluss has not expressly agreed to support.
 
 Customers should obtain institutional review where research involves:
 
@@ -196,15 +196,15 @@ The customer must determine the applicable classification and restrictions.
 
 Export-control rules may treat certain releases of controlled technology or technical data to foreign persons as regulated events even when the information does not physically leave the United States.
 
-For the initial pilot, LabFlow does not provide a specialized export-control access-control system for determining nationality, citizenship, permanent-residency status, protected-person status, or export-control eligibility.
+For the initial pilot, Labfluss does not provide a specialized export-control access-control system for determining nationality, citizenship, permanent-residency status, protected-person status, or export-control eligibility.
 
-Customers must not rely solely on LabFlow roles, organization membership, or project membership to satisfy U.S.-person-only or nationality-based access restrictions.
+Customers must not rely solely on Labfluss roles, organization membership, or project membership to satisfy U.S.-person-only or nationality-based access restrictions.
 
-If a project requires controls based on citizenship, nationality, immigration status, U.S.-person status, or another export-control eligibility criterion, that project is outside the supported pilot scope unless LabFlow expressly agrees otherwise in writing.
+If a project requires controls based on citizenship, nationality, immigration status, U.S.-person status, or another export-control eligibility criterion, that project is outside the supported pilot scope unless Labfluss expressly agrees otherwise in writing.
 
 ## 10. Cloud Storage Does Not Automatically Make Controlled Data Permitted
 
-LabFlow uses third-party cloud infrastructure and service providers.
+Labfluss uses third-party cloud infrastructure and service providers.
 
 The use of:
 
@@ -217,15 +217,15 @@ The use of:
 - regional hosting; or
 - restricted application permissions
 
-does not, by itself, establish that LabFlow is approved for export-controlled information.
+does not, by itself, establish that Labfluss is approved for export-controlled information.
 
-The fact that an individual cloud provider may offer services capable of supporting export-controlled workloads does not mean that LabFlow's complete service, configuration, contracts, subprocessors, support processes, or personnel arrangements satisfy those requirements.
+The fact that an individual cloud provider may offer services capable of supporting export-controlled workloads does not mean that Labfluss's complete service, configuration, contracts, subprocessors, support processes, or personnel arrangements satisfy those requirements.
 
 Customers must not upload controlled information based solely on the security capabilities of an underlying infrastructure provider.
 
 ## 11. Infrastructure and Data Location
 
-LabFlow and its service providers may process or store information in multiple jurisdictions.
+Labfluss and its service providers may process or store information in multiple jurisdictions.
 
 The initial production architecture is not represented as:
 
@@ -236,7 +236,7 @@ The initial production architecture is not represented as:
 - compliant with a specific Technology Control Plan; or
 - configured for a particular export-control license or authorization.
 
-Customers with export-control residency, nationality, personnel, access, or geographic-location requirements must raise those requirements before transmitting information to LabFlow.
+Customers with export-control residency, nationality, personnel, access, or geographic-location requirements must raise those requirements before transmitting information to Labfluss.
 
 ## 12. Restricted Countries, End Users, and End Uses
 
@@ -254,15 +254,15 @@ Export-control requirements may depend on:
 - military-intelligence end use; and
 - other regulatory factors.
 
-LabFlow's initial paid pilot does not perform comprehensive export-control screening of every user, organization, research project, collaborator, or transaction.
+Labfluss's initial paid pilot does not perform comprehensive export-control screening of every user, organization, research project, collaborator, or transaction.
 
 Customers are responsible for conducting any required restricted-party, end-user, destination, and end-use screening.
 
-The absence of a technical restriction within LabFlow does not mean that a transaction or disclosure is legally permitted.
+The absence of a technical restriction within Labfluss does not mean that a transaction or disclosure is legally permitted.
 
 ## 13. Security Controls Do Not Expand the Permitted Data Scope
 
-LabFlow currently implements security controls including:
+Labfluss currently implements security controls including:
 
 - authenticated access;
 - role-based authorization;
@@ -279,15 +279,15 @@ LabFlow currently implements security controls including:
 - backup and recovery procedures; and
 - availability monitoring.
 
-These safeguards support the general security of LabFlow.
+These safeguards support the general security of Labfluss.
 
-They do not constitute a representation that LabFlow satisfies requirements applicable to ITAR-controlled or otherwise export-controlled systems.
+They do not constitute a representation that Labfluss satisfies requirements applicable to ITAR-controlled or otherwise export-controlled systems.
 
-Customers must continue to follow the export-control restrictions even where LabFlow security controls would technically permit information to be stored or uploaded.
+Customers must continue to follow the export-control restrictions even where Labfluss security controls would technically permit information to be stored or uploaded.
 
 ## 14. Customer Responsibilities
 
-Before entering potentially controlled information into LabFlow, the customer and its authorized users are responsible for:
+Before entering potentially controlled information into Labfluss, the customer and its authorized users are responsible for:
 
 - determining whether export controls apply;
 - obtaining institutional export-control review when required;
@@ -301,31 +301,31 @@ Before entering potentially controlled information into LabFlow, the customer an
 - complying with sponsored-research restrictions;
 - complying with government-contract requirements;
 - complying with institutional research-security policies;
-- ensuring that LabFlow is approved for the intended information; and
+- ensuring that Labfluss is approved for the intended information; and
 - preventing prohibited information from being uploaded.
 
-A customer's internal approval to use LabFlow does not expand LabFlow's supported export-control scope unless LabFlow has expressly agreed in writing to the expanded use.
+A customer's internal approval to use Labfluss does not expand Labfluss's supported export-control scope unless Labfluss has expressly agreed in writing to the expanded use.
 
 ## 15. Accidental Submission of Export-Controlled Information
 
-If a user believes that prohibited export-controlled information has accidentally been entered into LabFlow, the user or customer should:
+If a user believes that prohibited export-controlled information has accidentally been entered into Labfluss, the user or customer should:
 
 1. stop further submission of the affected information;
 2. avoid unnecessarily copying, downloading, transmitting, or redistributing the information;
 3. restrict further access where the customer can safely do so;
 4. notify the applicable institutional export-control, research-security, legal, or information-security contact;
-5. notify LabFlow through the designated security or privacy contact; and
+5. notify Labfluss through the designated security or privacy contact; and
 6. provide sufficient information to identify the affected organization and records without unnecessarily transmitting additional controlled information.
 
-LabFlow will evaluate appropriate containment, access restriction, preservation, deletion, notification, and other response actions based on the circumstances and applicable obligations.
+Labfluss will evaluate appropriate containment, access restriction, preservation, deletion, notification, and other response actions based on the circumstances and applicable obligations.
 
-Customers should not instruct LabFlow to move, copy, export, or transmit potentially controlled information to another person or location until the applicable export-control implications have been evaluated.
+Customers should not instruct Labfluss to move, copy, export, or transmit potentially controlled information to another person or location until the applicable export-control implications have been evaluated.
 
 An accidental submission does not expand the permitted pilot scope.
 
 ## 16. No Export-Control Compliance Representation
 
-For the initial paid pilot, LabFlow must not be described as:
+For the initial paid pilot, Labfluss must not be described as:
 
 - ITAR compliant;
 - ITAR certified;
@@ -341,9 +341,9 @@ Marketing materials, sales communications, onboarding documentation, and support
 
 ## 17. Future Export-Controlled Use
 
-LabFlow may evaluate controlled-data support in a future product phase.
+Labfluss may evaluate controlled-data support in a future product phase.
 
-Before intentionally supporting ITAR-controlled technical data or other export-controlled information requiring specialized controls, LabFlow should complete a separate readiness review that may include:
+Before intentionally supporting ITAR-controlled technical data or other export-controlled information requiring specialized controls, Labfluss should complete a separate readiness review that may include:
 
 - export-control legal review;
 - EAR and ITAR scope analysis;
@@ -366,13 +366,13 @@ Before intentionally supporting ITAR-controlled technical data or other export-c
 - Technology Control Plan requirements; and
 - customer contracting changes.
 
-Until such a review is completed and LabFlow expressly authorizes the use in writing, ITAR-controlled technical data and other restricted export-controlled information remain prohibited.
+Until such a review is completed and Labfluss expressly authorizes the use in writing, ITAR-controlled technical data and other restricted export-controlled information remain prohibited.
 
-## 18. Relationship to Other LabFlow Policies
+## 18. Relationship to Other Labfluss Policies
 
-This Export-Control Restriction supplements the LabFlow Pilot Data Policy and Privacy Policy.
+This Export-Control Restriction supplements the Labfluss Pilot Data Policy and Privacy Policy.
 
-If another LabFlow document appears to permit information that this statement prohibits, the more restrictive export-control limitation applies for the initial paid pilot unless LabFlow expressly approves a different arrangement in writing.
+If another Labfluss document appears to permit information that this statement prohibits, the more restrictive export-control limitation applies for the initial paid pilot unless Labfluss expressly approves a different arrangement in writing.
 
 ## 19. Review and Change Management
 
@@ -384,7 +384,7 @@ This statement should be reviewed:
 - before agreeing to U.S.-person-only access requirements;
 - before supporting controlled technical data or technology;
 - after material infrastructure or subprocessor changes;
-- when the LabFlow permitted-data scope changes; and
+- when the Labfluss permitted-data scope changes; and
 - at least annually.
 
 Any proposal to intentionally support export-controlled information requiring specialized controls must trigger a separate legal, security, infrastructure, contractual, and institutional-requirements review.
@@ -397,9 +397,9 @@ Any proposal to intentionally support export-controlled information requiring sp
 
 **Specialized U.S.-person-only environment provided:** No.
 
-**LabFlow represented as ITAR compliant:** No.
+**Labfluss represented as ITAR compliant:** No.
 
-**LabFlow performs customer export-control classification:** No.
+**Labfluss performs customer export-control classification:** No.
 
 **Ordinary non-controlled laboratory/research workflow data:** Yes, subject to the Pilot Data Policy and institutional requirements.
 

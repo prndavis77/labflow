@@ -1,11 +1,11 @@
-# LabFlow Customer Data Export Procedure
+# Labfluss Customer Data Export Procedure
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
 
 ## Purpose
 
-This document defines the controlled operator procedure for exporting one LabFlow customer organization's data into a portable ZIP package.
+This document defines the controlled operator procedure for exporting one Labfluss customer organization's data into a portable ZIP package.
 
 The customer export mechanism is intended to support:
 
@@ -143,7 +143,7 @@ The export process does not assume that every object present under an organizati
 
 This prevents staging objects, rejected uploads, orphaned objects, and unrelated internal storage artifacts from becoming customer-exportable merely because they exist in R2.
 
-For each exported attachment, LabFlow verifies where available:
+For each exported attachment, Labfluss verifies where available:
 
 - organization ownership
 - organization R2 namespace
@@ -232,7 +232,8 @@ If the organization identifier or requester authority is uncertain, do not gener
 Before relying on the production export command, confirm:
 
 - the tested customer-export implementation is deployed
-- the production database is the intended LabFlow production database
+- the production database is the intended Amazon RDS `labflow` production database
+- the export command is being run from the authorized production backend environment
 - Cloudflare R2 configuration points to the intended production attachment bucket
 - production database migrations are current
 - the operator has access to an approved temporary export directory
@@ -258,7 +259,7 @@ npm run export:organization -- --organization-id <ID> --confirm-organization-id 
 
 Example:
 
-`npm run export:organization -- --organization-id 17 --confirm-organization-id 17 --output-dir "F:\LabFlow Exports"`
+`npm run export:organization -- --organization-id 17 --confirm-organization-id 17 --output-dir "F:\Labfluss Exports"`
 
 The organization identifier is deliberately supplied twice.
 
@@ -440,7 +441,7 @@ After successful authorized delivery and any required verification period:
 
 Normal file deletion must not be described as guaranteed forensic secure erasure of SSD or filesystem blocks.
 
-LabFlow can document application-level removal of temporary export artifacts, not guaranteed physical-media overwrite.
+Labfluss can document application-level removal of temporary export artifacts, not guaranteed physical-media overwrite.
 
 11. Record completion
 
@@ -587,7 +588,7 @@ The customer export package must never contain production credentials or raw aut
 
 ## Implementation Status
 
-For the initial paid-pilot implementation, LabFlow includes:
+For the initial paid-pilot implementation, Labfluss includes:
 
 - explicit per-model export allowlists
 - sensitive-field exclusions

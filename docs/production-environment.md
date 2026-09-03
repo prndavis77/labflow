@@ -1,8 +1,8 @@
-# LabFlow Production Environment
+# Labfluss Production Environment
 
 ## Frontend
 
-Provider: Vercel
+Provider: AWS Amplify Hosting
 
 Required variables:
 
@@ -10,16 +10,27 @@ Required variables:
 
 Production frontend origin:
 
-- `https://labflow-brown.vercel.app`
+- `https://app.labfluss.com`
 
 ## Backend
 
-Provider: Render
+Provider: AWS Lightsail
+
+Production backend origin:
+
+- `https://api.labfluss.com`
+
+Production backend path:
+
+- `/opt/labflow/labflow-backend`
+
+Production environment file:
+
+- `/opt/labflow/labflow-backend/.env`
 
 Required non-secret variables:
 
 - `NODE_ENV`
-- `PORT`
 - `FRONTEND_URL`
 - `EMAIL_PROVIDER`
 - `EMAIL_FROM_NAME`
@@ -47,7 +58,17 @@ Secret values must not be recorded in this document.
 
 ## Database
 
-Provider: Neon PostgreSQL
+Provider: Amazon RDS for PostgreSQL
+
+DB instance: `labflow-production`
+
+Database: `labflow`
+
+Region: `eu-central-1`
+
+Production database access is private-only through the Lightsail-to-RDS VPC peering connection.
+
+Automated backup retention: 7 days
 
 Schema changes are managed through Sequelize migrations.
 
@@ -61,7 +82,11 @@ The bucket must remain private.
 
 Provider: Mailgun
 
-Production credentials are stored only in the Render backend environment.
+Production credentials are stored only in:
+
+`/opt/labflow/labflow-backend/.env`
+
+The file must remain restricted and must not be committed to Git.
 
 ## Account Security Behavior
 
@@ -78,6 +103,16 @@ Production Mailgun configuration is required for invitation, password-reset, and
 
 ## Deployment Safety
 
-If migrations must be run locally against Neon because the Render plan has no shell, set `DATABASE_URL` and `NODE_ENV=production` only for the active PowerShell session. Remove both variables immediately after migration and confirm `DATABASE_URL` is no longer present.
+Production migrations should normally be run from the AWS Lightsail backend host because the production RDS instance is private-only.
 
-Never run `npm test` while the production database URL is active. The test helper also refuses destructive resets unless the database name contains `test`.
+Run migration commands from:
+
+`/opt/labflow/labflow-backend`
+
+using the production environment file:
+
+`/opt/labflow/labflow-backend/.env`
+
+Do not copy the production `DATABASE_URL` to an unrelated local machine merely to run migrations.
+
+Never run `npm test`, seed commands, or destructive maintenance scripts against the production RDS database. The test helper also refuses destructive resets unless the database name contains `test`.

@@ -1,6 +1,6 @@
-# LabFlow Attachment Backend
+# Labfluss Attachment Backend
 
-LabFlow includes a generic research attachment backend for storing files associated with laboratory records.
+Labfluss includes a generic research attachment backend for storing files associated with laboratory records.
 
 The attachment backend is designed for research evidence, experiment exports, protocols, instrument documents, reports, images, reference files, and other supporting material.
 
@@ -32,7 +32,7 @@ The normal download flow is:
 
 ## Supported target records
 
-The generic attachment system can associate files with supported LabFlow entity types through:
+The generic attachment system can associate files with supported Labfluss entity types through:
 
 ```text
 entityType
@@ -241,6 +241,13 @@ Storage deletion failures leave the database row pending so a later cleanup run 
 
 The command is a one-shot process and exits when the batch has been processed. It is intended to be run by a scheduler rather than through a permanent timer inside the API server.
 
+In production, the cleanup command is scheduled by:
+
+- `labflow-attachment-cleanup.service`
+- `labflow-attachment-cleanup.timer`
+
+The systemd timer is configured to run the cleanup process at regular intervals. The cleanup command itself remains a one-shot process.
+
 ## Security controls
 
 The attachment backend includes:
@@ -260,6 +267,14 @@ The attachment backend includes:
 - Removal of storage keys, ETags, and checksums from public API responses
 - Soft-delete archive behaviour
 - Expired pending-upload cleanup
+- Signed upload content-length enforcement
+- Post-upload file-signature or magic-byte inspection
+- Supported OOXML container validation
+- Ranged object reads for validation
+- Staging and permanent object-key separation
+- ETag-conditioned finalization
+- Final object verification after copy/finalization
+- Cleanup of rejected staging objects
 
 ## Audit events
 
@@ -297,7 +312,7 @@ The backend requires an R2 API token with the minimum object permissions needed 
 - Download objects
 - Delete expired partial uploads
 
-Limit the token to the LabFlow attachment bucket whenever possible.
+Limit the token to the Labfluss attachment bucket whenever possible.
 
 The browser uploads directly to the signed R2 URL, so the bucket must have a CORS policy allowing the deployed frontend origin to perform the required upload request.
 
@@ -325,7 +340,7 @@ ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS
 ATTACHMENT_CLEANUP_BATCH_SIZE
 ```
 
-Production credentials must be stored in the deployment platform’s secret environment-variable system. They must not be committed to Git.
+Production storage credentials are supplied through the restricted backend environment configuration on the AWS Lightsail host. They must not be committed to Git.
 
 ## Operational checks
 
@@ -357,14 +372,12 @@ A non-zero `failed` count causes the cleanup process to exit unsuccessfully so t
 
 ## Current limitations
 
-The current backend does not yet include:
+The current attachment system does not yet include:
 
-- Frontend attachment components
 - Upload progress UI
 - Automatic malware scanning
-- File-content inspection
 - File versioning
-- Physical deletion of archived objects
+- Physical deletion of archived objects during ordinary archive operations
 - Retention-policy automation
 - Storage quota enforcement per organization
 - Attachment search across all target types

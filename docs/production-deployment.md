@@ -2,15 +2,18 @@
 
 ## Purpose
 
-This guide describes the safe deployment process for the LabFlow demo backend and database.
+This guide describes the safe deployment process for the Labfluss demo backend and database.
 
-LabFlow uses Sequelize migrations for production schema changes. Production migrations should be applied intentionally and should never be mixed with test commands or seed commands.
+Labfluss uses Sequelize migrations for production schema changes. Production migrations should be applied intentionally and should never be mixed with test commands or seed commands.
 
 ## Production Services
 
-- Frontend: Vercel
-- Backend: Render
-- Database: Neon PostgreSQL
+- Frontend: AWS Amplify Hosting
+- Backend: AWS Lightsail
+- Database: Amazon RDS for PostgreSQL
+- Attachment storage: Cloudflare R2
+- Transactional email: Mailgun
+- External monitoring: Better Stack
 
 ## Critical Safety Rules
 
@@ -25,7 +28,7 @@ LabFlow uses Sequelize migrations for production schema changes. Production migr
 1. Confirm backend tests pass locally.
 2. Commit and push code.
 3. Confirm production database backup/snapshot if available.
-4. Set production environment variables locally only for the current terminal session.
+4. Connect to the production Lightsail host and verify the production environment configuration.
 5. Check migration status.
 6. Run migrations.
 7. Check migration status again.
@@ -37,33 +40,27 @@ LabFlow uses Sequelize migrations for production schema changes. Production migr
 
 Run these commands from `labflow-backend`, not the monorepo root. Running `npx sequelize-cli` from the root may prompt to install another copy because the dependency is installed in the backend package.
 
-When the hosting plan does not provide a backend shell, migrations may be run from a local PowerShell session that is temporarily pointed at the production database:
+Production migrations should normally be run from the AWS Lightsail backend host because the production RDS instance is private-only.
 
-```powershell
-$env:DATABASE_URL="YOUR_PRODUCTION_DATABASE_URL"
-$env:NODE_ENV="production"
+Connect to the Lightsail instance, then run:
+
+```bash
+cd /opt/labflow/labflow-backend
+```
 
 npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
 npm run migrate
 npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
 
-Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
-Remove-Item Env:NODE_ENV -ErrorAction SilentlyContinue
+The backend service should continue using the production environment file:
+
+```bash
+/opt/labflow/labflow-backend/.env
 ```
 
-Confirm the temporary production URL is gone:
+Do not export or copy the production DATABASE_URL to an unrelated local machine merely to run migrations.
 
-```powershell
-[bool]$env:DATABASE_URL
-```
-
-Expected:
-
-```text
-False
-```
-
-Do not run tests, seed commands, or ad hoc destructive scripts while the production `DATABASE_URL` is active.
+Do not run tests, seed commands, or ad hoc destructive scripts against the production RDS database.
 
 ## Password Reset and Email Verification Deployment
 
@@ -79,7 +76,7 @@ Mailgun must be configured on the deployed backend:
 
 ```text
 EMAIL_PROVIDER=mailgun
-EMAIL_FROM_NAME=LabFlow
+EMAIL_FROM_NAME=Labfluss
 EMAIL_FROM_ADDRESS=<verified sender>
 MAILGUN_API_KEY=<secret>
 MAILGUN_DOMAIN=<configured domain>
@@ -113,7 +110,7 @@ Do not record raw reset or verification tokens in logs or documentation.
 
 ## Attachment Storage Deployment
 
-LabFlow attachments use private Cloudflare R2 object storage.
+Labfluss attachments use private Cloudflare R2 object storage.
 
 ### Required backend environment variables
 
@@ -139,7 +136,7 @@ The R2 account ID, access key, secret key, and bucket name are secrets or deploy
 
 - Keep the bucket private.
 - Do not enable public bucket access.
-- Create an API token restricted to the LabFlow bucket where possible.
+- Create an API token restricted to the Labfluss bucket where possible.
 - Give the token only the object permissions required by the backend.
 - Configure CORS for the deployed frontend origin.
 - Do not include the R2 secret key in frontend environment variables.
@@ -160,17 +157,61 @@ Confirm that the attachment migration is listed as applied.
 
 ### Cleanup scheduling
 
-Run:
+Expired pending attachment uploads are cleaned by a systemd timer on the AWS Lightsail backend host.
 
-```bash
-npm run cleanup:attachments
+Service unit:
+
+```text
+labflow-attachment-cleanup.service
 ```
 
-as a scheduled one-shot job.
+Timer unit:
 
-The scheduled service must use the same database and R2 environment variables as the backend API.
+```text
+labflow-attachment-cleanup.timer
+```
 
-Monitor the exit status and logs. A failed cleanup item should cause the run to be marked unsuccessful while allowing other candidates in the batch to be processed.
+The service runs:
+
+```bash
+/usr/bin/npm run cleanup:attachments
+```
+
+from:
+
+```bash
+/opt/labflow/labflow-backend
+```
+
+using:
+
+```bash
+/opt/labflow/labflow-backend/.env
+```
+
+Timer configuration:
+
+```text
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+```
+
+Verify the timer with:
+
+```bash
+sudo systemctl status labflow-attachment-cleanup.timer --no-pager
+systemctl list-timers --all | grep labflow
+```
+
+Verify a manual cleanup execution with:
+
+```bash
+sudo systemctl start labflow-attachment-cleanup.service
+sudo journalctl -u labflow-attachment-cleanup.service -n 50 --no-pager
+```
+
+A failed cleanup item should cause the run to be reported unsuccessful while allowing other candidates in the batch to be processed.
 
 ---
 
@@ -178,15 +219,12 @@ Monitor the exit status and logs. A failed cleanup item should cause the run to 
 
 Direct browser uploads use signed `PUT` requests. Cloudflare notes that browser use of presigned URLs requires a bucket CORS policy that permits the frontend’s origin and request method.
 
-For local development and the current deployed Vercel frontend, use a policy equivalent to:
+For local development and the current deployed AWS Amplify frontend, use a policy equivalent to:
 
 ```json
 [
   {
-    "AllowedOrigins": [
-      "http://localhost:5173",
-      "https://labflow-brown.vercel.app"
-    ],
+    "AllowedOrigins": ["http://localhost:5173", "https://app.labfluss.com"],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": [
       "Content-Type",
@@ -211,72 +249,52 @@ for a production deployment with a known frontend domain.
 
 Presigned URLs grant temporary access to the operation encoded in the URL, and Cloudflare recommends treating them as bearer tokens.
 
-## Render Backend Configuration
+## AWS Lightsail Backend Configuration
 
-Add the following environment variables to the Render backend service:
-
-```text
-ATTACHMENT_STORAGE_PROVIDER=r2
-ATTACHMENT_MAX_FILE_SIZE_BYTES=26214400
-ATTACHMENT_PENDING_TTL_MINUTES=30
-ATTACHMENT_UPLOAD_URL_TTL_SECONDS=300
-ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS=60
-ATTACHMENT_CLEANUP_BATCH_SIZE=100
-R2_ACCOUNT_ID
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
-R2_BUCKET_NAME
-```
-
-Enter the R2 account ID, access key, secret key, and bucket name using the real Cloudflare values.
-
-The R2 credentials must be available only to the backend and cleanup job. They must never be added to frontend environment variables.
-
-## Render Attachment Cleanup Job
-
-Create a separate Render Cron Job for expired pending uploads.
-
-Suggested name:
+Current production backend:
 
 ```text
-labflow-attachment-cleanup
+Provider: AWS Lightsail
+Instance: labflow-backend-production
+Region: Europe (Frankfurt)
+OS: Ubuntu 24.04 LTS
+Repository path: /opt/labflow
+Backend path: /opt/labflow/labflow-backend
+Production service: labflow-backend.service
+Application port: 5000
+Reverse proxy: Nginx
+Production API: https://api.labfluss.com
+TLS: Let's Encrypt / Certbot
+Process supervision: systemd
+Database connectivity: private VPC peering to Amazon RDS
 ```
 
-Command:
+Production environment variables are stored in:
 
 ```bash
-npm run cleanup:attachments
+/opt/labflow/labflow-backend/.env
 ```
 
-Suggested schedule:
+The environment file must remain restricted and must not be committed to Git.
 
-```cron
-*/15 * * * *
-```
-
-The cleanup job must use the same DATABASE_URL and R2 environment variables as the backend service.
-
-The cleanup command is a one-shot process. It must not be added to the normal backend startup command.
-
-The backend service should continue to use:
+After backend changes:
 
 ```bash
-npm start
+cd /opt/labflow
+git pull
+
+sudo systemctl restart labflow-backend
+sudo systemctl status labflow-backend --no-pager
 ```
 
-After creating the cron job, trigger one manual run.
+Then verify:
 
-Expected output when no expired uploads exist:
-
-```text
-Starting expired attachment cleanup.
-Expired attachment cleanup completed. {
-  scanned: 0,
-  cleaned: 0,
-  skipped: 0,
-  failed: 0
-}
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://api.labfluss.com/api/health
+curl -s -o /dev/null -w "%{http_code}\n" https://api.labfluss.com/api/ready
 ```
+
+Both endpoints should return HTTP 200.
 
 ## Attachment Deployment Verification
 
@@ -292,6 +310,7 @@ After deploying the backend:
 8. Update its category or description.
 9. Archive the attachment.
 10. Confirm that archived attachments are excluded from normal reads.
-11. Trigger the pending-upload cleanup job.
+11. Trigger `labflow-attachment-cleanup.service` manually and confirm the run completes successfully.
+12. Confirm `labflow-attachment-cleanup.timer` remains enabled and active.
 
 Use only non-sensitive test files.

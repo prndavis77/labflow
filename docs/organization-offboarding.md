@@ -1,13 +1,13 @@
-# LabFlow Organization Offboarding and Deletion Procedure
+# Labfluss Organization Offboarding and Deletion Procedure
 
 **Version:** 1.1
 **Applies to:** Initial United States paid pilot program
 
 ## Purpose
 
-This document defines how a LabFlow customer organization is offboarded and how its production data is permanently removed after a paid pilot ends or when earlier deletion is requested.
+This document defines how a Labfluss customer organization is offboarded and how its production data is permanently removed after a paid pilot ends or when earlier deletion is requested.
 
-This procedure supports the LabFlow:
+This procedure supports the Labfluss:
 
 - Pilot Data Policy
 - Data Inventory and Classification
@@ -16,11 +16,11 @@ This procedure supports the LabFlow:
 
 Organization offboarding is different from ordinary record archiving.
 
-Archiving keeps records recoverable within LabFlow. Organization deletion is intended to permanently remove the customer's active production data from LabFlow's production systems, subject to documented backup-retention and preservation exceptions.
+Archiving keeps records recoverable within Labfluss. Organization deletion is intended to permanently remove the customer's active production data from Labfluss's production systems, subject to documented backup-retention and preservation exceptions.
 
 ## Scope
 
-This procedure applies to customer data associated with a LabFlow organization, including:
+This procedure applies to customer data associated with a Labfluss organization, including:
 
 - organization records
 - user accounts
@@ -48,8 +48,8 @@ Organization offboarding may begin when:
 
 - a paid pilot reaches its agreed end date
 - the customer asks to terminate the pilot
-- LabFlow and the customer mutually agree to end the pilot
-- LabFlow terminates the pilot under the applicable agreement
+- Labfluss and the customer mutually agree to end the pilot
+- Labfluss terminates the pilot under the applicable agreement
 - the customer requests earlier deletion of its production data
 - another documented contractual reason requires offboarding
 
@@ -111,13 +111,13 @@ For the initial pilot, a deletion request should require:
 
 - a request from the customer's designated administrator or other authorized customer representative
 - verification that the request concerns the correct organization
-- confirmation by the LabFlow operator before execution
+- confirmation by the Labfluss operator before execution
 
 If there is uncertainty about the authority of the requester, deletion must not proceed until authorization is verified.
 
 ## Deletion Confirmation
 
-Before permanent deletion, LabFlow should confirm:
+Before permanent deletion, Labfluss should confirm:
 
 - organization name
 - organization identifier
@@ -148,7 +148,7 @@ Organization deletion must not proceed while a required export remains pending u
 
 The initial pilot does not require fully automated workspace suspension.
 
-Depending on the circumstances, LabFlow may:
+Depending on the circumstances, Labfluss may:
 
 - allow temporary read access for export verification
 - restrict creation of new customer data
@@ -211,11 +211,11 @@ Temporary or staging objects associated with the organization should also be rem
 
 Application-side invitation and delivery metadata should be removed according to the deletion and retention rules for the organization.
 
-External Mailgun records may remain temporarily according to provider retention and the LabFlow retention/subprocessor documentation.
+External Mailgun records may remain temporarily according to provider retention and the Labfluss retention/subprocessor documentation.
 
 ### Browser sessions
 
-LabFlow cannot directly erase a token already stored in a user's browser.
+Labfluss cannot directly erase a token already stored in a user's browser.
 
 Before or during organization deletion:
 
@@ -270,7 +270,7 @@ A safe conceptual order is:
 
 During the destructive deletion phase, the organization must not be allowed to create or modify customer data.
 
-LabFlow enforces this requirement through the organization access-freeze mechanism. The organization is marked inactive, a persistent offboarding freeze timestamp is recorded, organization-user session versions are invalidated, relevant outstanding account-recovery tokens are invalidated, authentication rejects inactive organizations, and permanent deletion is blocked until the signed-upload quiescence period has elapsed.
+Labfluss enforces this requirement through the organization access-freeze mechanism. The organization is marked inactive, a persistent offboarding freeze timestamp is recorded, organization-user session versions are invalidated, relevant outstanding account-recovery tokens are invalidated, authentication rejects inactive organizations, and permanent deletion is blocked until the signed-upload quiescence period has elapsed.
 
 The precise database deletion sequence must be tested against the production schema before the procedure is relied upon.
 
@@ -381,7 +381,7 @@ Where technically practical, the verification process should compare organizatio
 
 ## Deletion Record
 
-LabFlow should maintain a minimal operational record that an organization deletion occurred.
+Labfluss should maintain a minimal operational record that an organization deletion occurred.
 
 The deletion record should contain only information necessary to demonstrate and troubleshoot the deletion, such as:
 
@@ -407,30 +407,32 @@ Where an organization identifier is retained, it should be treated as a historic
 
 ## Customer Confirmation
 
-After successful deletion, LabFlow may provide the customer with a confirmation stating that:
+After successful deletion, Labfluss may provide the customer with a confirmation stating that:
 
 - active production customer data has been deleted
 - normal application access has ended
 - residual copies may remain temporarily in protected backups
 - those backup copies will expire according to the applicable retention schedule
 
-LabFlow should not claim that every historical backup copy has been immediately erased unless that has actually occurred.
+Labfluss should not claim that every historical backup copy has been immediately erased unless that has actually occurred.
 
-## Implementation Requirement
+## Implementation Status
 
-This procedure must not be represented as technically implemented until the production deletion mechanism has been built and verified.
+The production organization-offboarding and deletion mechanism has been implemented and verified for the initial paid-pilot scope.
 
-Before the first paid pilot relies on organization deletion, LabFlow should have:
+Verified capabilities include:
 
-- an operator-run organization deletion mechanism
+- operator-run organization deletion
 - explicit organization-scoped deletion logic
-- R2 organization-object deletion
-- PostgreSQL transaction/reconciliation behavior
+- Cloudflare R2 organization-object deletion
+- PostgreSQL transaction and reconciliation behavior
 - authentication invalidation
+- signed-upload quiescence enforcement
 - partial-failure handling
 - deletion verification
-- automated tests using a dedicated non-production database and object-storage test environment
-- a documented manual execution checklist
+- automated tests using dedicated non-production PostgreSQL and object-storage resources
+- a documented production operator execution checklist
+- an isolated destructive deletion drill
 
 A customer-facing self-service "Delete Organization" button is not required for the initial paid pilot.
 
@@ -771,9 +773,9 @@ The deletion record must remain independent of the deleted organization's foreig
 After all production-deletion verification succeeds, the customer may be informed that:
 
 - active production customer data has been deleted
-- normal LabFlow workspace access has ended
+- normal Labfluss workspace access has ended
 - protected historical backup copies may temporarily remain
-- historical backup copies will expire according to LabFlow's documented backup-retention schedule
+- historical backup copies will expire according to Labfluss's documented backup-retention schedule
 
 Do not state that every backup copy has already been erased unless that has actually been verified.
 
