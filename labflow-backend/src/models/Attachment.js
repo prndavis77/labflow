@@ -84,7 +84,7 @@ const Attachment = sequelize.define(
     storageProvider: {
       type: DataTypes.STRING(50),
       allowNull: false,
-      defaultValue: "r2",
+      defaultValue: "s3",
       validate: {
         isIn: [ATTACHMENT_STORAGE_PROVIDERS],
       },
