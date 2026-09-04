@@ -65,21 +65,23 @@ const attachmentConfig = {
   ),
 };
 
-const requireEnvironmentValue = (name) => {
+const requireEnvironmentValue = (name, providerName) => {
   const value = String(process.env[name] || "").trim();
 
   if (!value) {
-    throw new Error(`${name} is required when attachment storage uses R2.`);
+    throw new Error(
+      `${name} is required when attachment storage uses ${providerName}.`,
+    );
   }
 
   return value;
 };
 
 const getR2Config = () => {
-  const accountId = requireEnvironmentValue("R2_ACCOUNT_ID");
-  const accessKeyId = requireEnvironmentValue("R2_ACCESS_KEY_ID");
-  const secretAccessKey = requireEnvironmentValue("R2_SECRET_ACCESS_KEY");
-  const bucketName = requireEnvironmentValue("R2_BUCKET_NAME");
+  const accountId = requireEnvironmentValue("R2_ACCOUNT_ID", "R2");
+  const accessKeyId = requireEnvironmentValue("R2_ACCESS_KEY_ID", "R2");
+  const secretAccessKey = requireEnvironmentValue("R2_SECRET_ACCESS_KEY", "R2");
+  const bucketName = requireEnvironmentValue("R2_BUCKET_NAME", "R2");
 
   const configuredEndpoint = String(process.env.R2_ENDPOINT || "").trim();
 
@@ -108,7 +110,23 @@ const getR2Config = () => {
   };
 };
 
+const getS3Config = () => {
+  const bucketName = requireEnvironmentValue("S3_BUCKET_NAME", "S3");
+
+  const region = String(process.env.S3_REGION || "eu-central-1").trim();
+
+  if (!region) {
+    throw new Error("S3_REGION is required when attachment storage uses S3.");
+  }
+
+  return {
+    bucketName,
+    region,
+  };
+};
+
 module.exports = {
   ...attachmentConfig,
   getR2Config,
+  getS3Config,
 };

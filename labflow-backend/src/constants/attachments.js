@@ -25,7 +25,7 @@ const ATTACHMENT_CATEGORIES = [
 
 const ATTACHMENT_UPLOAD_STATUSES = ["pending", "available", "failed"];
 
-const ATTACHMENT_STORAGE_PROVIDERS = ["r2"];
+const ATTACHMENT_STORAGE_PROVIDERS = ["r2", "s3"];
 
 const ATTACHMENT_MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 

@@ -27,6 +27,11 @@ describe("attachment storage", () => {
     region: "auto",
   };
 
+  const s3Config = {
+    bucketName: "labfluss-test-attachments",
+    region: "eu-central-1",
+  };
+
   const createMockClient = () => ({
     send: jest.fn(),
   });
@@ -105,6 +110,54 @@ describe("attachment storage", () => {
 
       expect(disposition).not.toContain("\r");
       expect(disposition).not.toContain("\n");
+    });
+  });
+
+  describe("provider selection", () => {
+    test("creates the R2 provider", () => {
+      const storage = createAttachmentStorage({
+        provider: "r2",
+        providerOptions: {
+          client: createMockClient(),
+          config,
+        },
+      });
+
+      expect(storage.provider).toBe("r2");
+      expect(storage.bucketName).toBe(config.bucketName);
+    });
+
+    test("creates the S3 provider", () => {
+      const storage = createAttachmentStorage({
+        provider: "s3",
+        providerOptions: {
+          client: createMockClient(),
+          config: s3Config,
+        },
+      });
+
+      expect(storage.provider).toBe("s3");
+      expect(storage.bucketName).toBe(s3Config.bucketName);
+    });
+
+    test("normalizes the provider name", () => {
+      const storage = createAttachmentStorage({
+        provider: " S3 ",
+        providerOptions: {
+          client: createMockClient(),
+          config: s3Config,
+        },
+      });
+
+      expect(storage.provider).toBe("s3");
+    });
+
+    test("rejects an unsupported provider", () => {
+      expect(() =>
+        createAttachmentStorage({
+          provider: "local-disk",
+        }),
+      ).toThrow("Unsupported attachment storage provider");
     });
   });
 
@@ -528,13 +581,163 @@ describe("attachment storage", () => {
 
       expect(client.send).not.toHaveBeenCalled();
     });
+  });
 
-    test("rejects an unsupported provider", () => {
-      expect(() =>
-        createAttachmentStorage({
-          provider: "local-disk",
-        }),
-      ).toThrow("Unsupported attachment storage provider");
+  describe("S3 provider", () => {
+    test("creates a presigned upload URL", async () => {
+      const client = createMockClient();
+      const signUrl = jest
+        .fn()
+        .mockResolvedValue("https://upload.example.test");
+
+      const storage = createAttachmentStorage({
+        provider: "s3",
+        providerOptions: {
+          client,
+          signUrl,
+          config: s3Config,
+        },
+      });
+
+      const result = await storage.createUploadUrl({
+        storageKey: "organizations/8/experiment/42/id/results.csv",
+        mimeType: "text/csv",
+        contentLength: 1024,
+        expiresInSeconds: 300,
+      });
+
+      expect(result).toEqual({
+        url: "https://upload.example.test",
+        method: "PUT",
+        headers: {
+          "Content-Type": "text/csv",
+        },
+        expiresIn: 300,
+      });
+
+      const [, command, options] = signUrl.mock.calls[0];
+
+      expect(command).toBeInstanceOf(PutObjectCommand);
+
+      expect(command.input).toEqual({
+        Bucket: "labfluss-test-attachments",
+        Key: "organizations/8/experiment/42/id/results.csv",
+        ContentType: "text/csv",
+        ContentLength: 1024,
+      });
+
+      expect(options).toEqual({
+        expiresIn: 300,
+        signableHeaders: new Set(["content-type", "content-length"]),
+      });
     });
+
+    test("returns normalized object metadata", async () => {
+      const client = createMockClient();
+
+      client.send.mockResolvedValue({
+        ContentLength: 1024,
+        ContentType: "text/csv",
+        ETag: '"s3-etag"',
+        ChecksumSHA256: "checksum-value",
+        LastModified: new Date("2026-09-03T10:00:00.000Z"),
+        Metadata: {
+          source: "labfluss",
+        },
+      });
+
+      const storage = createAttachmentStorage({
+        provider: "s3",
+        providerOptions: {
+          client,
+          config: s3Config,
+        },
+      });
+
+      const result = await storage.getObjectMetadata({
+        storageKey: "organizations/8/experiment/42/id/results.csv",
+      });
+
+      const [command] = client.send.mock.calls[0];
+
+      expect(command).toBeInstanceOf(HeadObjectCommand);
+
+      expect(result).toEqual({
+        contentLength: 1024,
+        contentType: "text/csv",
+        etag: "s3-etag",
+        checksumSha256: "checksum-value",
+        lastModified: new Date("2026-09-03T10:00:00.000Z"),
+        metadata: {
+          source: "labfluss",
+        },
+      });
+    });
+
+    test("finalizes an attachment using the verified source ETag", async () => {
+      const client = {
+        send: jest.fn().mockResolvedValue({
+          CopyObjectResult: {
+            ETag: '"final-etag"',
+            LastModified: new Date("2026-09-03T11:00:00.000Z"),
+          },
+        }),
+      };
+
+      const storage = createAttachmentStorage({
+        provider: "s3",
+        providerOptions: {
+          client,
+          config: s3Config,
+        },
+      });
+
+      const result = await storage.finalizeObject({
+        sourceStorageKey:
+          "organizations/8/experiment/42/staging/upload-id/results.csv",
+        destinationStorageKey:
+          "organizations/8/experiment/42/attachments/attachment-id/results.csv",
+        expectedEtag: '"source-etag"',
+        contentType: "text/csv",
+      });
+
+      const [command] = client.send.mock.calls[0];
+
+      expect(command).toBeInstanceOf(CopyObjectCommand);
+
+      expect(command.input).toEqual({
+        Bucket: s3Config.bucketName,
+        Key:
+          "organizations/8/experiment/42/" +
+          "attachments/attachment-id/results.csv",
+        CopySource:
+          `${s3Config.bucketName}/` +
+          "organizations/8/experiment/42/staging/upload-id/results.csv",
+        CopySourceIfMatch: "source-etag",
+        MetadataDirective: "REPLACE",
+        ContentType: "text/csv",
+      });
+
+      expect(result).toEqual({
+        storageKey:
+          "organizations/8/experiment/42/" +
+          "attachments/attachment-id/results.csv",
+        etag: "final-etag",
+        lastModified: new Date("2026-09-03T11:00:00.000Z"),
+      });
+    });
+  });
+
+  test("creates the S3 provider without R2 credentials", () => {
+    const storage = createAttachmentStorage({
+      provider: "s3",
+      providerOptions: {
+        client: createMockClient(),
+        config: s3Config,
+      },
+    });
+
+    expect(storage.provider).toBe("s3");
+    expect(storage.bucketName).toBe("labfluss-test-attachments");
   });
 });
