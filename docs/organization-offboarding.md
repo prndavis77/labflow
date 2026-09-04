@@ -190,9 +190,9 @@ The deletion process must account for:
 
 The implementation must not assume that deleting only the organization row will safely remove every dependent record unless database constraints and cascade behavior have been explicitly reviewed and tested.
 
-### Cloudflare R2 attachment objects
+### Amazon S3 attachment objects
 
-All attachment objects belonging to the organization must be identified and removed from the production R2 bucket.
+All attachment objects belonging to the organization must be identified and removed from the production attachment bucket.
 
 The implementation must determine how all attachment objects belonging to the organization can be identified reliably.
 
@@ -249,7 +249,7 @@ Where practical, retained records should contain only the minimum identifiers an
 
 ## Deletion Order
 
-Deletion must be performed in an order that avoids orphaned records, broken foreign-key relationships, or inaccessible R2 objects.
+Deletion must be performed in an order that avoids orphaned records, broken foreign-key relationships, or inaccessible object-storage objects.
 
 The final implementation order must be derived from the actual Sequelize model relationships and database constraints.
 
@@ -260,11 +260,11 @@ A safe conceptual order is:
 3. inventory organization-owned PostgreSQL records and attachment objects
 4. preserve only the operational evidence required by the retention policy
 5. begin permanent deletion
-6. delete organization-owned R2 attachment objects
+6. delete organization-owned attachment objects
 7. delete dependent PostgreSQL records
 8. delete organization users and authentication state
 9. delete the organization record
-10. reconcile PostgreSQL and R2
+10. reconcile PostgreSQL and object storage
 11. verify organization access no longer works
 12. record deletion completion outside the deleted tenant data where necessary
 
@@ -278,7 +278,7 @@ The precise database deletion sequence must be tested against the production sch
 
 PostgreSQL deletion operations should use a database transaction where practical.
 
-Cloudflare R2 object deletion cannot participate in the same PostgreSQL transaction.
+Object-storage deletion cannot participate in the same PostgreSQL transaction.
 
 Organization deletion is therefore a multi-system operation and cannot be treated as one atomic database transaction.
 
@@ -286,8 +286,8 @@ The deletion process must tolerate and detect partial failure.
 
 For example:
 
-- PostgreSQL deletion succeeds but some R2 objects remain
-- R2 deletion succeeds but PostgreSQL deletion fails
+- PostgreSQL deletion succeeds but some object-storage objects remain
+- object-storage deletion succeeds but PostgreSQL deletion fails
 - provider connectivity fails partway through deletion
 
 The procedure must record enough state to allow safe retry and reconciliation.
@@ -301,7 +301,7 @@ If organization deletion fails:
 - preserve the failure details in sanitized operational logs
 - determine which deletion stages succeeded
 - retry remaining safe deletion operations
-- reconcile PostgreSQL metadata and R2 object state
+- reconcile PostgreSQL metadata and object-storage state
 - do not recreate deleted customer data merely to make systems appear consistent
 
 A deletion attempt should be idempotent where practical so retrying the same organization does not cause unsafe behavior.
@@ -311,12 +311,12 @@ A deletion attempt should be idempotent where practical so retrying the same org
 After organization deletion:
 
 - no active PostgreSQL attachment metadata should remain for the deleted organization
-- no identified production R2 attachment object belonging to the deleted organization should remain
+- no identified production object-storage object belonging to the deleted organization should remain
 - staging/orphan objects should be checked where applicable
 
-If database metadata is deleted but an R2 object remains, that object must be treated as residual customer data and removed.
+If database metadata is deleted but an object-storage object remains, that object must be treated as residual customer data and removed.
 
-If the R2 object is deleted but metadata remains because the database step failed, the deletion procedure should continue or retry rather than attempting to restore the attachment unless required for recovery from an erroneous deletion.
+If the object-storage object is deleted but metadata remains because the database step failed, the deletion procedure should continue or retry rather than attempting to restore the attachment unless required for recovery from an erroneous deletion.
 
 ## Backup Handling
 
@@ -324,7 +324,7 @@ Organization deletion does not require record-by-record modification of existing
 
 Instead:
 
-- production data is removed from PostgreSQL and R2
+- production data is removed from PostgreSQL and object storage
 - future backups must not include the deleted production data
 - pre-existing backup copies remain protected
 - backup copies expire according to the documented backup-retention schedule
@@ -372,7 +372,7 @@ Verification should confirm at minimum:
 - notebook entries are no longer retrievable
 - project memberships are removed
 - customer attachment metadata is removed
-- organization R2 attachment objects are removed
+- organization attachment objects are removed
 - archived records are removed
 - prohibited stale JWT access is rejected
 - no obvious orphaned organization records remain
@@ -424,7 +424,7 @@ Verified capabilities include:
 
 - operator-run organization deletion
 - explicit organization-scoped deletion logic
-- Cloudflare R2 organization-object deletion
+- organization-scoped object-storage deletion
 - PostgreSQL transaction and reconciliation behavior
 - authentication invalidation
 - signed-upload quiescence enforcement
@@ -456,10 +456,10 @@ At minimum, organization deletion testing should verify:
 - notebook entries are removed
 - review history is removed according to the applicable policy
 - attachment metadata is removed
-- R2 attachment objects are removed
+- attachment objects are removed
 - archived resources are removed
 - retries after partial failure are safe
-- failure of R2 deletion does not falsely report full deletion
+- failure of object-storage deletion does not falsely report full deletion
 - failure of PostgreSQL deletion does not falsely report full deletion
 - no cross-organization deletion occurs
 - deletion completion is recorded appropriately
@@ -472,7 +472,7 @@ This checklist is the controlled operator procedure for production organization 
 
 It must be followed for every permanent organization deletion.
 
-The operator must not substitute ad hoc SQL statements, direct R2 object deletion, or the non-production deletion-drill script for the approved production deletion mechanism.
+The operator must not substitute ad hoc SQL statements, direct object-storage deletion, or the non-production deletion-drill script for the approved production deletion mechanism.
 
 ### 1. Verify authorization and deletion scope
 
@@ -510,9 +510,9 @@ At minimum confirm:
 - organization authentication checks reject inactive organizations
 - `organizations.offboarding_frozen_at` exists in the production database
 - the organization deletion and reconciliation services are deployed
-- organization-scoped R2 deletion is deployed
+- organization-scoped object-storage deletion is deployed
 - production migrations are current
-- the configured R2 bucket is the intended production attachment bucket
+- the configured S3 bucket is the intended production attachment bucket
 - the configured PostgreSQL database is the intended production database
 - monitoring and application logging are operational
 
@@ -542,8 +542,8 @@ The evidence should include, where practical:
 - email-verification-token count
 - attachment metadata count
 - organization-scoped audit-record count where applicable
-- R2 organization prefix
-- number of R2 objects currently under that prefix
+- organization object-storage prefix
+- number of object-storage objects currently under that prefix
 
 The operator must not record:
 
@@ -582,7 +582,7 @@ Do not manually reactivate the organization after this point.
 
 ### 5. Wait for signed-upload quiescence
 
-Freezing authentication does not invalidate an R2 upload URL that was already signed before the freeze.
+Freezing authentication does not invalidate a signed upload URL that was already signed before the freeze.
 
 Permanent attachment deletion must therefore not begin until every previously issued upload URL could have expired.
 
@@ -608,8 +608,8 @@ After the quiescence period has elapsed and immediately before deletion:
 - confirm that `offboarding_frozen_at` is still present
 - confirm that the correct organization identifier is still selected
 - inventory organization-owned PostgreSQL data again
-- inventory the complete organization R2 namespace again
-- confirm that the R2 namespace is exactly the organization-scoped prefix expected by the deployed storage-key implementation
+- inventory the complete organization object-storage namespace again
+- confirm that the organization object-storage namespace is exactly the organization-scoped prefix expected by the deployed storage-key implementation
 - confirm that a neighboring organization remains present and active
 
 If any unexpected data, organization state, namespace, or configuration is observed, stop and investigate before deletion.
@@ -624,15 +624,15 @@ The expected high-level sequence is:
 
 1. verify the organization remains frozen
 2. verify upload quiescence has elapsed
-3. derive the current PostgreSQL/R2 reconciliation state
-4. delete all objects under the exact organization R2 namespace
-5. verify that the organization R2 namespace is empty
+3. derive the current PostgreSQL/object-storage reconciliation state
+4. delete all objects under the exact organization object-storage namespace
+5. verify that the organization object-storage namespace is empty
 6. transactionally delete organization-owned PostgreSQL data
 7. delete organization users and authentication state
 8. delete the organization record
 9. derive the reconciliation state again
 
-The R2 deletion must include:
+The object-storage deletion must include:
 
 - permanent attachment objects
 - staging objects
@@ -640,11 +640,11 @@ The R2 deletion must include:
 - archived organization attachment objects
 - any other objects under the exact organization namespace
 
-The database deletion step must not proceed on the assumption that attachment storage has been removed unless R2 deletion has been verified successfully.
+The database deletion step must not proceed on the assumption that attachment storage has been removed unless object-storage deletion has been verified successfully.
 
 ### 8. Handle partial failure by reconciliation state
 
-Organization deletion spans PostgreSQL and R2 and is not one atomic transaction.
+Organization deletion spans PostgreSQL and object storage and is not one atomic transaction.
 
 If the deletion mechanism reports a failure, do not report the organization as deleted.
 
@@ -657,22 +657,22 @@ The supported operational states are:
 - `DATABASE_DELETED_STORAGE_REMAINING`
 - `COMPLETE`
 
-If R2 deletion fails before storage is verified empty:
+If object-storage deletion fails before storage is verified empty:
 
 - do not delete PostgreSQL attachment metadata or organization data merely to force completion
 - preserve the frozen organization state
 - investigate the storage failure
 - retry the approved reconciliation process when safe
 
-If R2 deletion succeeds but PostgreSQL deletion fails:
+If object-storage deletion succeeds but PostgreSQL deletion fails:
 
 - keep the organization frozen
-- do not recreate the deleted R2 objects merely to restore symmetry
+- do not recreate the deleted object-storage objects merely to restore symmetry
 - confirm that the PostgreSQL transaction rolled back where expected
 - record the `STORAGE_DELETED_DATABASE_PENDING` state
 - retry the approved reconciliation process
 
-If PostgreSQL is already absent but organization R2 objects remain:
+If PostgreSQL is already absent but organization object-storage objects remain:
 
 - treat the objects as residual customer data
 - run the approved storage-only reconciliation path
@@ -703,7 +703,7 @@ Verify at minimum:
 - attachment metadata is absent
 - organization-owned audit records scheduled for deletion are absent
 - archived organization records are absent
-- the exact organization R2 namespace contains zero objects
+- the exact organization object-storage namespace contains zero objects
 - an old organization JWT cannot authorize protected API access
 - a fresh login for a former organization user cannot succeed
 - no obvious organization-owned orphan records remain
@@ -721,7 +721,7 @@ Confirm, where practical:
 - neighboring organization remains active
 - neighboring users remain present
 - neighboring authentication still works
-- neighboring R2 namespace remains unchanged
+- neighboring organization object-storage namespace remains unchanged
 
 Any unexpected cross-organization change must be treated as a security incident and investigated immediately.
 
@@ -755,7 +755,7 @@ Record only the minimum information required for accountability and troubleshoot
 - access-freeze timestamp
 - quiescence confirmation
 - pre-deletion inventory completion
-- R2 deletion verification
+- object-storage deletion verification
 - PostgreSQL deletion verification
 - authentication verification
 - neighboring-organization verification
@@ -794,7 +794,7 @@ If a backup containing the deleted organization is restored:
 - the restored organization must not be returned directly to active customer use
 - the deletion record must be consulted
 - the organization must be reconciled and deleted again before restored data is promoted to production
-- the restored R2 state must also be checked for deleted organization objects
+- the restored object-storage state must also be checked for deleted organization objects
 
 Backup restoration procedures must therefore preserve access to independent organization-deletion evidence.
 
@@ -823,11 +823,11 @@ The operator must stop the deletion procedure and investigate if any of the foll
 - production schema or migration status is uncertain
 - deployed deletion code does not match the tested implementation
 - the selected PostgreSQL environment is unexpected
-- the selected R2 bucket is unexpected
+- the selected production attachment bucket is unexpected
 - organization freeze cannot be verified
 - upload quiescence has not elapsed
-- R2 inventory contains unexpected namespace behavior
-- R2 deletion cannot be verified
+- object-storage inventory contains unexpected namespace behavior
+- object-storage deletion cannot be verified
 - PostgreSQL deletion fails
 - reconciliation cannot reach a known safe state
 - neighboring organization data changes unexpectedly

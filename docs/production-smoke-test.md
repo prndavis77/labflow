@@ -2,6 +2,8 @@
 
 Last verified: 2026-09-01
 
+Attachment storage migrated from Cloudflare R2 to Amazon S3 during Phase 26C.4 on 2026-09-04. Storage-specific production verification was performed as part of that migration. A full end-to-end production smoke-test rerun remains scheduled for Phase 26C.10.
+
 ## Purpose
 
 This checklist verifies that the deployed Labfluss frontend, backend, database, email service, object storage, authentication workflows, and organization-isolation controls are operating correctly.
@@ -53,7 +55,7 @@ Production API target:
 
 - `https://api.labfluss.com/api`
 
-The frontend contains no database, JWT, Mailgun, or Cloudflare R2 secret credentials.
+The frontend contains no database, JWT, Mailgun, or AWS/S3 secret credentials.
 
 ### Backend
 
@@ -66,7 +68,7 @@ Verified configuration areas:
 - JWT authentication
 - Frontend origin
 - Mailgun email delivery
-- Cloudflare R2 attachment storage
+- Amazon S3 attachment storage
 
 The backend application listens on port 5000. Nginx proxies public HTTPS API traffic to `127.0.0.1:5000`.
 
@@ -300,12 +302,12 @@ The backend resend workflow is implemented and covered by automated tests, but i
 ### Upload
 
 - [x] Browser can request a signed upload URL
-- [x] Cloudflare R2 accepts the CORS preflight request
-- [x] Direct browser-to-R2 upload succeeds
+- [x] Amazon S3 accepts the CORS preflight request
+- [x] Direct browser-to-S3 upload succeeds
 - [x] Backend completion verification succeeds
 - [x] Attachment becomes available in Labfluss
 
-The production R2 bucket CORS policy permits the deployed AWS Amplify frontend and the local Vite development origin.
+The production S3 bucket CORS policy permits the deployed AWS Amplify frontend and the local Vite development origin.
 
 ### Download
 
@@ -328,7 +330,7 @@ The production R2 bucket CORS policy permits the deployed AWS Amplify frontend a
 - [x] Archived Items displays the correct archive timestamp
 - [x] Archived Items displays the correct linked record
 - [x] Attachment restoration succeeds
-- [x] Restoration verifies that the R2 object exists
+- [x] Restoration verifies that the S3 object exists
 - [x] Restored attachment returns to the active list
 - [x] Restored attachment can be downloaded
 - [x] Restored file contents remain unchanged
@@ -389,7 +391,7 @@ The deployed Labfluss application has passed production verification for:
 - Invitation acceptance
 - Session clearing after invitation acceptance
 - Organization-isolated dashboard and resource access
-- Direct Cloudflare R2 attachment upload
+- Direct Amazon S3 attachment upload
 - Signed attachment download and expiration
 - Attachment metadata editing
 - Attachment archive and restoration

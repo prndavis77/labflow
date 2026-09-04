@@ -17,14 +17,13 @@ Current production architecture:
 - Frontend: AWS Amplify Hosting
 - Backend: AWS Lightsail
 - Database: Amazon RDS for PostgreSQL
-- Attachments: Cloudflare R2
+- Attachments: Amazon S3
 - Transactional email: Mailgun
 - External uptime monitoring: Better Stack
 - DNS: Amazon Route 53
 
 Remaining target migrations:
 
-- Attachments: Cloudflare R2 to Amazon S3
 - Transactional email: Mailgun to Amazon SES
 - Monitoring/logging: further consolidation into Amazon CloudWatch where appropriate
 
@@ -143,7 +142,7 @@ Current status:
 - [x] Neon PostgreSQL to Amazon RDS
 - [x] Render backend to AWS Lightsail
 - [x] Vercel frontend to AWS Amplify
-- [ ] Cloudflare R2 attachments to Amazon S3
+- [x] Cloudflare R2 attachments to Amazon S3
 - [ ] Mailgun transactional email to Amazon SES
 - [ ] further CloudWatch consolidation
 - [x] DNS and production-domain finalization for `app.labfluss.com` and `api.labfluss.com`
@@ -189,10 +188,10 @@ Moving infrastructure to AWS does not by itself make Labfluss HIPAA compliant, F
 - Route 53 production DNS
 - private Lightsail-to-RDS connectivity
 - HTTPS custom production domains
+- Amazon S3 production attachment storage
 
 **Remaining infrastructure migrations:**
 
-- Cloudflare R2 to Amazon S3
 - Mailgun to Amazon SES
 - further CloudWatch consolidation
 - automated attachment backup and remaining recovery automation

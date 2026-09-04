@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
-**Last reviewed:** 2026-09-02
+**Last reviewed:** 2026-09-04
 
 ## 1. Purpose
 
@@ -812,7 +812,7 @@ The following areas are recognized as requiring continued improvement before or 
 - disaster-recovery production cutover testing;
 - dedicated Labfluss transactional-email domain;
 - dedicated production transactional-email configuration, including either hardened Mailgun production use or migration to Amazon SES;
-- review of whether the localhost development origin should remain allowed on the production R2 bucket;
+- review of whether the localhost development origin should remain allowed on the production S3 bucket;
 - production-provider account hardening;
 - enforcement of appropriate multi-factor authentication on provider administrative accounts;
 - disabling unnecessary provider AI or telemetry features where applicable;

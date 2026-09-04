@@ -13,7 +13,7 @@ Labfluss is currently suitable for portfolio demonstrations, controlled pilot de
 - Frontend: AWS Amplify Hosting
 - Backend: AWS Lightsail
 - Database: Amazon RDS for PostgreSQL
-- Attachment storage: Cloudflare R2
+- Attachment storage: Amazon S3
 - Transactional email: Mailgun
 - External uptime monitoring: Better Stack
 
@@ -152,7 +152,7 @@ Likely area:
 
 - application/controller error
 - authorization
-- external dependency such as R2 or Mailgun
+- external dependency such as S3 or Mailgun
 - data-specific failure
 
 Use the request correlation ID from the failed API request where available.
@@ -203,7 +203,7 @@ Sensitive values that must not be intentionally logged include:
 - cookies
 - database credentials
 - Mailgun API keys
-- R2 credentials
+- S3 credentials
 - signed upload URLs
 - signed download URLs
 - email message bodies
@@ -242,7 +242,7 @@ If cleanup failures occur:
 
 1. Check the attachment ID in structured log context.
 2. Check database availability.
-3. Check Cloudflare R2 availability and credentials.
+3. Check Amazon S3 availability and credentials.
 4. Verify the object-storage configuration.
 5. Do not log or expose the attachment storage key unnecessarily.
 6. Do not expose signed URLs.
@@ -338,9 +338,10 @@ Current verified recovery capabilities include:
 - a post-cutover manual Amazon RDS DB snapshot
 - portable PostgreSQL logical backups
 - a successfully tested isolated PostgreSQL logical restore
-- independent dated Cloudflare R2 attachment backups
+- independent dated attachment backups retained outside production object storage
 - SHA-256 attachment-integrity verification
-- successfully tested representative R2 object recovery
+- historically tested representative object recovery in isolated R2 storage
+- verified R2-to-S3 attachment migration integrity with SHA-256 checks
 - successfully completed PostgreSQL/attachment-backup reconciliation
 - successfully completed application-level validation against the recovered database
 

@@ -43,16 +43,16 @@ Required non-secret variables:
 - `ATTACHMENT_UPLOAD_URL_TTL_SECONDS`
 - `ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS`
 - `ATTACHMENT_CLEANUP_BATCH_SIZE`
-- `R2_ACCOUNT_ID`
-- `R2_BUCKET_NAME`
+- `S3_BUCKET_NAME`
+- `S3_REGION`
 
 Required secret variables:
 
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `MAILGUN_API_KEY`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
 Secret values must not be recorded in this document.
 
@@ -74,7 +74,7 @@ Schema changes are managed through Sequelize migrations.
 
 ## Object Storage
 
-Provider: Cloudflare R2
+Provider: Amazon S3
 
 The bucket must remain private.
 

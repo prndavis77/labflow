@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
-**Last reviewed:** 2026-09-02
+**Last reviewed:** 2026-09-04
 
 ## 1. Purpose
 

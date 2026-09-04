@@ -85,7 +85,7 @@ The export does not use:
 - raw PostgreSQL dumps
 - SELECT \* as an export mechanism
 - automatic serialization of complete Sequelize models
-- unrestricted R2 prefix enumeration as the source of customer-exportable attachments
+- unrestricted object-storage prefix enumeration as the source of customer-exportable attachments
 
 Exportable model fields are controlled through explicit field allowlists.
 
@@ -119,9 +119,9 @@ The export excludes:
 
 Customer attachment metadata does not expose:
 
-- Cloudflare R2 storage keys
+- internal object-storage keys
 - storage provider internals
-- R2 ETags
+- object ETags
 - temporary upload-expiration state
 - internal sanitized storage filenames where not needed by the customer export
 
@@ -139,15 +139,15 @@ These values are operational/security telemetry rather than ordinary customer wo
 
 Attachment binaries are exported only for attachment records supplied by the organization-scoped PostgreSQL export.
 
-The export process does not assume that every object present under an organization's R2 prefix belongs in the customer export.
+The export process does not assume that every object present under an organization's object-storage prefix belongs in the customer export.
 
-This prevents staging objects, rejected uploads, orphaned objects, and unrelated internal storage artifacts from becoming customer-exportable merely because they exist in R2.
+This prevents staging objects, rejected uploads, orphaned objects, and unrelated internal storage artifacts from becoming customer-exportable merely because they exist in object storage.
 
 For each exported attachment, Labfluss verifies where available:
 
 - organization ownership
-- organization R2 namespace
-- R2 object presence
+- organization object-storage namespace
+- object-storage object presence
 - expected file size
 - actual exported size
 - SHA-256 checksum
@@ -160,7 +160,7 @@ Examples include:
 
 - attachment is not in available state
 - attachment metadata no longer exists
-- R2 object is unavailable
+- object-storage object is unavailable
 - stored and actual sizes differ
 - object read is incomplete
 - stored checksum does not match the exported binary
@@ -182,7 +182,7 @@ The operator must review the attachment manifest before delivering such an expor
 The export must abort rather than continue when an apparent tenant-boundary or integrity violation is detected, including:
 
 - attachment metadata identifies another organization
-- the internal R2 storage key points outside the requested organization's namespace
+- the internal object-storage key points outside the requested organization's namespace
 - duplicate attachment identifiers are supplied to the attachment export operation
 
 A failed tenant-boundary check must never be bypassed merely to complete an export.
@@ -234,7 +234,7 @@ Before relying on the production export command, confirm:
 - the tested customer-export implementation is deployed
 - the production database is the intended Amazon RDS `labflow` production database
 - the export command is being run from the authorized production backend environment
-- Cloudflare R2 configuration points to the intended production attachment bucket
+- Amazon S3 configuration points to the intended production attachment bucket
 - production database migrations are current
 - the operator has access to an approved temporary export directory
 - the destination has appropriate access controls
@@ -337,7 +337,7 @@ A successful export reports:
 - database record count
 - number of attachments exported
 
-Do not copy database credentials, R2 credentials, attachment storage keys, customer content, or production secrets into operational notes.
+Do not copy database credentials, object-storage credentials, attachment storage keys, customer content, or production secrets into operational notes.
 
 5. Check the package status
 
@@ -468,7 +468,7 @@ Do not generate or deliver an export if:
 - requester authorization is uncertain
 - the target organization is uncertain
 - production environment identity is uncertain
-- the configured R2 bucket is unexpected
+- the configured production attachment bucket is unexpected
 - the database is not the intended environment
 - a tenant-boundary validation fails
 - package creation fails
@@ -595,7 +595,7 @@ For the initial paid-pilot implementation, Labfluss includes:
 - organization-scoped PostgreSQL export
 - consistent PostgreSQL export snapshots
 - organization-scoped attachment resolution
-- Cloudflare R2 attachment retrieval
+- Amazon S3 attachment retrieval
 - attachment size and checksum verification
 - attachment omission reporting
 - tenant-boundary fail-closed behavior

@@ -58,15 +58,16 @@ Provider-maintained lists should be reviewed periodically and before material pr
 
 ### Service
 
-Production infrastructure and application hosting.
+Production infrastructure, application hosting, relational database storage, and private object storage.
 
 ### Labfluss use
 
-Amazon Web Services currently provides three core production services used by Labfluss:
+Amazon Web Services currently provides four core production services used by Labfluss:
 
 - AWS Amplify Hosting for the React/Vite frontend
 - AWS Lightsail for the Node.js/Express backend API
 - Amazon RDS for PostgreSQL for the production relational database
+- Amazon S3 for private production attachment storage
 
 ### Data potentially processed
 
@@ -102,7 +103,7 @@ AWS Lightsail may process:
 - request metadata
 - sanitized application logs
 
-Attachment binaries normally upload directly between the browser and Cloudflare R2 using short-lived signed URLs rather than passing through the Lightsail backend during normal upload.
+Attachment binaries normally upload directly between the browser and Amazon S3 using short-lived signed URLs rather than passing through the Lightsail backend during normal upload.
 
 Amazon RDS for PostgreSQL stores the primary structured Labfluss customer dataset, including:
 
@@ -125,7 +126,18 @@ Amazon RDS for PostgreSQL stores the primary structured Labfluss customer datase
 - audit records
 - archived customer records
 
-Raw attachment binaries are stored in Cloudflare R2 rather than Amazon RDS.
+Amazon S3 stores private customer attachment binaries, including:
+
+- research attachments
+- project attachments
+- task attachments
+- experiment attachments
+- protocol attachments
+- equipment attachments
+- object metadata
+- organization-scoped storage identifiers
+
+Attachment metadata is primarily stored in PostgreSQL, while raw attachment binaries are stored in Amazon S3.
 
 ### Purpose
 
@@ -133,6 +145,7 @@ Raw attachment binaries are stored in Cloudflare R2 rather than Amazon RDS.
 - backend/API hosting and execution
 - persistent relational database storage
 - database backup and recovery
+- private object storage and delivery of customer attachments
 
 ### Provider role
 
@@ -147,12 +160,16 @@ Current verified production configuration includes:
 - Amplify production frontend serving `https://app.labfluss.com`
 - Lightsail backend instance in Frankfurt
 - Amazon RDS PostgreSQL DB instance `labflow-production` in `eu-central-1`
+- Amazon S3 production attachment bucket `labfluss-attachments-production` in `eu-central-1`
 - private Lightsail-to-RDS connectivity
 - RDS publicly accessible: No
+- S3 public access blocked
 
 AWS identifies Europe (Frankfurt) as Region `eu-central-1` in Germany.
 
-Amazon RDS supports Europe (Frankfurt), `eu-central-1`.
+The production S3 attachment bucket is located in `eu-central-1`.
+
+If a customer requires explicit US-only object-storage residency, the current `eu-central-1` production bucket must not be represented as meeting that requirement.
 
 Customer-data residency should not be described more broadly than the verified service configuration and applicable AWS service terms.
 
@@ -160,15 +177,21 @@ Customer-data residency should not be described more broadly than the verified s
 
 AWS publishes an AWS Data Processing Addendum governing the processing of Customer Data through covered AWS services.
 
-AWS also maintains an official subprocessor list. AWS states that subprocessors relevant to an individual customer depend on the AWS Region selected and the AWS services used.
+Amazon S3 is an AWS service and is covered under the applicable AWS Data Processing Addendum and AWS service terms.
+
+AWS also maintains official subprocessor information. The subprocessors relevant to an individual customer may depend on the AWS services and Regions used.
 
 ### Downstream subprocessors
 
-Use the AWS-maintained subprocessor list rather than copying the complete changing list into this document.
+Use the AWS-maintained subprocessor information rather than copying the complete changing list into this document.
 
-AWS states that it updates the subprocessor page before engaging a new subprocessor and provides an update-notification mechanism.
+AWS states that it updates its subprocessor information before engaging a new subprocessor and provides an update-notification mechanism.
+
+Review the current AWS subprocessor information before the first paid pilot and monitor provider changes.
 
 ### Labfluss safeguards
+
+General AWS safeguards used by Labfluss include:
 
 - TLS for frontend and backend traffic
 - Nginx HTTPS reverse proxy
@@ -177,14 +200,36 @@ AWS states that it updates the subprocessor page before engaging a new subproces
 - sensitive-value log redaction
 - no raw authentication/reset/verification tokens in logs
 - organization authorization and tenant isolation
-- private-only Amazon RDS production database
+- no backend secrets embedded in frontend build artifacts
+
+Amazon RDS safeguards include:
+
+- private-only production database
 - private Lightsail-to-RDS connectivity
 - Amazon RDS TLS with certificate verification
 - encrypted RDS storage
 - 7-day RDS automated backup retention
 - manual RDS snapshot capability
-- private Cloudflare R2 attachment storage
-- no backend secrets embedded in frontend build artifacts
+
+Amazon S3 safeguards include:
+
+- private production attachment bucket
+- public access blocked
+- `BucketOwnerEnforced` object ownership
+- SSE-S3 default encryption using `AES256`
+- organization-scoped storage namespace
+- short-lived signed uploads and downloads
+- signed upload content-length enforcement
+- content validation
+- file-signature validation
+- OOXML validation
+- staging/final separation
+- ETag-conditioned finalization
+- attachment authorization
+- organization deletion and reconciliation controls
+- customer export integrity checking
+- dedicated least-privilege production IAM credential
+- account-wide bucket enumeration denied
 
 ### Pilot status
 
@@ -193,108 +238,15 @@ AWS states that it updates the subprocessor page before engaging a new subproces
 Before first pilot:
 
 - review the current AWS Data Processing Addendum
-- review the current AWS subprocessor list
+- review the current AWS subprocessor information
 - subscribe to AWS subprocessor-change notifications
-- confirm the AWS account/service terms applicable to the production configuration
+- confirm the AWS account and service terms applicable to the production configuration
 - confirm any customer-specific data-location requirements against the actual AWS services and Regions used
+- decide whether `http://localhost:5173` should remain allowed on the production S3 bucket
 
 ---
 
-## 2. Cloudflare
-
-### Service
-
-Cloudflare R2 object storage.
-
-### Labfluss use
-
-Cloudflare R2 stores private customer attachment binaries.
-
-### Data potentially processed
-
-R2 may store:
-
-- research attachments
-- project attachments
-- task attachments
-- experiment attachments
-- protocol attachments
-- equipment attachments
-- object metadata
-- organization-scoped storage identifiers
-
-Attachment metadata is primarily stored in PostgreSQL.
-
-### Purpose
-
-Private object storage and delivery of customer attachments.
-
-### Provider role
-
-Subprocessor.
-
-### Data location
-
-The production Cloudflare R2 bucket is:
-
-- `labflow-attachments`
-
-The bucket location is:
-
-- Eastern Europe (EEUR)
-
-The production bucket's public development URL is disabled and no custom domain is attached.
-
-If a customer requires explicit US-only object-storage residency, the current EEUR bucket must not be represented as meeting that requirement.
-
-### Important 2026 capability
-
-Cloudflare R2 supports jurisdiction-restricted buckets, including a United States jurisdiction.
-
-A bucket's jurisdiction cannot simply be assumed or changed after creation.
-
-If explicit US-only object-storage residency is required for a pilot customer, the production bucket configuration should be evaluated before onboarding that customer.
-
-### Contractual/privacy documentation
-
-Cloudflare publishes a Data Processing Addendum applicable to its services.
-
-The DPA authorizes Cloudflare subprocessors and requires them to receive contractual protections no less protective than Cloudflare's own DPA obligations.
-
-### Downstream subprocessors
-
-Cloudflare maintains a public subprocessor list.
-
-Review it before the first paid pilot and monitor provider changes.
-
-### Labfluss safeguards
-
-- private bucket
-- no public attachment access
-- organization-scoped storage namespace
-- short-lived signed uploads and downloads
-- signed upload content length
-- content validation
-- file-signature validation
-- OOXML validation
-- staging/final separation
-- ETag-conditioned finalization
-- attachment authorization
-- organization deletion/reconciliation
-- customer export integrity checking
-
-### Pilot status
-
-**CONFIGURATION AND PRIVACY DOCUMENTATION VERIFIED**
-
-Before first pilot:
-
-- subscribe to Cloudflare subprocessor-change notifications
-- decide whether `http://localhost:5173` should remain allowed on the production bucket
-
----
-
-## 3. Mailgun / Sinch Email
+## 2. Mailgun / Sinch Email
 
 ### Service
 
@@ -390,7 +342,7 @@ Before first pilot:
 
 ---
 
-## 4. Better Stack
+## 3. Better Stack
 
 ### Service
 
@@ -562,28 +514,18 @@ The following items remain configuration-specific and must be verified before th
 - [ ] review current AWS subprocessor list before paid pilot
 - [ ] subscribe to AWS subprocessor-change notifications
 - [ ] confirm customer-specific data-location requirements against the actual AWS services and Regions used
-
-### Cloudflare R2
-
-- [x] production bucket identified: `labflow-attachments`
-- [x] bucket location recorded: Eastern Europe (EEUR)
-- [x] public development URL confirmed disabled
-- [x] no custom domain attached
-- [x] R2 Data Catalog confirmed disabled
-- [x] CORS policy reviewed
-- [x] allowed production origin recorded: `https://app.labfluss.com`
-- [x] allowed development origin recorded: `http://localhost:5173`
-- [x] allowed methods recorded: GET, PUT, HEAD
-- [x] lifecycle rule reviewed: abort incomplete multipart uploads after 7 days
-- [x] bucket lock rules confirmed absent
-- [x] event notifications confirmed disabled
-- [x] on-demand migration confirmed disabled
-- [x] local uploads confirmed disabled
-- [x] default storage class recorded: Standard
-- [x] current Cloudflare DPA reviewed
-- [x] current Cloudflare subprocessor list reviewed
-- [ ] configure subprocessor-change notifications where available
-- [ ] decide whether localhost should remain allowed on the production bucket before pilot
+- [x] Amazon S3 production bucket identified: `labfluss-attachments-production`
+- [x] S3 production region recorded: `eu-central-1`
+- [x] S3 public access blocked
+- [x] S3 Object Ownership confirmed: `BucketOwnerEnforced`
+- [x] S3 default encryption confirmed: SSE-S3 (`AES256`)
+- [x] S3 CORS policy reviewed
+- [x] S3 allowed production origin recorded: `https://app.labfluss.com`
+- [x] S3 allowed development origin recorded: `http://localhost:5173`
+- [x] S3 allowed methods recorded: GET, PUT, HEAD
+- [x] production IAM credential restricted to required attachment operations
+- [x] account-wide bucket enumeration denied
+- [ ] decide whether localhost should remain allowed on the production S3 bucket before pilot
 
 ### Mailgun / Sinch Email
 
@@ -638,7 +580,7 @@ The following items remain configuration-specific and must be verified before th
 
 ## Review Record
 
-**Last reviewed:** 2026-09-02
+**Last reviewed:** 2026-09-04
 
 **Next review:** Before first paid pilot or upon material provider change, whichever occurs first.
 

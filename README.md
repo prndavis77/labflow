@@ -29,11 +29,11 @@ Labfluss MVP Version 1.6 is complete and deployed in a production-style AWS envi
 
 The application includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral email delivery with Mailgun support, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboards, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory and booking, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
 
-Labfluss also now includes substantial production-security and tenant-lifecycle hardening, including organization access freezing, JWT and account-recovery-token invalidation, organization-scoped destructive deletion, Cloudflare R2 namespace deletion, PostgreSQL/R2 reconciliation after partial failure, signed-upload quiescence enforcement, tenant-isolation deletion tests, a dedicated local integration-test database, and a destructive deletion drill using isolated non-production PostgreSQL and R2 resources.
+Labfluss also now includes substantial production-security and tenant-lifecycle hardening, including organization access freezing, JWT and account-recovery-token invalidation, organization-scoped destructive deletion, provider-neutral object-storage namespace deletion, PostgreSQL/object-storage reconciliation after partial failure, signed-upload quiescence enforcement, tenant-isolation deletion tests, a dedicated local integration-test database, and a destructive deletion drill using isolated non-production PostgreSQL and R2 resources.
 
-Research files are stored privately in Cloudflare R2 and uploaded directly using short-lived signed URLs. Attachment access follows the linked record's permissions and organization scope.
+Research files are stored privately in Amazon S3 and uploaded directly using short-lived signed URLs. Attachment access follows the linked record's permissions and organization scope.
 
-The backend regression suite currently contains 62 Jest/Supertest suites and 792 tests. The complete suite passes against the dedicated local `labflow_test` PostgreSQL database.
+The backend regression suite currently contains 62 Jest/Supertest suites and 799 tests. The complete suite passes against the dedicated local `labflow_test` PostgreSQL database.
 
 ### Phase 26A: Paid Pilot Data Governance and Organization Offboarding
 
@@ -90,6 +90,11 @@ Completed:
 - Attached `app.labfluss.com` to AWS Amplify Hosting.
 - Recreated attachment cleanup as a systemd service and timer on Lightsail.
 - Retired the former Vercel frontend, Render backend, and Neon production database after successful AWS cutover.
+- Migrated production attachment storage from Cloudflare R2 to private Amazon S3 in `eu-central-1`.
+- Verified a 52-object, 23,477,836-byte pre-cutover attachment baseline and byte-for-byte migration integrity using SHA-256.
+- Cut production over to `ATTACHMENT_STORAGE_PROVIDER=s3`, reconciled available attachment metadata to `s3`, and changed the database/model default to `s3`.
+- Verified post-cutover reads and writes through the production application, including new objects appearing only in S3.
+- Removed production R2 credentials from Lightsail and revoked the former production R2 credential after successful no-R2 runtime testing.
 
 ### Phase 25C: Production Security Hardening
 
@@ -148,7 +153,7 @@ Completed:
 - Added organization-scoped archived-item listing for projects, tasks, experiments, protocols, and attachments.
 - Added search, archive-date filtering, and server-side pagination.
 - Added restoration for projects, tasks, experiments, and protocols.
-- Added attachment restoration with Cloudflare R2 object verification.
+- Added attachment restoration with private object-storage verification.
 - Enforced parent-first restoration for project-linked records.
 - Required the linked record and its project to be active before restoring a child attachment.
 - Preserved each restored record's existing business and workflow status.
@@ -219,7 +224,7 @@ Key technical areas include:
 - Review history event tracking
 - Sequelize migrations for database schema management
 - Jest and Supertest backend test coverage
-- Production deployment using AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Cloudflare R2, Nginx, and systemd
+- Production deployment using AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Amazon S3, Nginx, and systemd
 - Comprehensive backend security hardening covering HTTP headers, rate limiting, authentication, authorization, tenant isolation, request validation, attachment security, logging/redaction, dependency review, and production configuration
 
 ---
@@ -245,7 +250,7 @@ This deployment uses:
 - AWS Amplify Hosting for the React/Vite frontend
 - AWS Lightsail for the Node.js/Express backend API
 - Amazon RDS for PostgreSQL for the production database
-- Cloudflare R2 for private attachment storage
+- Amazon S3 for private attachment storage
 - Nginx as the HTTPS reverse proxy
 - systemd for backend process supervision and attachment-cleanup scheduling
 
@@ -456,9 +461,9 @@ Attachment restoration also requires:
 - An existing linked target record
 - An active linked target
 - An active parent project where applicable
-- Confirmation that the corresponding object still exists in private Cloudflare R2 storage
+- Confirmation that the corresponding object still exists in private Amazon S3 storage
 
-If the R2 object is missing, the attachment remains archived. Temporary storage failures also leave the database record unchanged.
+If the S3 object is missing, the attachment remains archived. Temporary storage failures also leave the database record unchanged.
 
 Successful restoration writes an audit event in the same PostgreSQL transaction as the restore operation. Repeated restore requests for an already-active record return an idempotent response without creating duplicate audit events.
 
@@ -476,12 +481,12 @@ Labfluss includes an operator-controlled organization-offboarding mechanism inte
 
 Formal offboarding can freeze an organization by marking it inactive, recording a persistent freeze timestamp, invalidating organization-user sessions, and invalidating relevant outstanding account-recovery tokens.
 
-Permanent deletion is deliberately multi-stage because PostgreSQL and Cloudflare R2 cannot participate in one distributed transaction. The deletion workflow:
+Permanent deletion is deliberately multi-stage because PostgreSQL and object storage cannot participate in one distributed transaction. The deletion workflow:
 
 1. freezes organization access
 2. waits for previously issued signed upload URLs to expire
 3. inventories the organization
-4. deletes the exact organization R2 namespace
+4. deletes the exact organization namespace from private object storage
 5. verifies storage is empty
 6. transactionally deletes organization-owned PostgreSQL records
 7. reconciles database and storage state
@@ -545,7 +550,7 @@ Labfluss supports attachments for:
 
 The attachment workflow includes:
 
-- Private Cloudflare R2 storage
+- Private Amazon S3 storage
 - Direct browser-to-storage uploads
 - Short-lived signed upload and download URLs
 - Organization-scoped storage keys
@@ -690,7 +695,7 @@ This layered model allows Labfluss to combine global user roles, project-specifi
 - Editable organization name and type
 - Invitation list management with status, expiration, invited-by, and accepted-date details
 - Pending invitation revoke action
-- Private Cloudflare R2 object storage
+- Private Amazon S3 object storage
 - Short-lived signed upload and download URLs
 - Organization-scoped attachment access
 - Attachment audit logging
@@ -700,7 +705,7 @@ This layered model allows Labfluss to combine global user roles, project-specifi
 - Archived-item search, date filtering, and pagination
 - Parent-first restoration rules
 - Non-cascading restoration behavior
-- Attachment recovery with Cloudflare R2 object verification
+- Attachment recovery with Amazon S3 object verification
 - Transactional restoration audit events
 - Idempotent restore handling
 - Cross-entity restoration workflow tests
@@ -709,7 +714,7 @@ This layered model allows Labfluss to combine global user roles, project-specifi
 - Reusable attachment list, upload, metadata-edit, download, and archive UI
 - Role-aware attachment controls
 - Researcher uploader-ownership enforcement
-- Direct signed uploads to private Cloudflare R2 storage
+- Direct signed uploads to private Amazon S3 storage
 - Signed downloads with storage-object verification
 - Cross-entity attachment permission tests
 - Backend test coverage for authentication, password reset, email verification, JWT invalidation, authorization, organization isolation, invitations, email delivery, resend, attachments, archive recovery, review workflows, and rollback behavior
@@ -1161,7 +1166,7 @@ Labfluss demonstrates several full-stack development concepts:
 - Organization-based data ownership and backend query scoping
 - Cross-organization isolation tests for projects, tasks, and audit logs
 - Generic attachment system for multiple Labfluss entity types
-- Private Cloudflare R2 object storage
+- Private Amazon S3 object storage
 - Direct-to-storage uploads using short-lived signed URLs
 - Signed download URLs with storage-object verification
 - Organization-scoped and target-aware attachment authorization
@@ -1170,14 +1175,14 @@ Labfluss demonstrates several full-stack development concepts:
 - Admin-only cross-entity archived-item recovery
 - Parent-first restoration validation
 - Transactional restore and audit-log creation
-- Cloudflare R2 object verification before attachment restoration
+- Amazon S3 object verification before attachment restoration
 - Formal organization access freezing with persistent freeze timestamps
 - Organization-wide JWT session invalidation
 - Recovery-token invalidation during organization freeze
 - Inactive-organization authentication enforcement
-- Exact organization-prefix Cloudflare R2 deletion
+- Exact organization-prefix object-storage deletion
 - Transactional organization-owned PostgreSQL deletion
-- PostgreSQL/R2 partial-failure reconciliation
+- PostgreSQL/object-storage partial-failure reconciliation
 - Signed-upload quiescence enforcement before destructive deletion
 - Idempotent organization-deletion retries
 - Cross-organization destructive-operation isolation tests
@@ -1214,7 +1219,8 @@ Labfluss demonstrates several full-stack development concepts:
 - express-rate-limit
 - mailgun.js
 - form-data
-- Cloudflare R2 through the S3-compatible API
+- Amazon S3
+- Cloudflare R2 compatibility provider retained for isolated historical/test workflows
 - AWS SDK for JavaScript S3 client and URL presigning
 
 ### Testing
@@ -1307,6 +1313,7 @@ labflow/
         20260803135024-add-password-reset-and-email-verification.js
         20260821212300-remove-duplicate-organization-foreign-keys.js
         20260824140000-add-offboarding-frozen-at-to-organizations.js
+        20260904130000-migrate-attachment-storage-provider-to-s3.js
       models/
         Attachment.js
         AuditLog.js
@@ -1367,6 +1374,7 @@ labflow/
       storage/
         providers/
           r2AttachmentStorage.js
+          s3AttachmentStorage.js
         utils/
           contentDisposition.js
           storageKey.js
@@ -1672,7 +1680,7 @@ Relationships:
 
 Represents a file associated with a supported Labfluss record.
 
-Attachment metadata is stored in PostgreSQL, while file content is stored in private Cloudflare R2 storage.
+Attachment metadata is stored in PostgreSQL, while file content is stored in private Amazon S3 storage.
 
 Attachment records include:
 
@@ -1839,7 +1847,7 @@ PATCH  /api/attachments/:id
 GET    /api/attachments/:id
 ```
 
-Attachment metadata is stored in PostgreSQL, while file content is stored in private Cloudflare R2 storage. Access follows access to the linked Labfluss record.
+Attachment metadata is stored in PostgreSQL, while file content is stored in private Amazon S3 storage. Access follows access to the linked Labfluss record.
 
 See [docs/attachments.md](docs/attachments.md) for the complete attachment architecture, security model, API workflow, and cleanup process.
 
@@ -1873,7 +1881,7 @@ Restoration is admin-only and organization-scoped.
 
 Projects, tasks, experiments, and protocols use integer record IDs. Attachments use UUIDs.
 
-Attachment restoration verifies that the stored object exists in Cloudflare R2 before clearing archive metadata.
+Attachment restoration verifies that the stored object exists in Amazon S3 before clearing archive metadata.
 
 ---
 
@@ -1883,7 +1891,7 @@ Labfluss is deployed primarily as a portfolio/demo application and the public de
 
 For the complete security model, production requirements, dependency-risk notes, and security-testing coverage, see [SECURITY.md](SECURITY.md).
 
-Production environment variables must be stored only in the hosting provider's environment or secret-management system. Do not commit real `.env` files, database URLs, JWT secrets, email-provider credentials, Cloudflare R2 credentials, or other production secrets to Git.
+Production environment variables must be stored only in the hosting provider's environment or secret-management system. Do not commit real `.env` files, database URLs, JWT secrets, email-provider credentials, AWS storage credentials, or other production secrets to Git.
 
 Mailgun production credentials must remain backend-only. Do not expose the API key to the Vite frontend, prefix it with `VITE_`, print it in logs, or place it in committed configuration.
 
@@ -1904,7 +1912,7 @@ Labfluss's backend security controls include:
 - Mutable-field allowlisting to reduce mass-assignment risk
 - Sanitized structured logging and error handling
 - Credential and token redaction
-- Private Cloudflare R2 attachment storage
+- Private Amazon S3 attachment storage
 - Attachment filename, MIME, signature, and OOXML structural validation
 - Short-lived signed attachment upload and download URLs
 - ETag-conditioned attachment finalization
@@ -1957,7 +1965,7 @@ Before running production migrations:
 - Check migration status before and after applying migrations.
 - Do not run the backend test suite against the production database.
 - Do not enable production demo seeding for normal deployments.
-- Keep Cloudflare R2 buckets private.
+- Keep the Amazon S3 attachment bucket private.
 - Restrict production CORS to the deployed frontend origin.
 - Configure `TRUST_PROXY` for the actual deployment topology.
 - Run `npm ci` from the committed lockfile.
@@ -2009,26 +2017,26 @@ MAILGUN_API_KEY=
 MAILGUN_DOMAIN=mg.example.com
 MAILGUN_API_BASE_URL=https://api.mailgun.net
 
-ATTACHMENT_STORAGE_PROVIDER=r2
+ATTACHMENT_STORAGE_PROVIDER=s3
 ATTACHMENT_MAX_FILE_SIZE_BYTES=26214400
 ATTACHMENT_PENDING_TTL_MINUTES=30
 ATTACHMENT_UPLOAD_URL_TTL_SECONDS=300
 ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS=60
 ATTACHMENT_CLEANUP_BATCH_SIZE=100
 
-R2_ACCOUNT_ID=your_cloudflare_account_id
-R2_ACCESS_KEY_ID=your_r2_access_key_id
-R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
-R2_BUCKET_NAME=your_private_r2_bucket_name
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+S3_BUCKET_NAME=your_private_s3_bucket_name
+S3_REGION=eu-central-1
 ```
 
 Use `EMAIL_PROVIDER=disabled` when local email delivery is not needed.
 
 In the current development environment, do not store a working Mailgun key in `.env`. Supply it through a temporary process environment variable or an operating-system secret store.
 
-The R2 values are required when `ATTACHMENT_STORAGE_PROVIDER=r2`.
+The S3 values are required when `ATTACHMENT_STORAGE_PROVIDER=s3`. The backend still contains an R2 provider for isolated historical/test workflows, but R2 is no longer the production attachment store.
 
-Never commit real `.env` files or R2 credentials. Use `.env.example` only as a variable-name reference.
+Never commit real `.env` files or storage credentials. Use `.env.example` only as a variable-name reference.
 
 Create the PostgreSQL database:
 
@@ -2478,7 +2486,7 @@ Covered backend areas include:
 - Admin-only archived-item listing
 - Archived-item search, date filtering, and pagination
 - Project, task, experiment, and protocol restoration
-- Attachment restoration with R2 verification
+- Attachment restoration with Amazon S3 verification
 - Parent-first restoration constraints
 - Non-cascading restoration behavior
 - Idempotent restoration
@@ -2568,7 +2576,7 @@ Current limitations include:
 - Audit logging exists for important admin, review, restore, invitation, and delivery-related actions, but it is not immutable and does not yet include export, retention policies, signatures, or locked review controls.
 - Archive and recovery cover projects, tasks, experiments, protocols, and attachments. Equipment, bookings, notebook entries, and project memberships retain their existing lifecycle behavior.
 - Restoration is intentionally parent-first and non-cascading, so related records must be restored individually.
-- PostgreSQL restoration and Cloudflare R2 verification cannot participate in one distributed transaction.
+- PostgreSQL restoration and Amazon S3 verification cannot participate in one distributed transaction.
 - Attachment malware scanning, broader content inspection, large multipart uploads, and organization storage quotas are not yet included. Organization-level attachment deletion and offboarding are implemented, but routine per-file hard-delete workflows remain intentionally distinct from archive behavior.
 - Notebook entries use plain text and do not yet support rich text or PDF export.
 - Frontend automated tests are not yet included.
@@ -2590,7 +2598,7 @@ The project demonstrates:
 - Project membership and permission-aware data access
 - Research workflow modeling for tasks, experiments, protocols, equipment, bookings, and review history
 - Backend validation for equipment booking conflict prevention
-- Production deployment using AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Cloudflare R2, Nginx, and systemd
+- Production deployment using AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Amazon S3, Nginx, and systemd
 - Practical domain modeling based on university research laboratory workflows
 - Backend automated testing with Jest and Supertest
 

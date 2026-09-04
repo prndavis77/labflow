@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Effective date:** [EFFECTIVE DATE]
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-04
 
 ## 1. Introduction
 

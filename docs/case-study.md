@@ -26,7 +26,7 @@ GitHub repository:
 https://github.com/prndavis77/labflow
 ```
 
-The deployed application uses AWS Amplify Hosting for the React/Vite frontend, AWS Lightsail for the Node/Express backend API, Amazon RDS for PostgreSQL for the production database, and Cloudflare R2 for private attachment storage.
+The deployed application uses AWS Amplify Hosting for the React/Vite frontend, AWS Lightsail for the Node/Express backend API, Amazon RDS for PostgreSQL for the production database, and Amazon S3 for private attachment storage.
 
 The live demo uses seeded test data and shared demo accounts. It should not be used with real laboratory, research, customer, or institutional data.
 
@@ -112,14 +112,14 @@ I designed and built the full-stack MVP, including:
 - Demo seed data
 - Sequelize migrations
 - Backend automated tests with Jest and Supertest
-- Production deployment to AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, and Cloudflare R2
+- Production deployment to AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, and Amazon S3
 - Organization settings workflow
 - Invitation list management
 - Workspace registration and first-admin onboarding
 - Unique organization slug generation
 - Transactional registration and invitation acceptance
 - Multi-organization-safe demo seed behavior
-- Private Cloudflare R2 attachment architecture
+- Private Amazon S3 attachment architecture
 - Direct signed upload and download workflow
 - Cross-entity attachment authorization and reusable frontend components
 - Self-service password-reset architecture and frontend flow
@@ -155,7 +155,7 @@ I designed and built the full-stack MVP, including:
 - dotenv
 - mailgun.js
 - form-data
-- Cloudflare R2
+- Amazon S3
 - AWS SDK for JavaScript S3 client and URL presigning
 
 ### Testing and Deployment
@@ -165,7 +165,7 @@ I designed and built the full-stack MVP, including:
 - AWS Amplify Hosting
 - AWS Lightsail
 - Amazon RDS for PostgreSQL
-- Cloudflare R2
+- Amazon S3
 - Nginx
 - systemd
 - Git and GitHub
@@ -335,7 +335,7 @@ Notebook entries are linked to experiments and projects, allowing experiment det
 
 Labfluss includes a generic attachment system for projects, tasks, experiments, protocols, and equipment.
 
-File metadata is stored in PostgreSQL, while file content is stored in a private Cloudflare R2 bucket. The backend creates short-lived signed upload URLs so files can be uploaded directly from the browser without passing the file body through the Express server.
+File metadata is stored in PostgreSQL, while file content is stored in a private Amazon S3 bucket. The backend creates short-lived signed upload URLs so files can be uploaded directly from the browser without passing the file body through the Express server.
 
 The upload workflow has three stages:
 
@@ -377,9 +377,9 @@ The restore operation preserves the record's existing business status. It clears
 
 Each successful restore creates an audit event in the same PostgreSQL transaction. If audit creation fails, the database restoration is rolled back. Repeated requests for an already-active record are idempotent and do not create duplicate audit events.
 
-Attachment recovery includes an additional storage check. Before the database record is restored, Labfluss performs a metadata request against private Cloudflare R2 storage. If the object does not exist, the attachment remains archived. If storage is temporarily unavailable, the operation fails safely and can be retried later.
+Attachment recovery includes an additional storage check. Before the database record is restored, Labfluss performs a metadata request against private Amazon S3 storage. If the object does not exist, the attachment remains archived. If storage is temporarily unavailable, the operation fails safely and can be retried later.
 
-Because PostgreSQL and Cloudflare R2 do not participate in one distributed transaction, the R2 existence check and database update cannot be fully atomic. The implementation minimizes that limitation by verifying storage immediately before the transactional database restore and by never changing the R2 object during recovery.
+Because PostgreSQL and Amazon S3 do not participate in one distributed transaction, the S3 existence check and database update cannot be fully atomic. The implementation minimizes that limitation by verifying storage immediately before the transactional database restore and by never changing the S3 object during recovery.
 
 ### Role-Aware Dashboard
 
@@ -648,7 +648,7 @@ This gives administrators control over exactly which records return to active wo
 
 The backend checks organization ownership, direct-parent state, project state, upload status, and attachment storage availability. Successful restoration and audit creation share a database transaction.
 
-For attachment restoration, Cloudflare R2 and PostgreSQL cannot share a transaction. I addressed this by verifying the object immediately before opening the database restoration transaction. A storage failure therefore leaves the attachment archived rather than creating an active database record that points to a missing file.
+For attachment restoration, Amazon S3 and PostgreSQL cannot share a transaction. I addressed this by verifying the object immediately before opening the database restoration transaction. A storage failure therefore leaves the attachment archived rather than creating an active database record that points to a missing file.
 
 ### 15. Separating Application Security From Third-Party Reputation Classification
 
@@ -673,6 +673,11 @@ The project includes:
 - Nginx reverse proxy with HTTPS
 - systemd-supervised backend service
 - systemd attachment-cleanup timer
+- Production attachment storage migrated from Cloudflare R2 to private Amazon S3
+- Verified 52-object pre-cutover migration baseline with SHA-256 integrity checking
+- Production runtime cut over to `ATTACHMENT_STORAGE_PROVIDER=s3`
+- Existing available attachment metadata reconciled to S3 and new attachment rows default to S3
+- Former production R2 runtime credentials removed and production R2 credential revoked
 - Role-based authentication and protected routes
 - Project membership and project-specific access control
 - Experiment, protocol, task, equipment, booking, notebook, and review workflows
@@ -697,7 +702,7 @@ The project includes:
 - Transactional registration and invitation acceptance
 - Multi-organization-safe demo seed behavior
 - Secure research attachments for projects, tasks, experiments, protocols, and equipment
-- Private Cloudflare R2 object storage
+- Private Amazon S3 object storage
 - Direct signed uploads and signed downloads
 - Organization-scoped and parent-record-aware attachment authorization
 - Metadata editing and soft archive behavior
@@ -706,7 +711,7 @@ The project includes:
 - GitHub README and portfolio case study
 - Admin-controlled recovery for archived projects, tasks, experiments, protocols, and attachments
 - Parent-first and non-cascading restoration rules
-- Cloudflare R2 verification before attachment restoration
+- Amazon S3 verification before attachment restoration
 - Transactional restore audit logging
 - Admin Archived Items page with search, date filters, tabs, and pagination
 
@@ -727,7 +732,7 @@ Current limitations include:
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 - Notebook entries do not have separate file uploads. Experiment-related files are stored as experiment attachments, while project-wide files are stored as project attachments.
 - Archived-item recovery is admin-only and intentionally non-cascading.
-- PostgreSQL restoration and Cloudflare R2 verification cannot participate in one distributed transaction.
+- PostgreSQL restoration and Amazon S3 verification cannot participate in one distributed transaction.
 - The Archived Items page does not yet provide a read-only archived-record detail view.
 - Attachment malware scanning, content inspection, storage quotas, multipart uploads, and physical deletion policies are not yet included.
 
@@ -766,5 +771,5 @@ The project shows experience with:
 - Role-based and project-scoped authorization
 - Backend validation for business rules
 - Automated backend testing
-- Production deployment with AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Cloudflare R2, Nginx, and systemd
+- Production deployment with AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Amazon S3, Nginx, and systemd
 - Translating scientific workflow knowledge into software features

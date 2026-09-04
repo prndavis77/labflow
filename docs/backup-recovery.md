@@ -47,11 +47,11 @@ Recovery priority:
 
 Critical
 
-### 2. Cloudflare R2 attachment objects
+### 2. Amazon S3 attachment objects
 
 Provider:
 
-Cloudflare R2
+Amazon S3
 
 Contains the binary objects associated with Labfluss attachment metadata.
 
@@ -62,7 +62,7 @@ Examples include uploaded:
 - PDFs
 - other supported laboratory files
 
-The database contains attachment metadata, but the actual file contents are stored separately in R2.
+The database contains attachment metadata, but the actual file contents are stored separately in Amazon S3.
 
 Database recovery alone therefore does not constitute complete attachment recovery.
 
@@ -186,19 +186,19 @@ Medium
 
 ## Data Relationships
 
-A complete Labfluss recovery requires consistency between PostgreSQL and R2.
+A complete Labfluss recovery requires consistency between PostgreSQL and Amazon S3.
 
 For an attachment to function correctly after recovery:
 
 1. its PostgreSQL metadata must exist
-2. its referenced R2 object must exist
+2. its referenced S3 object must exist
 3. the restored metadata must reference the correct storage object
-4. the application must have valid R2 credentials
+4. the application must have valid AWS credentials with access to the production S3 attachment bucket
 5. the object must remain accessible under the expected storage key
 
-This means PostgreSQL and R2 cannot be treated as completely independent recovery targets.
+This means PostgreSQL and Amazon S3 cannot be treated as completely independent recovery targets.
 
-A database restored to an earlier point in time may reference a different set of attachment records than the current R2 bucket contains.
+A database restored to an earlier point in time may reference a different set of attachment records than the current S3 bucket contains.
 
 Recovery procedures must therefore include attachment reconciliation.
 
@@ -232,7 +232,7 @@ Long-term log archival is outside the scope of the current recovery requirement.
 
 ### Temporary signed URLs
 
-R2 upload and download URLs are temporary credentials and must never be backed up as application data.
+Signed attachment upload and download URLs are temporary credentials and must never be backed up as application data.
 
 They should be regenerated when required.
 
@@ -270,7 +270,7 @@ In a broad disaster, services should normally be recovered in this order:
 
 1. source code and recovery documentation
 2. PostgreSQL database
-3. Cloudflare R2 attachment storage
+3. Amazon S3 attachment storage
 4. backend configuration and deployment
 5. frontend configuration and deployment
 6. transactional email
@@ -310,9 +310,9 @@ Restore PostgreSQL into a replacement Amazon RDS for PostgreSQL DB instance if n
 
 Required capability:
 
-Recover or reconstruct the missing R2 object where backup/version history permits.
+Recover or reconstruct the missing S3 object where backup/version history permits.
 
-### Broad R2 data loss or corruption
+### Broad S3 data loss or corruption
 
 Required capability:
 
@@ -371,17 +371,17 @@ Manual DB snapshots may also be created to preserve known-good recovery points, 
 
 Portable PostgreSQL logical backups provide an additional recovery mechanism outside the RDS provider environment.
 
-### Cloudflare R2
+### Amazon S3
 
-Cloudflare R2 provides highly durable object storage with provider-managed redundancy.
+Amazon S3 provides highly durable object storage with provider-managed redundancy.
 
 Provider durability protects against underlying storage-device failure, but durability alone must not be treated as protection from logical deletion, application bugs, credential misuse, or intentional deletion.
 
-The R2 recovery strategy was evaluated and validated in Phase 25B.4.
+The original R2 recovery strategy was evaluated and validated in Phase 25B.4. Phase 26C.4 later migrated the production attachment store to Amazon S3 while preserving object keys and byte content.
 
-The current strategy uses private production R2 storage together with independent dated attachment backups. Bucket locking is intentionally not enabled because pending and completed attachment objects share the same storage-key namespace, while the expired-pending-upload cleanup process must remain able to delete partial objects.
+The current strategy uses private production S3 storage together with independent dated attachment backups. The historical R2 recovery bucket remains an isolated recovery-test artifact and is not part of the production runtime.
 
-A representative attachment restore into an isolated R2 recovery bucket has been successfully tested with SHA-256 integrity verification.
+A representative attachment restore was historically tested in isolated R2 storage, and the later R2-to-S3 production migration was independently verified with SHA-256 integrity checks across all 52 migrated objects.
 
 ### AWS Lightsail
 
@@ -400,7 +400,7 @@ Project configuration represented in repository files is recoverable through Git
 | Component                   | Backup/recovery state                                                                                                    | Restore tested                      |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
 | PostgreSQL                  | Backup and restore procedures verified                                                                                   | Yes, isolated restore               |
-| R2 attachments              | Dated backup and recovery procedures verified                                                                            | Yes, restore and reconciliation     |
+| S3 attachments              | Dated backup and recovery procedures verified                                                                            | Yes, restore and reconciliation     |
 | GitHub source               | Version controlled                                                                                                       | Yes, normal clone/redeploy workflow |
 | AWS Lightsail configuration | Production service and systemd timer configuration inventoried; secret regeneration and recreation procedures documented | No                                  |
 | AWS Amplify configuration   | Production frontend configuration inventoried; recreation procedure documented                                           | No                                  |
@@ -1027,7 +1027,7 @@ Do not expose or reuse historical raw tokens during validation.
 
 Verify attachment metadata exists and retains storage references.
 
-R2 object consistency is evaluated separately under the attachment-recovery subphase.
+S3 object consistency is evaluated separately under the attachment-recovery procedure.
 
 ## Application-Level Recovery Validation
 
@@ -1126,6 +1126,143 @@ Application-level validation against recovered database: Successfully performed
 ```
 
 The PostgreSQL logical-backup recovery procedure is now restore-verified through the successful Phase 25B.7 isolated recovery drill.
+
+## Current Production Attachment Storage: Amazon S3
+
+### Phase 26C.4 Migration Status
+
+Production attachment storage was migrated from Cloudflare R2 to Amazon S3 on 2026-09-04.
+
+Current production configuration:
+
+```text
+Provider: Amazon S3
+Bucket: labfluss-attachments-production
+Region: eu-central-1
+Public access: blocked
+Object ownership: BucketOwnerEnforced
+Default encryption: SSE-S3 (AES256)
+Production application provider: s3
+```
+
+Production CORS permits:
+
+```text
+https://app.labfluss.com
+http://localhost:5173
+```
+
+Required browser methods:
+
+```text
+GET
+PUT
+HEAD
+```
+
+The backend uses the AWS SDK for JavaScript and a dedicated IAM identity restricted to the production attachment bucket. The production credential was verified to allow required attachment operations while denying account-wide bucket enumeration.
+
+### Migration Evidence
+
+Immediately before migration, the production R2 source and the dated backup set contained:
+
+```text
+Objects: 52
+Bytes: 23477836
+Backup date: 2026-09-03
+Manifest entries: 52
+```
+
+The verified backup was uploaded into:
+
+```text
+s3://labfluss-attachments-production
+```
+
+The manifest itself was intentionally excluded from the production object bucket.
+
+All 52 migrated S3 objects were downloaded into a temporary verification directory and checked against the SHA-256 manifest:
+
+```text
+Manifest entries: 52
+Verified matches: 52
+Failures: 0
+Downloaded S3 files: 52
+```
+
+The migration therefore preserved the attachment objects byte-for-byte.
+
+### Production Cutover Verification
+
+The backend was deployed with the S3 provider while production still used R2, then cut over by changing:
+
+```text
+ATTACHMENT_STORAGE_PROVIDER=s3
+```
+
+After cutover:
+
+- backend liveness passed
+- backend readiness passed
+- existing migrated attachments downloaded successfully
+- a new attachment upload completed successfully
+- the new object appeared in S3
+- the former R2 production bucket remained unchanged at 52 objects during the first post-cutover write verification
+
+A second no-R2-runtime upload was performed after all normal production `R2_*` variables were removed from the Lightsail environment. S3 increased from 53 to 54 objects, proving production writes no longer depended on R2 credentials.
+
+### Attachment Metadata Reconciliation
+
+Before reconciliation, production attachment metadata contained:
+
+```text
+r2 / available: 6
+r2 / failed: 4
+s3 / available: 1
+```
+
+A Sequelize migration updated only available live attachment records from `r2` to `s3` and changed the database default to `s3`.
+
+Verified post-migration state:
+
+```text
+r2 / failed: 4
+s3 / available: 7
+storageProvider database default: s3
+```
+
+Historical failed rows remain marked `r2` intentionally because they describe failed upload attempts made before the storage cutover and do not represent live migrated objects.
+
+### R2 Production Retirement
+
+After S3 cutover and metadata reconciliation:
+
+- normal production `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` variables were removed from the Lightsail `.env`
+- the backend restarted successfully without those variables
+- health and readiness checks passed
+- S3 reads and writes continued to work
+- the former production R2 credential was revoked in Cloudflare
+- the temporary root-owned rollback copy containing the old R2 credential material was deleted
+
+The former R2 production bucket is retained temporarily as migration evidence and rollback data. It is not used by the production application.
+
+The separate historical recovery-test bucket and its recovery-only credential are not production runtime dependencies and remain governed by the Phase 25B recovery procedure.
+
+### Current S3 Recovery Requirement
+
+A complete attachment recovery now requires:
+
+1. recoverable PostgreSQL attachment metadata
+2. recoverable S3 objects under the expected storage keys
+3. valid AWS credentials scoped to the production or replacement S3 attachment bucket
+4. reconciliation between restored PostgreSQL attachment metadata and recovered S3 objects
+5. application-level verification of upload, completion, download, restoration, and cleanup behavior
+
+The independent dated backup sets created during the R2 era remain valid recovery inputs because the S3 migration preserved object keys and byte content.
+
+### Historical R2 Recovery Evidence
+
+The following Phase 25B attachment-recovery material documents the system and recovery drills as they existed before the Phase 26C.4 migration. References to Cloudflare R2 in that historical section are intentionally preserved and must not be interpreted as the current production storage configuration.
 
 ## Attachment Storage Backup and Recovery
 
@@ -1674,10 +1811,10 @@ MAILGUN_API_BASE_URL
 MAILGUN_API_KEY
 MAILGUN_DOMAIN
 NODE_ENV
-R2_ACCESS_KEY_ID
-R2_ACCOUNT_ID
-R2_BUCKET_NAME
-R2_SECRET_ACCESS_KEY
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+S3_BUCKET_NAME
+S3_REGION
 ```
 
 The backend listens on port 5000, and Nginx proxies production API traffic to 127.0.0.1:5000.
@@ -1689,8 +1826,8 @@ Secret:
 DATABASE_URL
 JWT_SECRET
 MAILGUN_API_KEY
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
 ```
 
 Deployment-specific but not secret:
@@ -1698,8 +1835,8 @@ Deployment-specific but not secret:
 ```text
 FRONTEND_URL
 MAILGUN_DOMAIN
-R2_ACCOUNT_ID
-R2_BUCKET_NAME
+S3_BUCKET_NAME
+S3_REGION
 EMAIL_FROM_ADDRESS
 ```
 
@@ -1765,10 +1902,10 @@ ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS
 ATTACHMENT_MAX_FILE_SIZE_BYTES
 ATTACHMENT_PENDING_TTL_MINUTES
 ATTACHMENT_UPLOAD_URL_TTL_SECONDS
-R2_ACCOUNT_ID
-R2_BUCKET_NAME
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+S3_BUCKET_NAME
+S3_REGION
 ```
 
 Mailgun, JWT, and frontend variables are not required by the cleanup process.
@@ -1864,7 +2001,7 @@ To recreate the frontend:
 7. deploy the frontend
 8. record the replacement frontend origin if it differs
 9. update backend FRONTEND_URL
-10. update R2 CORS if the frontend origin changed
+10. update S3 CORS if the frontend origin changed
 11. update Better Stack frontend monitoring if the origin changed
 12. perform frontend smoke testing
 
@@ -1943,11 +2080,79 @@ Do not attempt to recover the old database password from Git.
 
 If the production RDS DB instance itself is lost, create a replacement RDS DB instance or another suitable PostgreSQL recovery environment and restore the database using the documented PostgreSQL recovery procedure.
 
-### Cloudflare R2 Configuration
+### Amazon S3 Configuration
 
 #### Production Bucket
 
 Verified current configuration:
+
+```text
+Provider: Amazon S3
+Bucket: labfluss-attachments-production
+Region: eu-central-1
+Public access: blocked
+Object Ownership: BucketOwnerEnforced
+Default encryption: SSE-S3 (AES256)
+```
+
+Production CORS allows:
+
+```text
+https://app.labfluss.com
+http://localhost:5173
+```
+
+Required browser methods:
+
+```text
+GET
+PUT
+HEAD
+```
+
+#### Required S3 Application Configuration
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+S3_BUCKET_NAME
+S3_REGION
+```
+
+```text
+Secret:
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
+
+```text
+Deployment-specific:
+S3_BUCKET_NAME
+S3_REGION
+```
+
+The production Lightsail runtime uses a dedicated IAM user restricted to the attachment bucket. Required permissions are limited to bucket listing and object read/write/delete operations needed by Labfluss. Account-wide bucket enumeration is denied.
+
+If the production S3 credential is lost or compromised:
+
+1. create a replacement least-privilege AWS IAM credential
+2. update the Lightsail backend environment
+3. restart the backend
+4. verify health and readiness
+5. verify attachment upload, completion, download, restoration, and cleanup
+6. revoke the superseded credential after successful verification
+
+Do not store replacement AWS secret values in Git.
+
+### Historical Cloudflare R2 Configuration
+
+The Cloudflare R2 configuration below is retained for Phase 25B recovery evidence and historical reconstruction. R2 is no longer the production attachment store.
+
+### Cloudflare R2 Configuration
+
+#### Production Bucket
+
+Verified historical production configuration:
 
 ```text
 Provider: Cloudflare R2
@@ -2236,7 +2441,7 @@ The previous secret should not be recovered from Git history.
 | AWS Lightsail cleanup systemd timer     | This document + systemd unit definitions                | Recreate service and timer units                         |
 | AWS Amplify frontend                    | This document + GitHub                                  | Recreate project/configuration                           |
 | Amazon RDS PostgreSQL database          | Amazon RDS PostgreSQL if available + PostgreSQL backups | Reset database credential or create replacement database |
-| Cloudflare R2                           | This document + attachment backups                      | Generate replacement scoped R2 credential                |
+| Amazon S3                               | This document + attachment backups                      | Generate replacement least-privilege AWS credential      |
 | Mailgun                                 | This document + Mailgun domain/DNS configuration        | Generate replacement sending/API credential              |
 | Better Stack                            | This document                                           | Recreate monitors and notification routing               |
 | JWT secret                              | AWS Lightsail if still securely available               | Generate a new secret if lost                            |
@@ -2286,18 +2491,18 @@ Obtain a replacement `DATABASE_URL` if necessary.
 
 Do not connect the production application until the recovered database has been validated.
 
-#### 3. Recover R2 attachment storage
+#### 3. Recover S3 attachment storage
 
 Recover or recreate:
 
-- production R2 bucket
+- production S3 bucket
 - required storage-key hierarchy
 - required CORS configuration
-- production R2 credential
+- production S3 credential
 
 Restore attachment objects as required.
 
-Reconcile PostgreSQL attachment metadata with R2 before declaring attachment recovery complete.
+Reconcile PostgreSQL attachment metadata with S3 before declaring attachment recovery complete.
 
 #### 4. Recreate AWS Lightsail backend
 
@@ -2313,8 +2518,8 @@ Generate or securely recover required secrets:
 DATABASE_URL
 JWT_SECRET
 MAILGUN_API_KEY
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
 ```
 
 Deploy the backend.
@@ -2332,7 +2537,7 @@ Recreate:
 
 `labflow-attachment-cleanup`
 
-Restore its database and R2 configuration.
+Restore its database and S3 configuration.
 
 Trigger a manual run.
 
@@ -2359,7 +2564,7 @@ Restore:
 If the frontend origin changes:
 
 1. update AWS Lightsail FRONTEND_URL
-2. update R2 CORS
+2. update S3 CORS
 3. redeploy/restart affected services
 4. update Better Stack monitoring
 
@@ -2460,7 +2665,8 @@ AWS Lightsail backend environment variables: Inventoried
 AWS Lightsail attachment-cleanup systemd timer: Configured and verified
 AWS Amplify frontend configuration: Inventoried
 Amazon RDS PostgreSQL platform configuration: Inventoried
-Cloudflare R2 configuration: Inventoried
+Amazon S3 configuration: Inventoried
+Historical Cloudflare R2 configuration: Retained for recovery evidence
 Mailgun configuration: Inventoried
 Better Stack configuration: Inventoried
 Secret classifications: Documented
@@ -2517,10 +2723,10 @@ The following rules apply to every Labfluss disaster-recovery event:
 2. Preserve the current production state before destructive recovery where practical.
 3. Prefer isolated recovery environments before production cutover.
 4. Do not point the production backend at an unvalidated recovery database.
-5. Do not delete production R2 objects merely to test recovery.
+5. Do not delete production S3 objects merely to test recovery.
 6. Do not expose production credentials in Git, screenshots, documentation, or shared logs.
 7. Do not assume that PostgreSQL recovery alone restores attachment functionality.
-8. Reconcile PostgreSQL attachment metadata with R2 object state after relevant recovery operations.
+8. Reconcile PostgreSQL attachment metadata with S3 object state after relevant recovery operations.
 9. Regenerate or rotate lost credentials rather than attempting to recover undocumented plaintext values.
 10. Validate recovered infrastructure before returning it to normal use.
 11. Preserve logs and recovery evidence when a recovery attempt fails.
@@ -2534,7 +2740,7 @@ Identify whether the incident affects one or more of the following:
 
 - PostgreSQL data
 - PostgreSQL availability
-- R2 attachment objects
+- S3 attachment objects
 - attachment metadata/object consistency
 - AWS Lightsail backend deployment
 - attachment-cleanup systemd timer
@@ -2619,21 +2825,21 @@ Application-level validation is also required.
 
 ### Step 5: Determine Attachment Recovery Requirements
 
-After PostgreSQL recovery, inspect attachment metadata before restoring R2 objects.
+After PostgreSQL recovery, inspect attachment metadata before restoring S3 objects.
 
 Determine:
 
 - which attachment records exist in the recovered database
 - which attachment storage keys are expected
-- which R2 objects currently exist
+- which S3 objects currently exist
 - which objects are available in the dated attachment backup
 - whether the restored database and attachment backup represent different points in time
 
-Attachment recovery is required when the restored PostgreSQL metadata references objects that are missing from the intended R2 environment.
+Attachment recovery is required when the restored PostgreSQL metadata references objects that are missing from the intended S3 environment.
 
-Do not blindly restore the entire R2 backup without first understanding the PostgreSQL recovery point.
+Do not blindly restore an entire historical attachment backup into S3 without first understanding the PostgreSQL recovery point.
 
-### Step 6: Recover and Reconcile R2 Attachments
+### Step 6: Recover and Reconcile S3 Attachments
 
 Use the documented attachment-recovery procedure.
 
@@ -2643,10 +2849,10 @@ For each required recovered object:
 2. determine the expected storage key
 3. locate the object in the dated backup
 4. verify the backup copy against the SHA-256 manifest where available
-5. restore into isolated or replacement R2 storage
+5. restore into isolated or replacement S3 storage
 6. preserve the expected storage key
 7. verify the recovered object's SHA-256 hash
-8. confirm PostgreSQL metadata and the recovered R2 object agree
+8. confirm PostgreSQL metadata and the recovered S3 object agree
 
 Reconciliation must identify at least:
 
@@ -2656,7 +2862,7 @@ Reconciliation must identify at least:
 - attachment records with incorrect or mismatched storage keys
 - pending attachment rows that should not be treated as completed attachment recovery targets
 
-Do not declare attachment recovery complete until PostgreSQL metadata and R2 object state are consistent.
+Do not declare attachment recovery complete until PostgreSQL metadata and S3 object state are consistent.
 
 ### Step 7: Recreate Core Production Configuration
 
@@ -2670,13 +2876,13 @@ Obtain or generate the required production `DATABASE_URL`.
 
 Use the validated recovered PostgreSQL environment.
 
-#### 2. R2 production configuration
+#### 2. S3 production configuration
 
 Recover or recreate:
 
-- production bucket
+- production S3 bucket
 - required CORS configuration
-- application credential
+- least-privilege AWS application credential
 - expected storage configuration
 
 #### 3. AWS Lightsail backend
@@ -2745,8 +2951,8 @@ Where required, generate replacements for:
 DATABASE_URL credentials
 JWT_SECRET
 MAILGUN_API_KEY
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
 ```
 
 After generating a replacement credential:
@@ -2799,7 +3005,7 @@ Before cutover:
 
 1. confirm the recovery target passed validation
 2. confirm the intended PostgreSQL recovery point
-3. confirm PostgreSQL/R2 reconciliation
+3. confirm PostgreSQL/S3 reconciliation
 4. confirm required credentials are available
 5. record the existing production configuration where practical
 6. restrict writes during the transition where practical
@@ -2807,7 +3013,7 @@ Before cutover:
 During cutover:
 
 1. update production database connectivity
-2. update production R2 configuration if replacement storage is used
+2. update production S3 configuration if replacement storage is used
 3. update backend configuration
 4. redeploy or restart the backend
 5. update frontend configuration when required
@@ -2868,8 +3074,8 @@ A Labfluss disaster recovery may be declared complete only when:
 - representative relational data is coherent
 - organization isolation is preserved
 - attachment metadata has been reviewed
-- required R2 objects are available
-- PostgreSQL/R2 reconciliation is complete where applicable
+- required S3 objects are available
+- PostgreSQL/S3 reconciliation is complete where applicable
 - backend health and readiness succeed
 - frontend operation is restored
 - authentication works
@@ -2914,7 +3120,7 @@ Do not record:
 - connection strings containing credentials
 - API secret values
 - JWT secrets
-- R2 secret keys
+- object-storage secret keys or AWS secret access keys
 - Mailgun secret keys
 - deploy-hook URLs
 - temporary signed URLs

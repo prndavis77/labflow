@@ -6,9 +6,13 @@ The attachment backend is designed for research evidence, experiment exports, pr
 
 ## Architecture
 
+Production attachment storage uses Amazon S3. The backend storage abstraction remains provider-based, with `s3AttachmentStorage.js` serving production and the earlier R2 provider retained for isolated historical/test workflows.
+
+Phase 26C.4 migrated production objects from Cloudflare R2 to S3 without changing attachment storage keys. The cutover preserved the existing organization-scoped key namespace, which allowed migrated PostgreSQL attachment metadata to continue referencing the same object keys after the provider switch.
+
 Attachment metadata is stored in PostgreSQL.
 
-File content is stored separately in a private Cloudflare R2 bucket.
+File content is stored separately in a private Amazon S3 bucket.
 
 The backend does not make the bucket public. Instead, it creates short-lived signed URLs for direct uploads and downloads.
 
@@ -18,7 +22,7 @@ The normal upload flow is:
 2. The backend validates the target record, file metadata, MIME type, file size, organization, and user access.
 3. The backend creates a pending attachment record.
 4. The backend returns a short-lived signed upload URL.
-5. The client uploads the file directly to Cloudflare R2.
+5. The client uploads the file directly to Amazon S3.
 6. The client calls the completion endpoint.
 7. The backend checks the stored object and marks the attachment available.
 
@@ -77,7 +81,7 @@ Successful responses contain:
 - Required upload headers
 - The signed URL expiration period
 
-The response does not expose R2 credentials.
+The response does not expose storage credentials.
 
 ### Complete an upload
 
@@ -92,7 +96,7 @@ The backend confirms that:
 - The attachment is still pending
 - The pending upload has not expired
 - The user still has access to the target record
-- The R2 object exists
+- The S3 object exists
 - The stored file size matches the expected size
 
 After successful verification, the attachment status changes to `available`.
@@ -129,7 +133,7 @@ Internal storage details such as the storage key, checksum, and ETag are not ret
 GET /api/attachments/:id/download
 ```
 
-The backend verifies the R2 object before creating the signed URL.
+The backend verifies the S3 object before creating the signed URL.
 
 The response contains:
 
@@ -191,7 +195,7 @@ archivedAt
 archivedById
 ```
 
-The physical R2 object is not deleted by the archive endpoint.
+The physical S3 object is not deleted by the archive endpoint.
 
 Repeated archive requests are idempotent after the caller’s access and ownership permissions have been checked.
 
@@ -232,7 +236,7 @@ The cleanup service:
 1. Selects expired pending attachments in batches.
 2. Reloads and locks each candidate.
 3. Confirms that the attachment is still pending and expired.
-4. Deletes any partial R2 object.
+4. Deletes any partial S3 object.
 5. Changes the attachment status to `failed`.
 6. Clears the upload expiration timestamp.
 7. Continues processing when another attachment fails.
@@ -291,7 +295,7 @@ attachment.archived
 Audit metadata must not include:
 
 ```text
-R2 credentials
+storage credentials
 signed URLs
 storage keys
 checksums
@@ -301,22 +305,35 @@ secret environment variables
 
 The pending-upload cleanup process is a system maintenance action. It does not create a fake user identity for audit logging.
 
-## Cloudflare R2 requirements
+## Amazon S3 requirements
 
-The R2 bucket must remain private.
+The production S3 bucket must remain private.
 
-The backend requires an R2 API token with the minimum object permissions needed to:
+Current production bucket:
 
-- Upload objects
-- Read object metadata
-- Download objects
-- Delete expired partial uploads
+```text
+labfluss-attachments-production
+```
 
-Limit the token to the Labfluss attachment bucket whenever possible.
+Current production region:
 
-The browser uploads directly to the signed R2 URL, so the bucket must have a CORS policy allowing the deployed frontend origin to perform the required upload request.
+```text
+eu-central-1
+```
 
-Do not use wildcard origins for a production deployment when the frontend has a fixed domain.
+The backend uses the AWS SDK for JavaScript and the standard AWS credential provider chain. The production Lightsail runtime uses a dedicated IAM identity with least-privilege access to the attachment bucket.
+
+Required object permissions are limited to the operations needed by Labfluss:
+
+- list the production attachment bucket
+- upload objects
+- read object metadata and object ranges
+- download objects
+- delete expired or rejected objects
+
+Public bucket access is blocked. Object ownership is `BucketOwnerEnforced`, and default server-side encryption uses SSE-S3 (`AES256`).
+
+The browser uploads directly to signed S3 URLs, so the bucket CORS policy permits the deployed frontend origin and local Vite development origin for the required `GET`, `PUT`, and `HEAD` requests. Production does not use a wildcard origin.
 
 ## Environment variables
 
@@ -324,10 +341,10 @@ Required storage settings:
 
 ```text
 ATTACHMENT_STORAGE_PROVIDER
-R2_ACCOUNT_ID
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
-R2_BUCKET_NAME
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+S3_BUCKET_NAME
+S3_REGION
 ```
 
 Configurable attachment settings:
@@ -341,6 +358,25 @@ ATTACHMENT_CLEANUP_BATCH_SIZE
 ```
 
 Production storage credentials are supplied through the restricted backend environment configuration on the AWS Lightsail host. They must not be committed to Git.
+
+## Production S3 migration status
+
+Phase 26C.4 completed the production storage migration with the following verified state:
+
+```text
+Production provider: s3
+Production bucket: labfluss-attachments-production
+Region: eu-central-1
+Pre-cutover migrated objects: 52
+Pre-cutover migrated bytes: 23477836
+Migration hash verification: 52 of 52 objects matched
+Post-cutover production writes: verified
+Existing migrated downloads: verified
+Production R2 runtime credentials: removed
+Former production R2 credential: revoked
+```
+
+Available attachment database records were reconciled from `r2` to `s3`. Historical failed upload rows remain marked `r2` because they describe failed attempts that occurred before the cutover and do not represent live migrated objects.
 
 ## Operational checks
 

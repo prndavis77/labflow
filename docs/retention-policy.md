@@ -54,7 +54,7 @@ Labfluss follows these principles:
 | Notebook entries                           | while related experiment/project/workspace remains active                   | up to 30 days                                                                    | removed with associated customer data                                   |
 | Review history                             | while related customer records remain active                                | up to 30 days                                                                    | customer workflow data                                                  |
 | Attachment metadata                        | while attachment or related customer record is retained                     | up to 30 days                                                                    | metadata and object deletion should be reconciled                       |
-| Attachment file contents                   | while attachment or related customer record is retained                     | up to 30 days                                                                    | private R2 objects                                                      |
+| Attachment file contents                   | while attachment or related customer record is retained                     | up to 30 days                                                                    | private Amazon S3 objects                                               |
 | Archived customer records                  | while workspace remains active unless permanently deleted                   | up to 30 days                                                                    | archive is a recoverable application state                              |
 | Invitations                                | while pending and for limited administrative history afterward              | up to 90 days after expiration, revocation, acceptance, or workspace termination | raw invitation tokens are not retained as plaintext                     |
 | Password-reset token data                  | only while required for the reset/security workflow                         | no intentional post-account retention                                            | raw reset tokens are not persisted                                      |
@@ -217,7 +217,7 @@ Logs must not intentionally contain:
 - raw invitation tokens
 - DATABASE_URL values
 - provider API credentials
-- R2 credentials
+- AWS/S3 credentials
 - signed attachment URLs
 - unrestricted customer attachment contents
 

@@ -11,7 +11,7 @@ Labfluss uses Sequelize migrations for production schema changes. Production mig
 - Frontend: AWS Amplify Hosting
 - Backend: AWS Lightsail
 - Database: Amazon RDS for PostgreSQL
-- Attachment storage: Cloudflare R2
+- Attachment storage: Amazon S3
 - Transactional email: Mailgun
 - External monitoring: Better Stack
 
@@ -110,37 +110,37 @@ Do not record raw reset or verification tokens in logs or documentation.
 
 ## Attachment Storage Deployment
 
-Labfluss attachments use private Cloudflare R2 object storage.
+Labfluss attachments use private Amazon S3 object storage.
 
 ### Required backend environment variables
 
 Configure these values on the deployed backend service:
 
 ```text
-ATTACHMENT_STORAGE_PROVIDER=r2
+ATTACHMENT_STORAGE_PROVIDER=s3
 ATTACHMENT_MAX_FILE_SIZE_BYTES=26214400
 ATTACHMENT_PENDING_TTL_MINUTES=30
 ATTACHMENT_UPLOAD_URL_TTL_SECONDS=300
 ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS=60
 ATTACHMENT_CLEANUP_BATCH_SIZE=100
 
-R2_ACCOUNT_ID
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
-R2_BUCKET_NAME
+S3_BUCKET_NAME
+S3_REGION
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
 ```
 
-The R2 account ID, access key, secret key, and bucket name are secrets or deployment-specific values. Do not commit them to the repository.
+The AWS access key, secret key, and S3 bucket name are secrets or deployment-specific values. Do not commit them to the repository.
 
-### R2 bucket requirements
+### S3 bucket requirements
 
 - Keep the bucket private.
 - Do not enable public bucket access.
-- Create an API token restricted to the Labfluss bucket where possible.
+- Use a dedicated least-privilege AWS IAM credential restricted to the Labfluss attachment bucket.
 - Give the token only the object permissions required by the backend.
 - Configure CORS for the deployed frontend origin.
-- Do not include the R2 secret key in frontend environment variables.
-- Do not expose R2 credentials through API responses.
+- Do not include the AWS secret key in frontend environment variables.
+- Do not expose S3 credentials through API responses.
 - Do not log signed URLs.
 
 ### Attachment database migration
@@ -215,22 +215,18 @@ A failed cleanup item should cause the run to be reported unsuccessful while all
 
 ---
 
-## Configure Cloudflare R2 CORS
+## Configure Amazon S3 CORS
 
-Direct browser uploads use signed `PUT` requests. Cloudflare notes that browser use of presigned URLs requires a bucket CORS policy that permits the frontend’s origin and request method.
+Direct browser uploads use signed `PUT` requests. Browser use of presigned S3 URLs requires a bucket CORS policy that permits the frontend origin and required request methods.
 
 For local development and the current deployed AWS Amplify frontend, use a policy equivalent to:
 
 ```json
 [
   {
-    "AllowedOrigins": ["http://localhost:5173", "https://app.labfluss.com"],
-    "AllowedMethods": ["PUT", "GET", "HEAD"],
-    "AllowedHeaders": [
-      "Content-Type",
-      "x-amz-checksum-sha256",
-      "x-amz-content-sha256"
-    ],
+    "AllowedOrigins": ["https://app.labfluss.com", "http://localhost:5173"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
   }
@@ -247,7 +243,7 @@ Do not use:
 
 for a production deployment with a known frontend domain.
 
-Presigned URLs grant temporary access to the operation encoded in the URL, and Cloudflare recommends treating them as bearer tokens.
+Presigned URLs grant temporary access to the operation encoded in the URL and should be treated as bearer credentials while valid.
 
 ## AWS Lightsail Backend Configuration
 
