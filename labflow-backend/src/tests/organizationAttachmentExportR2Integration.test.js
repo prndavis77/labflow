@@ -135,7 +135,16 @@ const createStorage = (config) =>
 const sha256 = (buffer) =>
   crypto.createHash("sha256").update(buffer).digest("hex");
 
-describe("organization attachment export R2 integration", () => {
+const RUN_R2_INTEGRATION_TESTS =
+  String(process.env.RUN_R2_INTEGRATION_TESTS || "")
+    .trim()
+    .toLowerCase() === "true";
+
+const describeR2Integration = RUN_R2_INTEGRATION_TESTS
+  ? describe
+  : describe.skip;
+
+describeR2Integration("organization attachment export R2 integration", () => {
   let r2Config;
   let r2Client;
   let storage;

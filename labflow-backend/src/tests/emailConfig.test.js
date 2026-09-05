@@ -14,6 +14,10 @@ const loadEmailConfig = (environmentOverrides = {}) => {
     MAILGUN_DOMAIN: "",
     MAILGUN_API_BASE_URL: "https://api.mailgun.net",
 
+    SES_REGION: "eu-central-1",
+    SES_ACCESS_KEY_ID: "",
+    SES_SECRET_ACCESS_KEY: "",
+
     ...environmentOverrides,
   };
 
@@ -129,6 +133,76 @@ describe("Email configuration", () => {
 
     expect(thrownError).toBeDefined();
 
+    expect(thrownError.message).not.toContain(secretValue);
+  });
+
+  it("accepts the SES provider", () => {
+    const { emailConfig } = loadEmailConfig({
+      EMAIL_PROVIDER: "ses",
+      EMAIL_FROM_ADDRESS: "no-reply@labfluss.com",
+      SES_REGION: "eu-central-1",
+      SES_ACCESS_KEY_ID: "test-access-key-id",
+      SES_SECRET_ACCESS_KEY: "test-secret-access-key",
+    });
+
+    expect(emailConfig.ses).toEqual({
+      region: "eu-central-1",
+      accessKeyId: "test-access-key-id",
+      secretAccessKey: "test-secret-access-key",
+    });
+  });
+
+  it("defaults SES to eu-central-1", () => {
+    const { emailConfig } = loadEmailConfig({
+      EMAIL_PROVIDER: "ses",
+      EMAIL_FROM_ADDRESS: "no-reply@labfluss.com",
+      SES_REGION: " ",
+      SES_ACCESS_KEY_ID: "test-access-key-id",
+      SES_SECRET_ACCESS_KEY: "test-secret-access-key",
+    });
+
+    expect(emailConfig.ses.region).toBe("eu-central-1");
+  });
+
+  it("requires an SES access key ID", () => {
+    expect(() =>
+      loadEmailConfig({
+        EMAIL_PROVIDER: "ses",
+        EMAIL_FROM_ADDRESS: "no-reply@labfluss.com",
+        SES_ACCESS_KEY_ID: "",
+        SES_SECRET_ACCESS_KEY: "test-secret-access-key",
+      }),
+    ).toThrow("SES_ACCESS_KEY_ID is required");
+  });
+
+  it("requires an SES secret access key", () => {
+    expect(() =>
+      loadEmailConfig({
+        EMAIL_PROVIDER: "ses",
+        EMAIL_FROM_ADDRESS: "no-reply@labfluss.com",
+        SES_ACCESS_KEY_ID: "test-access-key-id",
+        SES_SECRET_ACCESS_KEY: "",
+      }),
+    ).toThrow("SES_SECRET_ACCESS_KEY is required");
+  });
+
+  it("does not include the SES secret access key in validation errors", () => {
+    const secretValue = "super-secret-ses-key";
+
+    let thrownError;
+
+    try {
+      loadEmailConfig({
+        EMAIL_PROVIDER: "ses",
+        EMAIL_FROM_ADDRESS: "invalid-sender-address",
+        SES_ACCESS_KEY_ID: "test-access-key-id",
+        SES_SECRET_ACCESS_KEY: secretValue,
+      });
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeDefined();
     expect(thrownError.message).not.toContain(secretValue);
   });
 });

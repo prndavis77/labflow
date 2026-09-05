@@ -1,16 +1,16 @@
-const EMAIL_PROVIDERS = Object.freeze(["disabled", "mailgun"]);
+const EMAIL_PROVIDERS = Object.freeze(["disabled", "mailgun", "ses"]);
 
 const MAILGUN_API_BASE_URLS = Object.freeze([
   "https://api.mailgun.net",
   "https://api.eu.mailgun.net",
 ]);
 
-const getRequiredEnvironmentValue = (variableName) => {
+const getRequiredEnvironmentValue = (variableName, provider) => {
   const value = String(process.env[variableName] || "").trim();
 
   if (!value) {
     throw new Error(
-      `${variableName} is required when ` + "EMAIL_PROVIDER=mailgun.",
+      `${variableName} is required when EMAIL_PROVIDER=${provider}.`,
     );
   }
 
@@ -44,6 +44,12 @@ const emailConfig = {
     domain: null,
     apiBaseUrl: null,
   },
+
+  ses: {
+    region: null,
+    accessKeyId: null,
+    secretAccessKey: null,
+  },
 };
 
 if (emailProvider === "mailgun") {
@@ -62,10 +68,8 @@ if (emailProvider === "mailgun") {
   }
 
   emailConfig.mailgun = {
-    apiKey: getRequiredEnvironmentValue("MAILGUN_API_KEY"),
-
-    domain: getRequiredEnvironmentValue("MAILGUN_DOMAIN"),
-
+    apiKey: getRequiredEnvironmentValue("MAILGUN_API_KEY", "mailgun"),
+    domain: getRequiredEnvironmentValue("MAILGUN_DOMAIN", "mailgun"),
     apiBaseUrl,
   };
 
@@ -73,6 +77,24 @@ if (emailProvider === "mailgun") {
     throw new Error(
       "EMAIL_FROM_ADDRESS must be a valid " +
         "sender address when EMAIL_PROVIDER=mailgun.",
+    );
+  }
+}
+
+if (emailProvider === "ses") {
+  emailConfig.ses = {
+    region: String(process.env.SES_REGION || "").trim() || "eu-central-1",
+    accessKeyId: getRequiredEnvironmentValue("SES_ACCESS_KEY_ID", "ses"),
+    secretAccessKey: getRequiredEnvironmentValue(
+      "SES_SECRET_ACCESS_KEY",
+      "ses",
+    ),
+  };
+
+  if (!fromAddress || !fromAddress.includes("@")) {
+    throw new Error(
+      "EMAIL_FROM_ADDRESS must be a valid " +
+        "sender address when EMAIL_PROVIDER=ses.",
     );
   }
 }
