@@ -7,6 +7,10 @@ require("dotenv").config({
 const logger = require("./logger");
 const { getDatabaseSslOptions } = require("./databaseSsl");
 const { logError } = require("../utils/errorLogger");
+const {
+  isDatabaseSecretEnabled,
+  getDatabaseSecret,
+} = require("./databaseSecret");
 
 const getRuntimeDatabaseUrl = () => {
   if (process.env.NODE_ENV === "test") {
@@ -56,6 +60,15 @@ const sequelize = new Sequelize(databaseUrl, {
       }
     : {},
 });
+
+if (process.env.NODE_ENV === "production" && isDatabaseSecretEnabled()) {
+  sequelize.beforeConnect(async (config) => {
+    const { username, password } = await getDatabaseSecret();
+
+    config.username = username;
+    config.password = password;
+  });
+}
 
 async function connectDatabase() {
   try {

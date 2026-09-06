@@ -42,6 +42,14 @@ const validateProductionConfig = () => {
     );
   }
 
+  const databaseSecretArn = String(process.env.DB_SECRET_ARN || "").trim();
+
+  if (databaseSecretArn) {
+    requireEnvironmentValue("DB_SECRET_REGION");
+    requireEnvironmentValue("DB_SECRET_ACCESS_KEY_ID");
+    requireEnvironmentValue("DB_SECRET_SECRET_ACCESS_KEY");
+  }
+
   const jwtSecret = requireEnvironmentValue("JWT_SECRET");
 
   if (jwtSecret.length < 32) {

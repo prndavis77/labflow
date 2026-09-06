@@ -114,4 +114,87 @@ describe("production configuration validation", () => {
 
     expect(() => loadValidator()()).not.toThrow();
   });
+
+  test("accepts production configuration without database secret mode", () => {
+    process.env.NODE_ENV = "production";
+    process.env.DATABASE_URL =
+      "postgres://user:password@example.com:5432/labflow";
+    process.env.JWT_SECRET = "a".repeat(32);
+    process.env.FRONTEND_URL = "https://labflow.example.com";
+
+    delete process.env.DB_SECRET_ARN;
+    delete process.env.DB_SECRET_REGION;
+    delete process.env.DB_SECRET_ACCESS_KEY_ID;
+    delete process.env.DB_SECRET_SECRET_ACCESS_KEY;
+
+    expect(() => loadValidator()()).not.toThrow();
+  });
+
+  test("accepts complete database secret configuration in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.DATABASE_URL =
+      "postgres://user:password@example.com:5432/labflow";
+    process.env.JWT_SECRET = "a".repeat(32);
+    process.env.FRONTEND_URL = "https://labflow.example.com";
+
+    process.env.DB_SECRET_ARN =
+      "arn:aws:secretsmanager:eu-central-1:123456789012:secret:test";
+    process.env.DB_SECRET_REGION = "eu-central-1";
+    process.env.DB_SECRET_ACCESS_KEY_ID = "test-access-key";
+    process.env.DB_SECRET_SECRET_ACCESS_KEY = "test-secret-key";
+
+    expect(() => loadValidator()()).not.toThrow();
+  });
+
+  test("requires DB_SECRET_REGION when database secret mode is enabled", () => {
+    process.env.NODE_ENV = "production";
+    process.env.DATABASE_URL =
+      "postgres://user:password@example.com:5432/labflow";
+    process.env.JWT_SECRET = "a".repeat(32);
+    process.env.FRONTEND_URL = "https://labflow.example.com";
+
+    process.env.DB_SECRET_ARN =
+      "arn:aws:secretsmanager:eu-central-1:123456789012:secret:test";
+    delete process.env.DB_SECRET_REGION;
+    process.env.DB_SECRET_ACCESS_KEY_ID = "test-access-key";
+    process.env.DB_SECRET_SECRET_ACCESS_KEY = "test-secret-key";
+
+    expect(() => loadValidator()()).toThrow("DB_SECRET_REGION is required.");
+  });
+
+  test("requires DB_SECRET_ACCESS_KEY_ID when database secret mode is enabled", () => {
+    process.env.NODE_ENV = "production";
+    process.env.DATABASE_URL =
+      "postgres://user:password@example.com:5432/labflow";
+    process.env.JWT_SECRET = "a".repeat(32);
+    process.env.FRONTEND_URL = "https://labflow.example.com";
+
+    process.env.DB_SECRET_ARN =
+      "arn:aws:secretsmanager:eu-central-1:123456789012:secret:test";
+    process.env.DB_SECRET_REGION = "eu-central-1";
+    delete process.env.DB_SECRET_ACCESS_KEY_ID;
+    process.env.DB_SECRET_SECRET_ACCESS_KEY = "test-secret-key";
+
+    expect(() => loadValidator()()).toThrow(
+      "DB_SECRET_ACCESS_KEY_ID is required.",
+    );
+  });
+
+  test("requires DB_SECRET_SECRET_ACCESS_KEY when database secret mode is enabled", () => {
+    process.env.NODE_ENV = "production";
+    process.env.DATABASE_URL =
+      "postgres://user:password@example.com:5432/labflow";
+    process.env.JWT_SECRET = "a".repeat(32);
+    process.env.FRONTEND_URL = "https://labflow.example.com";
+
+    process.env.DB_SECRET_ARN =
+      "arn:aws:secretsmanager:eu-central-1:123456789012:secret:test";
+    process.env.DB_SECRET_REGION = "eu-central-1";
+    process.env.DB_SECRET_ACCESS_KEY_ID = "test-access-key";
+    delete process.env.DB_SECRET_SECRET_ACCESS_KEY;
+
+    expect(() => loadValidator()()).toThrow(
+      "DB_SECRET_SECRET_ACCESS_KEY is required.",
+    );
+  });
 });
