@@ -1,8 +1,8 @@
-# LabFlow Security
+# Labfluss Security
 
 ## Security model
 
-LabFlow is a multi-tenant laboratory project-management application.
+Labfluss is a multi-tenant laboratory project-management application.
 
 Backend security controls are designed around:
 
@@ -18,7 +18,7 @@ Backend security controls are designed around:
 
 ## Authentication
 
-LabFlow uses JWT bearer authentication.
+Labfluss uses JWT bearer authentication.
 
 JWTs:
 
@@ -34,7 +34,7 @@ Password hashes are never included in API responses.
 
 ## Account security
 
-LabFlow includes:
+Labfluss includes:
 
 - password policy enforcement
 - password-reset tokens
@@ -127,6 +127,10 @@ Production `FRONTEND_URL` must use HTTPS.
 
 ## PostgreSQL security
 
+Production PostgreSQL runs on Amazon RDS and is private-only.
+
+Database access is restricted to the private Lightsail-to-RDS network path.
+
 Hosted and production PostgreSQL connections use TLS.
 
 Certificate verification defaults to enabled.
@@ -141,7 +145,35 @@ Disabling verification with:
 
 should only be used when the database provider cannot provide a verifiable certificate.
 
-Production `DATABASE_URL` must not embed SSL options such as `sslmode`, `sslcert`, `sslkey`, or `sslrootcert`, because LabFlow owns the production TLS configuration.
+Production `DATABASE_URL` must not embed SSL options such as `sslmode`, `sslcert`, `sslkey`, or `sslrootcert`, because Labfluss owns the production TLS configuration.
+
+The production `DATABASE_URL` does not contain the PostgreSQL password.
+
+The production database credential is managed by Amazon RDS through AWS Secrets Manager.
+
+When database-secret integration is enabled, production uses:
+
+```text
+DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
+```
+
+Before Sequelize opens a new physical PostgreSQL connection, the backend retrieves the `AWSCURRENT` credential from the RDS-managed secret.
+
+The dedicated database-secret runtime IAM identity is restricted to:
+
+```text
+secretsmanager:GetSecretValue
+```
+
+for the specific production RDS secret.
+
+The runtime identity does not require general Secrets Manager enumeration or management permissions.
+
+The database password must not be restored to `DATABASE_URL` as the normal credential mechanism.
 
 ## Production safeguards
 
@@ -151,6 +183,12 @@ Production startup validates:
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `FRONTEND_URL`
+
+When `DB_SECRET_ARN` is configured in production, startup also requires:
+
+- `DB_SECRET_REGION`
+- `DB_SECRET_ACCESS_KEY_ID`
+- `DB_SECRET_SECRET_ACCESS_KEY`
 
 `NODE_ENV` must be one of:
 
@@ -162,6 +200,12 @@ Automatic Sequelize schema synchronization is refused in production.
 
 Production schema changes must use migrations.
 
+Production Sequelize CLI operations use the Secrets Manager-aware wrapper at `src/scripts/runSequelizeCli.js`.
+
+The wrapper retrieves the `AWSCURRENT` RDS credential from AWS Secrets Manager and exposes the credentialed database URL only to the child Sequelize CLI process. The production `DATABASE_URL` remains passwordless.
+
+This production migration credential path was verified successfully on 2026-09-07 using `npm run migrate:status`.
+
 Demo data seeding is refused in production unless explicitly enabled with:
 
 `ALLOW_PRODUCTION_SEED=true`
@@ -170,16 +214,31 @@ That override should not normally be enabled on a real production deployment.
 
 ## Attachment storage configuration
 
-When Cloudflare R2 storage is enabled, LabFlow requires:
+Production attachments use private Amazon S3 storage.
 
-- `R2_ACCOUNT_ID`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
-- `R2_BUCKET_NAME`
+Required production configuration includes:
 
-R2 endpoints must use HTTPS.
+```text
+ATTACHMENT_STORAGE_PROVIDER=s3
+S3_BUCKET_NAME
+S3_REGION
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
 
-Buckets should remain private.
+The production S3 credential uses a dedicated least-privilege IAM identity restricted to the Labfluss attachment bucket.
+
+The runtime identity is permitted only the bucket and object operations required by Labfluss attachment workflows.
+
+Account-wide S3 bucket enumeration is not required and is denied.
+
+The production bucket must remain private.
+
+Public bucket access must remain blocked.
+
+Browser access uses short-lived presigned URLs rather than public objects or frontend AWS credentials.
+
+Cloudflare R2 support remains in the backend only for historical and isolated non-production recovery/test workflows.
 
 ## Email configuration
 
@@ -187,8 +246,31 @@ Supported email modes are:
 
 - `disabled`
 - `mailgun`
+- `ses`
+
+Mailgun remains the active production provider until the Amazon SES production-access and cutover process is complete.
 
 When Mailgun is enabled, the application validates the Mailgun API key, domain, sender address, and supported Mailgun API endpoint.
+
+When Amazon SES is enabled, the backend uses dedicated SES credentials rather than the general S3 AWS credentials.
+
+SES runtime configuration includes:
+
+```text
+SES_REGION
+SES_ACCESS_KEY_ID
+SES_SECRET_ACCESS_KEY
+```
+
+The production SES runtime IAM identity is restricted to:
+
+```text
+ses:SendEmail
+```
+
+for the verified labfluss.com SES identity.
+
+The application does not require general SES identity-listing or IAM administration permissions.
 
 ## Dependency security
 
@@ -208,36 +290,82 @@ Do not automatically run:
 
 without reviewing the proposed dependency changes.
 
-### Current accepted dependency risk
+### Current dependency findings
 
-As of August 20, 2026, npm audit reports two moderate findings associated with:
+The latest reviewed backend audit on 2026-09-07 reports:
 
-`sequelize@6.37.8 -> uuid@8.3.2`
+```text
+2 moderate vulnerabilities
+```
 
-The advisory affects `uuid` versions below 11.1.1.
+Both findings are associated with the same transitive dependency path:
 
-The vulnerable dependency is transitive through Sequelize 6.
+```text
+sequelize@6.37.8
+└── uuid@8.3.2
+```
 
-The npm automatic force-fix proposes downgrading Sequelize to 3.30.0, which is a breaking and unacceptable change.
+The `uuid` advisory affects versions below 11.1.1 and concerns missing buffer-bound checks in UUID v3, v5, and v6 operations when a caller provides a buffer.
 
-Until Sequelize provides a compatible upstream resolution, this finding is tracked as an accepted transitive dependency risk and should be reviewed during dependency maintenance.
+Labfluss does not directly depend on or call `uuid`. The vulnerable version is inherited transitively through Sequelize 6.
+
+npm's automated remediation requires:
+
+```powershell
+npm audit fix --force
+```
+
+and proposes downgrading Sequelize to 3.30.0.
+
+That is a breaking and unacceptable remediation for the current application architecture.
+
+The finding is therefore accepted temporarily as a moderate transitive dependency risk and should be reviewed during normal dependency maintenance or when Sequelize provides a compatible upstream resolution.
+
+A separate `qs` advisory identified during the same review was remediated successfully by updating the compatible transitive dependency from `qs@6.15.2` to `qs@6.16.0`.
+
+Do not use `npm audit fix --force` to remediate the remaining Sequelize/uuid finding.
 
 ### Required production practices
 
 Production deployments should:
 
 - use HTTPS at the public endpoint
-- store secrets in the hosting platform's secret/environment system
-- never commit .env
-- use a private PostgreSQL database where possible
-- verify database TLS certificates
-- use a private R2 bucket
+- store secrets only in restricted backend environment or secret-management configuration
+- never commit `.env`
+- keep the production `.env` restricted to the service account
+- keep the production RDS database private
+- verify PostgreSQL TLS certificates
+- keep production `DATABASE_URL` passwordless
+- retrieve the current RDS credential through AWS Secrets Manager
+- use least-privilege IAM identities for database-secret, S3, and SES access
+- keep the Amazon S3 attachment bucket private
 - restrict CORS to the production frontend
 - configure the correct reverse-proxy trust level
-- apply migrations before application rollout
-- run npm ci from the committed lockfile
+- create or confirm an appropriate recovery point before meaningful schema migrations
+- do not reinsert the RDS password into `DATABASE_URL` merely to run Sequelize CLI
+- run production Sequelize CLI operations through the committed Secrets Manager-aware npm migration scripts rather than bypassing the wrapper
+- run `npm ci` from the committed lockfile
 - run the backend regression test suite before deployment
-- review npm audit findings
+- review `npm audit` findings individually
+- review accepted transitive dependency risks periodically and when upstream ORM updates become available
+
+## Database credential-rotation resilience
+
+A production incident on 2026-09-05 demonstrated the importance of separating process liveness from service readiness.
+
+During the incident:
+
+- the Node.js process remained running
+- `/api/health` remained HTTP 200
+- PostgreSQL authentication failed after an automatic RDS credential rotation
+- `/api/ready` returned HTTP 503
+- Better Stack detected the readiness outage
+
+The original production configuration stored the RDS password statically inside `DATABASE_URL`.
+
+The permanent remediation removed the database password from `DATABASE_URL` and added runtime retrieval of the `AWSCURRENT` credential through AWS Secrets Manager.
+
+The remediation was verified by performing another database-secret rotation without restarting the backend. Post-rotation readiness remained HTTP 200 and no database authentication or Secrets Manager authorization failures were observed during the verification window.
 
 ### Security testing
 
@@ -262,6 +390,12 @@ The backend regression suite includes tests covering:
 - database setup production safeguards
 - Helmet security-header delivery
 - API rate-limit middleware and standardized rate-limit headers
+- Secrets Manager database-secret parsing and validation
+- production database-secret configuration validation
+- Sequelize `beforeConnect` database-secret integration
+- credential redaction for database-secret AWS access keys
+- Sequelize CLI production credential-wrapper behavior
+- passwordless production migration environment handling
 
 Run:
 
@@ -273,4 +407,4 @@ before security-sensitive releases.
 
 Do not report suspected vulnerabilities by placing production secrets, access tokens, passwords, or private customer data in public issues.
 
-If LabFlow is operated by an organization, security reports should be sent through that organization's designated private security-contact channel.
+If Labfluss is operated by an organization, security reports should be sent through that organization's designated private security-contact channel.

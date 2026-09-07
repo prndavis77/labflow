@@ -113,6 +113,10 @@ I designed and built the full-stack MVP, including:
 - Sequelize migrations
 - Backend automated tests with Jest and Supertest
 - Production deployment to AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, and Amazon S3
+- Amazon RDS credential-rotation architecture using AWS Secrets Manager
+- Passwordless production database configuration
+- Least-privilege IAM design for database-secret, attachment-storage, and transactional-email access
+- Production incident diagnosis and remediation for automatic RDS credential rotation
 - Organization settings workflow
 - Invitation list management
 - Workspace registration and first-admin onboarding
@@ -157,6 +161,8 @@ I designed and built the full-stack MVP, including:
 - form-data
 - Amazon S3
 - AWS SDK for JavaScript S3 client and URL presigning
+- AWS SDK for JavaScript Secrets Manager client
+- AWS SDK for JavaScript SES v2 client
 
 ### Testing and Deployment
 
@@ -412,6 +418,30 @@ Labfluss now uses Sequelize migrations to manage the database schema. The initia
 
 This is a stronger deployment path than relying on automatic schema sync for future database changes.
 
+### Rotating Database Credentials with AWS Secrets Manager
+
+The production PostgreSQL database runs on Amazon RDS with automatic credential rotation managed through AWS Secrets Manager.
+
+The production `DATABASE_URL` contains the database endpoint, username, port, and database name, but it no longer contains the PostgreSQL password.
+
+Instead, the backend retrieves the `AWSCURRENT` credential from the RDS-managed Secrets Manager secret before Sequelize opens a new physical PostgreSQL connection.
+
+A dedicated runtime IAM identity is restricted to:
+
+```text
+secretsmanager:GetSecretValue
+```
+
+for only the specific production RDS secret.
+
+This avoids storing a long-lived RDS password directly in the Lightsail environment and allows the running application to continue opening database connections after automatic password rotation.
+
+The design was verified in production by manually rotating the RDS-managed secret without restarting the backend. Readiness remained HTTP 200 after the rotation and no database authentication failures were observed in the verification window.
+
+The same Secrets Manager credential model was also extended to production Sequelize CLI operations. A dedicated wrapper retrieves the `AWSCURRENT` credential, constructs the credentialed database URL only in memory, and passes it only to the child Sequelize CLI process. The production `DATABASE_URL` remains passwordless.
+
+This migration path was verified against the private production RDS database using `npm run migrate:status`, which successfully reported the complete production migration state without exposing or restoring a static database password.
+
 ### Automated Backend Testing
 
 The backend includes automated tests using Jest and Supertest.
@@ -468,7 +498,7 @@ A test database safety guard prevents destructive test cleanup from running unle
 
 ### Backend Security Hardening
 
-The deployed demo backend includes basic security hardening:
+The deployed backend includes production-oriented security hardening:
 
 - Security headers with Helmet
 - Authentication route rate limiting
@@ -479,7 +509,7 @@ The deployed demo backend includes basic security hardening:
 - Role-based authorization
 - Project-scoped backend access checks
 
-The project is still a portfolio/demo application and would need additional production hardening before handling real users or real research data.
+The public deployment remains a portfolio/demo environment using seeded test data and is not approved for real laboratory, research, customer, or institutional data. Additional operational, compliance, and pilot-readiness controls are still being completed before broader production use.
 
 ### Audit Logging
 
@@ -658,6 +688,26 @@ The console showed blocked or interrupted asset requests, HTTP 499 responses, `N
 
 The appropriate response is to submit the hostname for Kaspersky reanalysis and avoid asking users to disable protection. The production frontend was later migrated to AWS Amplify Hosting and is now served from the custom domain `https://app.labfluss.com`.
 
+### 16. Handling Automatic RDS Credential Rotation Without Application Downtime
+
+A production incident exposed a weakness in the original database credential model.
+
+Amazon RDS managed the PostgreSQL master credential through AWS Secrets Manager with automatic seven-day rotation. The backend, however, still stored the current database password statically inside `DATABASE_URL`.
+
+When Secrets Manager rotated the credential, the Lightsail backend continued using the previous password. The Node.js process remained healthy, so `/api/health` continued to return HTTP 200, but database authentication failed and `/api/ready` returned HTTP 503.
+
+This incident demonstrated why liveness and readiness must represent different conditions.
+
+The immediate recovery was to update the backend with the current RDS credential and restart the service.
+
+For the permanent fix, I changed the architecture so the production `DATABASE_URL` is passwordless and Sequelize retrieves the `AWSCURRENT` database credential from AWS Secrets Manager before opening each new physical connection.
+
+A dedicated IAM identity is restricted to `secretsmanager:GetSecretValue` for only the production RDS secret.
+
+I then tested the fix by rotating the secret again while the backend remained running. Multiple readiness requests continued to return HTTP 200 after the rotation, and the backend logs showed no password-authentication or Secrets Manager authorization failures.
+
+The incident also demonstrated an operational monitoring lesson: Better Stack detected the readiness failure correctly, but the outage lasted approximately 15 hours and 32 minutes, so alert routing and escalation still need improvement before a paid pilot.
+
 ## Result
 
 Labfluss MVP Version 1.6 is complete and deployed as a portfolio/demo application.
@@ -678,6 +728,13 @@ The project includes:
 - Production runtime cut over to `ATTACHMENT_STORAGE_PROVIDER=s3`
 - Existing available attachment metadata reconciled to S3 and new attachment rows default to S3
 - Former production R2 runtime credentials removed and production R2 credential revoked
+- Passwordless production `DATABASE_URL`
+- Runtime Amazon RDS credential retrieval through AWS Secrets Manager
+- Dedicated least-privilege IAM access to the production RDS-managed secret
+- Verified no-restart database credential rotation in production
+- Secrets Manager-aware production Sequelize CLI migration path
+- Verified production migration-status access with a passwordless `DATABASE_URL`
+- Amazon SES provider implemented and AWS sending identity configured while Mailgun remains the active production provider pending SES production access
 - Role-based authentication and protected routes
 - Project membership and project-specific access control
 - Experiment, protocol, task, equipment, booking, notebook, and review workflows

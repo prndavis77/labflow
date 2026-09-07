@@ -33,7 +33,7 @@ Labfluss also now includes substantial production-security and tenant-lifecycle 
 
 Research files are stored privately in Amazon S3 and uploaded directly using short-lived signed URLs. Attachment access follows the linked record's permissions and organization scope.
 
-The backend regression suite currently contains 62 Jest/Supertest suites and 799 tests. The complete suite passes against the dedicated local `labflow_test` PostgreSQL database.
+The backend regression suite currently contains 67 Jest/Supertest suites and 842 tests. The latest complete run passed 840 tests with 2 intentionally skipped tests, including the explicitly opt-in historical R2 integration coverage.
 
 ### Phase 26A: Paid Pilot Data Governance and Organization Offboarding
 
@@ -95,6 +95,14 @@ Completed:
 - Cut production over to `ATTACHMENT_STORAGE_PROVIDER=s3`, reconciled available attachment metadata to `s3`, and changed the database/model default to `s3`.
 - Verified post-cutover reads and writes through the production application, including new objects appearing only in S3.
 - Removed production R2 credentials from Lightsail and revoked the former production R2 credential after successful no-R2 runtime testing.
+- Added an Amazon SES email provider while retaining Mailgun as the production rollback provider during SES production-access approval.
+- Configured the `labfluss.com` Amazon SES identity, DKIM, custom MAIL FROM domain, SPF, DMARC, account-level bounce/complaint suppression, and a least-privilege SES sending identity.
+- Added a dedicated least-privilege AWS Secrets Manager runtime identity for the production RDS-managed database secret.
+- Removed the production database password from `DATABASE_URL`.
+- Updated the production Sequelize runtime to retrieve the `AWSCURRENT` RDS credential from AWS Secrets Manager before opening new physical PostgreSQL connections.
+- Verified production database credential rotation without restarting the backend, with readiness remaining HTTP 200 and no database authentication failures during the rotation window.
+- Added a Secrets Manager-aware production Sequelize CLI wrapper for migration status and migration execution.
+- Verified production `npm run migrate:status` against the private RDS database while keeping `DATABASE_URL` passwordless.
 
 ### Phase 25C: Production Security Hardening
 
@@ -1190,6 +1198,12 @@ Labfluss demonstrates several full-stack development concepts:
 - Isolated non-production Cloudflare R2 deletion-drill environment
 - Idempotent restore operations
 - Cross-entity restoration regression tests
+- AWS Secrets Manager integration for automatically rotated Amazon RDS credentials
+- Passwordless production `DATABASE_URL` with runtime credential retrieval
+- Least-privilege dedicated IAM identities for S3, SES, and the production database secret
+- Liveness/readiness separation that detects database failures independently of backend-process availability
+- Secrets Manager-aware production Sequelize CLI migration path
+- Passwordless production migration workflow using child-process-only credential injection
 
 ---
 
@@ -1222,6 +1236,8 @@ Labfluss demonstrates several full-stack development concepts:
 - Amazon S3
 - Cloudflare R2 compatibility provider retained for isolated historical/test workflows
 - AWS SDK for JavaScript S3 client and URL presigning
+- AWS SDK for JavaScript Secrets Manager client
+- AWS SDK for JavaScript SES v2 client
 
 ### Testing
 
@@ -1250,6 +1266,7 @@ labflow/
       config/
         attachmentConfig.js
         database.js
+        databaseSecret.js
         databaseSsl.js
         emailConfig.js
         logger.js
@@ -1286,6 +1303,7 @@ labflow/
         providers/
           disabledEmailProvider.js
           mailgunEmailProvider.js
+          sesEmailProvider.js
         templates/
           emailVerificationEmail.js
           invitationEmail.js
@@ -1399,6 +1417,8 @@ labflow/
         auditLogs.test.js
         auth.test.js
         authorization.test.js
+        databaseSecret.test.js
+        databaseSecretHook.test.js
         databaseSsl.test.js
         emailConfig.test.js
         emailService.test.js
@@ -1918,6 +1938,10 @@ Labfluss's backend security controls include:
 - ETag-conditioned attachment finalization
 - Production environment validation
 - PostgreSQL TLS with certificate verification enabled by default
+- Amazon RDS credential rotation through AWS Secrets Manager
+- Passwordless production `DATABASE_URL`
+- Least-privilege Secrets Manager access restricted to the specific production RDS secret
+- Runtime retrieval of the `AWSCURRENT` database credential before new physical PostgreSQL connections
 - Configurable reverse-proxy trust
 - Production protection against automatic Sequelize schema synchronization
 - Production protection against accidental demo seeding
@@ -1952,17 +1976,25 @@ The HTTP server starts independently of the initial database connection. A tempo
 
 The production backend exposes `/api/health` for liveness and `/api/ready` for PostgreSQL-aware readiness. Better Stack monitors both endpoints independently, while the AWS Lightsail backend service is supervised by systemd.
 
+This separation was validated during the September 2026 RDS credential-rotation incident. The backend process remained live and `/api/health` continued to return HTTP 200 while database authentication failed and `/api/ready` correctly returned HTTP 503.
+
 ### Production Deployment Safety
 
-Production startup validates required security-sensitive configuration, including `NODE_ENV`, `DATABASE_URL`, `JWT_SECRET`, and `FRONTEND_URL`.
+Production startup validates required security-sensitive configuration, including `NODE_ENV`, `DATABASE_URL`, `JWT_SECRET`, and `FRONTEND_URL`. When `DB_SECRET_ARN` is configured in production, the corresponding AWS Secrets Manager region and dedicated runtime IAM credentials are also required.
+
+The production `DATABASE_URL` does not contain the PostgreSQL password. Amazon RDS manages the database credential through AWS Secrets Manager, and the backend retrieves the `AWSCURRENT` credential before opening new physical Sequelize connections.
 
 Before running production migrations:
 
 - Confirm the backend test suite passes locally.
 - Confirm `NODE_ENV=production`.
-- Store the production database URL only in the deployment platform's secret or environment configuration.
+- Keep the production `DATABASE_URL` passwordless.
+- Do not reinsert the RDS password into `DATABASE_URL` merely to run Sequelize CLI.
+- Run production Sequelize CLI operations through the Secrets Manager-aware npm migration scripts.
+- Use `npm run migrate:status` to verify production migration state.
+- Use `npm run migrate` only for an intended, reviewed production migration after confirming the appropriate recovery point.
 - Verify PostgreSQL TLS certificate validation is enabled.
-- Check migration status before and after applying migrations.
+- Create or confirm the appropriate pre-migration recovery point.
 - Do not run the backend test suite against the production database.
 - Do not enable production demo seeding for normal deployments.
 - Keep the Amazon S3 attachment bucket private.

@@ -19,22 +19,67 @@ Labfluss uses Sequelize migrations for production schema changes. Production mig
 
 - Never run `npm test` against the production database.
 - Never run `npm run seed` against the production database unless intentionally resetting demo data.
-- Always check migration status before running production migrations.
-- Always verify the backend health endpoint after deployment.
-- Always remove local production environment variables after using them.
+- Run production Sequelize CLI operations through the committed Secrets Manager-aware npm scripts rather than bypassing the wrapper with direct Sequelize CLI commands.
+- Do not reinsert a long-lived database password into production `DATABASE_URL` merely to run migrations.
+- Always create or confirm the appropriate recovery point before a meaningful production migration.
+- Always verify backend liveness and readiness after deployment.
+- Never expose production credentials in shell history, documentation, screenshots, or Git.
 
 ## Production Migration Flow
 
-1. Confirm backend tests pass locally.
-2. Commit and push code.
-3. Confirm production database backup/snapshot if available.
-4. Connect to the production Lightsail host and verify the production environment configuration.
-5. Check migration status.
-6. Run migrations.
-7. Check migration status again.
-8. Clear production environment variables.
-9. Redeploy or restart backend.
-10. Verify production health and demo login.
+### Production migration credential path
+
+The production application runtime uses a passwordless `DATABASE_URL`.
+
+The RDS database password is retrieved from AWS Secrets Manager by the Sequelize runtime `beforeConnect` hook.
+
+Production Sequelize CLI commands use the Secrets Manager-aware wrapper at `src/scripts/runSequelizeCli.js`.
+
+For production, the wrapper retrieves the `AWSCURRENT` RDS credential from AWS Secrets Manager and injects it only into the child Sequelize CLI process environment. The production `DATABASE_URL` remains passwordless.
+
+Production migration status is available through:
+
+```bash
+npm run migrate:status
+```
+
+Production migrations should be executed only after the normal backup/recovery-point and deployment checks:
+
+```bash
+npm run migrate
+```
+
+This credential path was verified successfully against the private production Amazon RDS database on 2026-09-07 using `npm run migrate:status`. All production migrations were reported as applied.
+
+Do not reinsert the RDS password into production `DATABASE_URL` as the normal migration mechanism.
+
+### Required flow before a production migration
+
+1. Confirm relevant focused backend tests pass locally.
+2. Run the full backend regression suite.
+3. Review the intended migration and staged changes.
+4. Commit and push the reviewed code.
+5. Deploy the updated code to the authorized Lightsail backend host.
+6. Install production dependencies from the committed lockfile when dependencies changed.
+7. Verify current production migration status with:
+
+   ```bash
+   npm run migrate:status
+   ```
+
+8. Confirm Amazon RDS recovery capability and create or confirm the appropriate pre-migration recovery point.
+9. Apply the intended migration with:
+
+   ```bash
+   npm run migrate
+   ```
+
+10. Verify migration status afterward.
+11. Restart or redeploy the backend if required.
+12. Verify `/api/health`.
+13. Verify `/api/ready`.
+14. Perform representative login and application smoke testing.
+15. Review backend logs for migration or database errors.
 
 ## Commands
 
@@ -42,23 +87,63 @@ Run these commands from `labflow-backend`, not the monorepo root. Running `npx s
 
 Production migrations should normally be run from the AWS Lightsail backend host because the production RDS instance is private-only.
 
-Connect to the Lightsail instance, then run:
+Connect to the Lightsail instance and change to the backend directory:
 
 ```bash
 cd /opt/labflow/labflow-backend
 ```
 
-npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
-npm run migrate
-npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
+### Production migration commands
 
-The backend service should continue using the production environment file:
+Run production migration commands from:
 
 ```bash
-/opt/labflow/labflow-backend/.env
+cd /opt/labflow/labflow-backend
 ```
 
-Do not export or copy the production DATABASE_URL to an unrelated local machine merely to run migrations.
+Use:
+
+```bash
+npm run migrate:status
+```
+
+to inspect migration state.
+
+Use:
+
+```bash
+npm run migrate
+```
+
+only when an intended, reviewed production migration is ready to be applied.
+
+These npm scripts invoke the Secrets Manager-aware wrapper at:
+
+`src/scripts/runSequelizeCli.js`
+
+The wrapper retrieves the current `AWSCURRENT` database credential from AWS Secrets Manager and exposes the credentialed database URL only to the child Sequelize CLI process.
+
+The production `.env` and parent process retain the passwordless `DATABASE_URL`.
+
+Do not use a direct Sequelize CLI invocation as the normal production migration path:
+
+```bash
+npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
+```
+
+Do not manually insert the RDS password into `DATABASE_URL`.
+
+Production database runtime configuration includes:
+
+```text
+DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
+```
+
+Do not export or copy production database credentials to an unrelated local machine merely to run migrations.
 
 Do not run tests, seed commands, or ad hoc destructive scripts against the production RDS database.
 
@@ -66,11 +151,9 @@ Do not run tests, seed commands, or ad hoc destructive scripts against the produ
 
 The production schema must include the user email-verification and token-version columns, plus the password-reset-token and email-verification-token tables created by the Phase 24B migrations.
 
-Confirm the migration is applied:
+Confirm the required schema changes are present before enabling this workflow in production.
 
-```powershell
-npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
-```
+Historical or isolated recovery environments that use a complete database connection string may still use Sequelize CLI directly where appropriate.
 
 Mailgun must be configured on the deployed backend:
 
@@ -145,15 +228,9 @@ The AWS access key, secret key, and S3 bucket name are secrets or deployment-spe
 
 ### Attachment database migration
 
-Before enabling attachment routes in production:
+The attachment migrations were applied before the current passwordless production database credential architecture was introduced.
 
-```powershell
-npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
-npm run migrate
-npx sequelize-cli db:migrate:status --config src/config/sequelize-cli.js
-```
-
-Confirm that the attachment migration is listed as applied.
+Future production attachment-related migrations must use the Secrets Manager-aware production migration procedure documented earlier in this guide.
 
 ### Cleanup scheduling
 
@@ -271,7 +348,38 @@ Production environment variables are stored in:
 /opt/labflow/labflow-backend/.env
 ```
 
+Current database runtime configuration includes:
+
+```text
+DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
+```
+
+The production `DATABASE_URL` is passwordless.
+
+The production database password is managed by Amazon RDS through AWS Secrets Manager and retrieved at runtime before Sequelize opens a new physical PostgreSQL connection.
+
+The dedicated database-secret IAM credential is restricted to:
+
+```text
+secretsmanager:GetSecretValue
+```
+
+for the specific production RDS-managed secret.
+
 The environment file must remain restricted and must not be committed to Git.
+
+Verified production permissions:
+
+```text
+/opt/labflow/labflow-backend/.env
+mode: 600
+```
+
+Do not create or retain unnecessary .env backup copies containing production credentials.
 
 After backend changes:
 

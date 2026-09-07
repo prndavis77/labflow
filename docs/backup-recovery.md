@@ -488,13 +488,13 @@ Preferred backup format:
 
 PostgreSQL custom format
 
-Example:
+The current production `DATABASE_URL` is passwordless and therefore must not be passed directly to `pg_dump` as a complete authenticated connection string.
 
-pg_dump --format=custom --no-owner --no-acl --file="labflow-production-YYYYMMDD-HHMM.dump" "$env:DATABASE_URL"
+Production logical-backup tooling must obtain the current RDS credential securely from AWS Secrets Manager and construct the authenticated PostgreSQL connection only in process memory.
 
-The environment variable used for this command must contain a direct production PostgreSQL connection string.
+Do not restore the database password to the production `.env` merely to run `pg_dump`.
 
-Do not place the production connection string directly in:
+Do not place database passwords or credential-bearing connection strings directly in:
 
 - shell history
 - scripts committed to Git
@@ -503,11 +503,7 @@ Do not place the production connection string directly in:
 - screenshots
 - terminal output shared publicly
 
-After the backup completes, clear the temporary environment variable.
-
-Example:
-
-`Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue`
+The historical Phase 25B logical-backup and restore verification remains valid evidence that the logical-backup recovery path works. The current production logical-backup command path should use a reviewed Secrets Manager-aware procedure before the next manual production `pg_dump`.
 
 ## Backup File Verification
 
@@ -1713,11 +1709,10 @@ A value that grants authentication or privileged access.
 Examples:
 
 ```text
-DATABASE_URL
 JWT_SECRET
 MAILGUN_API_KEY
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
+AWS_SECRET_ACCESS_KEY
+DB_SECRET_SECRET_ACCESS_KEY
 ```
 
 Secret values must not be:
@@ -1731,18 +1726,33 @@ Secret values must not be:
 
 Where a secret is lost, regeneration or credential rotation is preferred over attempting to recover an undocumented plaintext copy.
 
+#### Sensitive credential identifier
+
+A credential identifier that does not grant access by itself but should still be treated as sensitive operational information.
+
+Examples:
+
+```text
+AWS_ACCESS_KEY_ID
+DB_SECRET_ACCESS_KEY_ID
+```
+
 #### Sensitive deployment identifier
 
-A value that is not itself an authentication secret but identifies deployed infrastructure.
+A value that identifies deployed infrastructure but does not grant access by itself.
 
 Examples include:
 
-- `R2_ACCOUNT_ID`
-- `R2_BUCKET_NAME`
+```text
+DB_SECRET_ARN
+R2_ACCOUNT_ID
+R2_BUCKET_NAME
+```
+
+Other examples include:
+
 - Mailgun sending domain
 - frontend and backend production URLs
-
-These values may generally be documented, but they should still be changed if replacement infrastructure requires different identifiers.
 
 #### Operational configuration
 
@@ -1750,15 +1760,24 @@ Non-secret settings that define application behavior.
 
 Examples include:
 
-- `NODE_ENV`
+```text
+DATABASE_URL
+DB_SECRET_REGION
+NODE_ENV
+```
+
+Production `DATABASE_URL` contains the PostgreSQL protocol, username, host, port, and database name, but does not contain the production database password.
+
+The production database password is retrieved at runtime from the RDS-managed AWS Secrets Manager secret identified by `DB_SECRET_ARN`.
+
+Other operational configuration includes:
+
 - attachment size limits
 - attachment TTL values
 - email provider selection
 - build and start commands
 - health-check paths
 - deployment branches
-
-These values should be documented sufficiently to recreate production behavior.
 
 ### AWS Lightsail Backend Configuration
 
@@ -1802,6 +1821,10 @@ ATTACHMENT_PENDING_TTL_MINUTES
 ATTACHMENT_STORAGE_PROVIDER
 ATTACHMENT_UPLOAD_URL_TTL_SECONDS
 DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
 EMAIL_FROM_ADDRESS
 EMAIL_FROM_NAME
 EMAIL_PROVIDER
@@ -1823,12 +1846,32 @@ The backend listens on port 5000, and Nginx proxies production API traffic to 12
 
 ```text
 Secret:
-DATABASE_URL
 JWT_SECRET
 MAILGUN_API_KEY
-AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
+DB_SECRET_SECRET_ACCESS_KEY
 ```
+
+```text
+Sensitive credential identifier:
+AWS_ACCESS_KEY_ID
+DB_SECRET_ACCESS_KEY_ID
+```
+
+```text
+Sensitive deployment identifier:
+DB_SECRET_ARN
+```
+
+```text
+Operational/deployment configuration:
+DATABASE_URL
+DB_SECRET_REGION
+```
+
+Production DATABASE_URL contains the PostgreSQL protocol, username, host, port, and database name, but does not contain the database password.
+
+The production database password is retrieved at runtime from the RDS-managed AWS Secrets Manager secret identified by DB_SECRET_ARN.
 
 Deployment-specific but not secret:
 
@@ -1895,6 +1938,10 @@ Required environment variables include:
 
 ```text
 DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
 NODE_ENV
 ATTACHMENT_STORAGE_PROVIDER
 ATTACHMENT_CLEANUP_BATCH_SIZE
@@ -2061,24 +2108,38 @@ TLS certificate verification is enabled in production using the AWS RDS CA bundl
 
 #### Database Credential Recovery
 
-`DATABASE_URL` is a secret.
+The production database password is managed by Amazon RDS through AWS
+Secrets Manager and is not stored directly in `DATABASE_URL`.
 
-If the current database password or connection string is lost:
+Production database configuration uses:
 
-1. access the RDS DB instance if available
-2. reset or regenerate the database-role password as appropriate
-3. obtain a new production connection string
-4. use the correct production database, and database user
-5. update `DATABASE_URL` in the AWS Lightsail backend
-6. update `DATABASE_URL` in the attachment-cleanup systemd service
-7. restart/redeploy affected services
-8. verify `/api/ready`
-9. verify the cleanup job
-10. verify representative application workflows
+```text
+DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
+```
 
-Do not attempt to recover the old database password from Git.
+`DATABASE_URL` contains the database endpoint and database name but does not contain the production database password.
 
-If the production RDS DB instance itself is lost, create a replacement RDS DB instance or another suitable PostgreSQL recovery environment and restore the database using the documented PostgreSQL recovery procedure.
+At runtime, the backend retrieves the `AWSCURRENT` credential from the RDS-managed Secrets Manager secret before Sequelize opens a new physical PostgreSQL connection.
+
+If database authentication fails:
+
+1. confirm the RDS DB instance is available
+2. confirm `DB_SECRET_ARN` identifies the intended RDS-managed secret
+3. confirm `DB_SECRET_REGION` is correct
+4. confirm the dedicated runtime IAM credential is present
+5. confirm that IAM permits only secretsmanager:GetSecretValue for the intended production RDS secret
+6. inspect whether RDS/Secrets Manager recently rotated the credential
+7. verify `/api/ready`
+8. inspect backend logs for authentication or Secrets Manager errors
+9. do not restore a static database password to `DATABASE_URL` as the normal remediation
+
+If the dedicated Secrets Manager IAM credential is lost or compromised, create a replacement least-privilege credential, update the Lightsail environment, restart the affected service, verify database readiness, and revoke the superseded credential.
+
+Do not attempt to recover historical database passwords from Git or old environment-file backups.
 
 ### Amazon S3 Configuration
 
@@ -2119,9 +2180,15 @@ S3_BUCKET_NAME
 S3_REGION
 ```
 
+Sensitive credential identifier:
+
 ```text
-Secret:
 AWS_ACCESS_KEY_ID
+```
+
+Secret:
+
+```text
 AWS_SECRET_ACCESS_KEY
 ```
 
@@ -2433,18 +2500,18 @@ The previous secret should not be recovered from Git history.
 
 ### Configuration Recovery Sources
 
-| Component                               | Recovery source                                         | Secret recovery method                                   |
-| --------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| GitHub source                           | GitHub repository                                       | Not applicable                                           |
-| AWS Lightsail service definition        | This document + GitHub + AWS Lightsail if accessible    | Recreate service                                         |
-| AWS Lightsail environment configuration | Variable-name inventory in this document                | Regenerate/recover secret values from owning providers   |
-| AWS Lightsail cleanup systemd timer     | This document + systemd unit definitions                | Recreate service and timer units                         |
-| AWS Amplify frontend                    | This document + GitHub                                  | Recreate project/configuration                           |
-| Amazon RDS PostgreSQL database          | Amazon RDS PostgreSQL if available + PostgreSQL backups | Reset database credential or create replacement database |
-| Amazon S3                               | This document + attachment backups                      | Generate replacement least-privilege AWS credential      |
-| Mailgun                                 | This document + Mailgun domain/DNS configuration        | Generate replacement sending/API credential              |
-| Better Stack                            | This document                                           | Recreate monitors and notification routing               |
-| JWT secret                              | AWS Lightsail if still securely available               | Generate a new secret if lost                            |
+| Component                               | Recovery source                                         | Secret recovery method                                                               |
+| --------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| GitHub source                           | GitHub repository                                       | Not applicable                                                                       |
+| AWS Lightsail service definition        | This document + GitHub + AWS Lightsail if accessible    | Recreate service                                                                     |
+| AWS Lightsail environment configuration | Variable-name inventory in this document                | Regenerate/recover secret values from owning providers                               |
+| AWS Lightsail cleanup systemd timer     | This document + systemd unit definitions                | Recreate service and timer units                                                     |
+| AWS Amplify frontend                    | This document + GitHub                                  | Recreate project/configuration                                                       |
+| Amazon RDS PostgreSQL database          | Amazon RDS PostgreSQL if available + PostgreSQL backups | Recover or recreate the RDS-managed secret path and replacement database as required |
+| Amazon S3                               | This document + attachment backups                      | Generate replacement least-privilege AWS credential                                  |
+| Mailgun                                 | This document + Mailgun domain/DNS configuration        | Generate replacement sending/API credential                                          |
+| Better Stack                            | This document                                           | Recreate monitors and notification routing                                           |
+| JWT secret                              | AWS Lightsail if still securely available               | Generate a new secret if lost                                                        |
 
 ### Credential Regeneration Principles
 
@@ -2478,7 +2545,7 @@ Confirm the intended application revision before creating replacement infrastruc
 
 #### 2. Recover PostgreSQL
 
-Restore or recreate Amazon RDS PostgreSQL/PostgreSQL using the PostgreSQL recovery procedure.
+Restore or recreate Amazon RDS PostgreSQL using the PostgreSQL recovery procedure.
 
 Confirm:
 
@@ -2487,9 +2554,23 @@ Confirm:
 - migration state understood
 - representative data valid
 
-Obtain a replacement `DATABASE_URL` if necessary.
+Restore or recreate the required production database configuration:
 
-Do not connect the production application until the recovered database has been validated.
+```text
+DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
+```
+
+The production `DATABASE_URL` must remain passwordless.
+
+The production database password must remain managed by Amazon RDS through AWS Secrets Manager and must not be restored as a static password in `DATABASE_URL`.
+
+If a replacement RDS instance or RDS-managed secret is created, update the corresponding deployment identifiers and least-privilege runtime credential.
+
+Do not connect the production application until the recovered database and credential path have been validated.
 
 #### 3. Recover S3 attachment storage
 
@@ -2512,14 +2593,30 @@ Recreate:
 
 Restore non-secret configuration.
 
-Generate or securely recover required secrets:
+Restore or securely recover the required configuration.
+
+Secret values:
+
+```text
+JWT_SECRET
+MAILGUN_API_KEY
+AWS_SECRET_ACCESS_KEY
+DB_SECRET_SECRET_ACCESS_KEY
+```
+
+Sensitive credential identifiers:
+
+```text
+AWS_ACCESS_KEY_ID
+DB_SECRET_ACCESS_KEY_ID
+```
+
+Required database configuration:
 
 ```text
 DATABASE_URL
-JWT_SECRET
-MAILGUN_API_KEY
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
+DB_SECRET_ARN
+DB_SECRET_REGION
 ```
 
 Deploy the backend.
@@ -2694,7 +2791,7 @@ Instead, it provides a single recovery workflow that identifies:
 - the order in which infrastructure should be restored
 - when isolated recovery must be used
 - when production cutover is appropriate
-- how PostgreSQL and R2 recovery must be reconciled
+- how PostgreSQL and S3 recovery must be reconciled
 - how configuration and credentials are reconstructed
 - how application functionality is validated
 - how failed recovery attempts are handled
@@ -2856,9 +2953,9 @@ For each required recovered object:
 
 Reconciliation must identify at least:
 
-- active attachment metadata with missing R2 objects
-- archived attachment metadata with missing R2 objects
-- R2 objects with no corresponding recovered PostgreSQL metadata
+- active attachment metadata with missing S3 objects
+- archived attachment metadata with missing S3 objects
+- S3 objects with no corresponding recovered PostgreSQL metadata
 - attachment records with incorrect or mismatched storage keys
 - pending attachment rows that should not be treated as completed attachment recovery targets
 
@@ -2872,9 +2969,23 @@ Recover components in this order:
 
 #### 1. PostgreSQL configuration
 
-Obtain or generate the required production `DATABASE_URL`.
+Restore or recreate the required production database configuration:
 
-Use the validated recovered PostgreSQL environment.
+```text
+DATABASE_URL
+DB_SECRET_ARN
+DB_SECRET_REGION
+DB_SECRET_ACCESS_KEY_ID
+DB_SECRET_SECRET_ACCESS_KEY
+```
+
+The production DATABASE_URL must remain passwordless.
+
+The production database password must remain managed through the RDS-managed AWS Secrets Manager secret.
+
+If replacement RDS infrastructure or a replacement RDS-managed secret is created, update the corresponding deployment identifiers and least-privilege Secrets Manager runtime credential.
+
+Use only the validated recovered PostgreSQL environment.
 
 #### 2. S3 production configuration
 
@@ -2910,7 +3021,7 @@ Recreate:
 `labflow-attachment-cleanup.service`
 `labflow-attachment-cleanup.timer`
 
-Restore its documented PostgreSQL and R2 configuration.
+Restore its documented PostgreSQL and S3 configuration.
 
 Perform a manual run before relying on the schedule.
 
@@ -2929,7 +3040,7 @@ Restore `VITE_API_URL`.
 If the production frontend origin changes:
 
 1. update AWS Lightsail `FRONTEND_URL`
-2. update R2 CORS
+2. update S3 CORS
 3. redeploy or restart affected services
 4. update Better Stack monitoring
 
@@ -2945,15 +3056,18 @@ Recreate external monitoring only after the recovered application endpoints are 
 
 Do not depend on recovery of historical plaintext credentials.
 
-Where required, generate replacements for:
+Where required, generate or rotate replacements for:
 
 ```text
-DATABASE_URL credentials
+RDS-managed database credential
+Secrets Manager runtime IAM credential
 JWT_SECRET
 MAILGUN_API_KEY
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
 ```
+
+The RDS database password must remain managed through the RDS-managed AWS Secrets Manager secret rather than being placed directly in `DATABASE_URL`.
 
 After generating a replacement credential:
 
@@ -3148,8 +3262,8 @@ Do not record:
 Incident classification procedure: Documented
 Production stabilization procedure: Documented
 PostgreSQL recovery sequence: Consolidated
-R2 attachment recovery sequence: Consolidated
-PostgreSQL/R2 reconciliation: Consolidated
+S3 attachment recovery sequence: Consolidated
+PostgreSQL/S3 reconciliation: Consolidated
 Configuration recovery sequence: Consolidated
 Credential regeneration: Consolidated
 Application validation: Consolidated
@@ -3897,3 +4011,91 @@ Phase 25B.7 is complete for the current demo/pilot production-hardening stage.
 The previously unverified PostgreSQL logical backup has now been restored successfully into an isolated PostgreSQL 17 recovery environment, representative relational data and migration state have been validated, and recovered attachment metadata has been reconciled successfully with the dated independent attachment backup.
 
 The drill demonstrates that Labfluss's documented PostgreSQL and attachment recovery procedures can recover and validate application data without modifying active production infrastructure.
+
+## Production Incident: RDS Credential Rotation Outage, 2026-09-05 to 2026-09-06
+
+Incident start:
+2026-09-05 21:10 CEST
+2026-09-05 19:10 UTC
+
+Recovery:
+2026-09-06 12:46 CEST
+
+Duration:
+15 hours 32 minutes
+
+Affected component:
+Backend database connectivity
+
+User-visible impact:
+Frontend remained reachable, but login and DB-backed API operations failed.
+
+Monitoring:
+GET /api/health remained 200.
+GET /api/ready returned 503 with database unavailable.
+Better Stack detected the readiness failure.
+
+Root cause:
+Amazon RDS managed the PostgreSQL master credential through Secrets Manager
+with automatic 7-day rotation.
+
+Secrets Manager rotated the RDS password on 2026-09-05 at approximately
+19:10 UTC.
+
+The Lightsail backend still contained the previous static password inside
+DATABASE_URL.
+
+New PostgreSQL connections therefore failed authentication.
+
+Temporary recovery:
+The current RDS password was obtained securely and production DATABASE_URL
+was updated, followed by a backend restart.
+
+Permanent remediation:
+The backend now retrieves the AWSCURRENT RDS credential from AWS Secrets
+Manager before Sequelize opens a physical PostgreSQL connection.
+
+Production DATABASE_URL no longer contains a database password.
+
+IAM:
+Dedicated runtime identity:
+labfluss-production-db-secret
+
+Permission:
+secretsmanager:GetSecretValue
+
+Scope:
+Only the specific RDS-managed production secret.
+
+Denied:
+secretsmanager:ListSecrets
+secretsmanager:DescribeSecret
+and other unneeded Secrets Manager operations.
+
+Production verification:
+A manual RDS secret rotation was performed on 2026-09-06 without restarting
+the backend.
+
+The previous secret version moved to AWSPREVIOUS.
+A new version became AWSCURRENT.
+
+Multiple /api/ready requests remained HTTP 200 after rotation.
+External readiness remained HTTP 200.
+No password authentication failures, SequelizeConnectionError,
+AccessDeniedException, or database_connection_failed events appeared during
+the rotation window.
+
+Cleanup:
+Obsolete .env.backup-\* files containing historical database credentials
+were removed.
+The active production .env remains mode 600.
+
+### Completed Follow-Up
+
+The production Sequelize CLI migration path now uses a Secrets Manager-aware wrapper.
+
+The wrapper retrieves the `AWSCURRENT` RDS credential and passes the credentialed database URL only to the child Sequelize CLI process. The production `DATABASE_URL` remains passwordless.
+
+This path was verified successfully against the private production RDS database on 2026-09-07 using `npm run migrate:status`.
+
+Better Stack detected the outage correctly, but the approximately 15-hour 32-minute recovery time demonstrates that alert routing and escalation should still be reviewed before the paid pilot.

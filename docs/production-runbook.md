@@ -138,11 +138,14 @@ Likely area:
 Check:
 
 1. Amazon RDS DB instance status.
-2. Lightsail backend logs for database errors.
-3. `DATABASE_URL` configuration.
-4. Recent database or deployment changes.
-5. Whether the Lightsail-to-RDS private connection is reachable.
-6. Whether the failure is temporary or persistent.
+2. Backend journal for database connection errors.
+3. Confirm DB_SECRET_ARN is configured.
+4. Confirm DB_SECRET_REGION is correct.
+5. Confirm DB_SECRET_ACCESS_KEY_ID and DB_SECRET_SECRET_ACCESS_KEY are present.
+6. Confirm the dedicated IAM credential still has secretsmanager:GetSecretValue for the exact RDS-managed secret.
+7. Check whether RDS/Secrets Manager recently rotated the database credential.
+8. Do not copy the RDS password back into DATABASE_URL as the normal remediation.
+9. Verify private Lightsail-to-RDS networking and TLS if credentials are healthy.
 
 Do not weaken TLS/SSL validation merely to suppress connection warnings.
 
@@ -301,16 +304,49 @@ Never run tests against the production database.
 
 Never run seed commands against production unless intentionally resetting demo data.
 
-Before production migrations:
+### Production Migration Credential Path
 
-1. Connect to the authorized Lightsail backend host.
-2. Change to `/opt/labflow/labflow-backend`.
-3. Confirm the intended migration files.
-4. Check migration status.
-5. Apply migrations intentionally using the production environment configuration.
-6. Check migration status again.
+The running production API retrieves the current RDS credential from AWS Secrets Manager through the Sequelize runtime `beforeConnect` hook.
 
-Do not copy the production `DATABASE_URL` to an unrelated local machine merely to run migrations.
+Production Sequelize CLI commands use the Secrets Manager-aware wrapper at:
+
+```text
+src/scripts/runSequelizeCli.js
+```
+
+For production, the wrapper:
+
+1. reads the passwordless production DATABASE_URL
+2. retrieves the AWSCURRENT RDS credential from AWS Secrets Manager
+3. constructs a credentialed database URL only in memory
+4. passes that URL only to the child Sequelize CLI process
+5. leaves the parent process and production .env passwordless
+
+Production migration status is available through:
+
+```bash
+npm run migrate:status
+```
+
+The production credential path was verified successfully against the private Amazon RDS database on 2026-09-07.
+
+Do not bypass the wrapper by running Sequelize CLI directly against production.
+
+Do not reinsert the RDS password into `DATABASE_URL`.
+
+Before a production schema migration:
+
+1. confirm relevant focused tests pass
+2. confirm the full backend regression suite passes
+3. review the intended migration
+4. verify current production migration status with `npm run migrate:status`
+5. create or confirm the appropriate pre-migration recovery point
+6. run the intended migration with `npm run migrate`
+7. verify migration status afterward
+8. verify `/api/health`
+9. verify `/api/ready`
+10. perform representative application smoke testing
+11. review backend logs for migration or database errors
 
 See:
 
@@ -400,6 +436,21 @@ When an alert arrives:
 5. Use structured logs and request IDs for backend failures.
 6. Acknowledge the incident after investigation begins.
 7. Confirm recovery in Better Stack after the underlying service recovers.
+
+### September 2026 Readiness Incident
+
+The 2026-09-05 database credential-rotation incident demonstrated that the
+liveness/readiness split works as intended.
+
+During the incident:
+
+- `/api/health` remained HTTP 200
+- `/api/ready` returned HTTP 503
+- the Node.js process remained running
+- PostgreSQL authentication failed
+- Better Stack detected the readiness outage
+
+The incident remained unresolved for approximately 15 hours and 32 minutes. Alert routing and escalation should therefore be reviewed before the paid pilot even though outage detection itself functioned correctly.
 
 ## Current Monitoring Interpretation
 

@@ -46,15 +46,50 @@ Required non-secret variables:
 - `S3_BUCKET_NAME`
 - `S3_REGION`
 
-Required secret variables:
+### Database Credential Configuration
 
-- `DATABASE_URL`
+Required non-database secret variables:
+
 - `JWT_SECRET`
 - `MAILGUN_API_KEY`
-- `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
+Sensitive credential identifiers:
+
+- `AWS_ACCESS_KEY_ID`
+- `DB_SECRET_ACCESS_KEY_ID`
+
+Sensitive deployment identifiers:
+
+- `DB_SECRET_ARN`
+
+Production environment-file permissions:
+
+`/opt/labflow/labflow-backend/.env`
+`mode: 600`
+
 Secret values must not be recorded in this document.
+
+DATABASE_URL:
+Deployment configuration.
+Contains PostgreSQL protocol, username, host, port, and database name.
+Production URL does not contain the database password.
+
+DB_SECRET_ARN:
+Sensitive deployment identifier, not a credential by itself.
+
+DB_SECRET_REGION:
+Non-secret operational configuration.
+
+DB_SECRET_ACCESS_KEY_ID:
+Sensitive credential identifier.
+
+DB_SECRET_SECRET_ACCESS_KEY:
+Secret.
+
+Database password:
+Not stored directly in the Lightsail environment.
+Retrieved at runtime from the RDS-managed AWS Secrets Manager secret.
 
 ## Database
 
@@ -116,3 +151,17 @@ using the production environment file:
 Do not copy the production `DATABASE_URL` to an unrelated local machine merely to run migrations.
 
 Never run `npm test`, seed commands, or destructive maintenance scripts against the production RDS database. The test helper also refuses destructive resets unless the database name contains `test`.
+
+The production application runtime supports passwordless `DATABASE_URL` through AWS Secrets Manager.
+
+Production Sequelize CLI operations use the Secrets Manager-aware wrapper at:
+
+`src/scripts/runSequelizeCli.js`
+
+The wrapper retrieves the `AWSCURRENT` RDS credential and provides the credentialed database URL only to the child Sequelize CLI process. The production `.env` and parent process remain passwordless.
+
+The production migration credential path was verified successfully on 2026-09-07 using:
+
+`npm run migrate:status`
+
+Production migrations should be executed through the npm migration scripts only after the normal backup/recovery-point and deployment checks.
