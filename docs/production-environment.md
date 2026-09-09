@@ -107,6 +107,59 @@ Automated backup retention: 7 days
 
 Schema changes are managed through Sequelize migrations.
 
+## Monitoring and Alerting
+
+### External Availability Monitoring
+
+Provider: Better Stack
+
+Production monitors:
+
+- Frontend: `https://app.labfluss.com`
+- Backend liveness: `https://api.labfluss.com/api/health`
+- Backend readiness: `https://api.labfluss.com/api/ready`
+
+Email notification delivery is verified.
+
+### Lightsail Monitoring
+
+The production backend instance has native Lightsail alarms for:
+
+- CPU utilization `>= 80%`, 2 datapoints within 10 minutes
+- CPU burst capacity `<= 20%`, 2 datapoints within 10 minutes
+- status check failures `>= 1`, 1 datapoint within 5 minutes
+
+Lightsail email notification delivery was verified on 2026-09-09.
+
+### RDS Monitoring
+
+Amazon CloudWatch monitors the production RDS instance.
+
+Configured RDS alarms:
+
+- CPU utilization `>= 80%` for 3 datapoints within 15 minutes
+- free storage `<= 5 GiB` for 1 datapoint within 5 minutes
+- freeable memory `<= 100 MiB` for 3 datapoints within 15 minutes
+- database connections `>= 60` for 3 datapoints within 15 minutes
+
+PostgreSQL currently reports:
+
+```text
+max_connections = 79
+```
+
+The database-connections warning threshold of 60 is approximately 76% of the PostgreSQL connection limit.
+
+RDS CloudWatch alarms publish to the SNS topic:
+
+```text
+labfluss-production-alarms
+```
+
+The SNS email subscription is confirmed and the delivery path was manually verified on 2026-09-09.
+
+No credentials or email subscription identifiers should be recorded in this document.
+
 ## Object Storage
 
 Provider: Amazon S3
