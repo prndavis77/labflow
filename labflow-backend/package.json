@@ -21,6 +21,7 @@
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "test:watch": "cross-env NODE_ENV=test jest --watch",
     "cleanup:attachments": "node src/scripts/cleanupPendingAttachments.js",
+    "backup:database": "node src/scripts/backupProductionDatabase.js",
     "export:organization": "node scripts/exportOrganizationData.js",
     "drill:organization-export": "cross-env NODE_ENV=test node scripts/organizationDataExportDrill.js"
   },
