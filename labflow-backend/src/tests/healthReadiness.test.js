@@ -16,7 +16,7 @@ describe("Health and readiness endpoints", () => {
 
       expect(response.body).toEqual({
         status: "success",
-        message: "Labflow API is running",
+        message: "Labfluss API is running",
       });
 
       expect(authenticateSpy).not.toHaveBeenCalled();
@@ -35,7 +35,7 @@ describe("Health and readiness endpoints", () => {
 
       expect(response.body).toEqual({
         status: "success",
-        message: "LabFlow API is ready",
+        message: "Labfluss API is ready",
         checks: {
           database: "ready",
         },
@@ -53,7 +53,7 @@ describe("Health and readiness endpoints", () => {
 
       expect(response.body).toMatchObject({
         status: "error",
-        message: "LabFlow API is not ready",
+        message: "Labfluss API is not ready",
         checks: {
           database: "unavailable",
         },

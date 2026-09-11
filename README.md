@@ -104,6 +104,27 @@ Completed:
 - Added a Secrets Manager-aware production Sequelize CLI wrapper for migration status and migration execution.
 - Verified production `npm run migrate:status` against the private RDS database while keeping `DATABASE_URL` passwordless.
 
+### Phase 26D: Paid-Pilot Operational Readiness
+
+Completed so far:
+
+- Rotated production security credentials and removed obsolete production credential material.
+- Reviewed backend production dependencies and retained the documented Sequelize-transitive `uuid` risk rather than applying an unsafe forced downgrade.
+- Added a Playwright frontend end-to-end baseline covering critical authentication and application workflows.
+- Added layered production monitoring using Better Stack, AWS Lightsail alarms, Amazon RDS CloudWatch alarms, and Amazon SNS email notifications.
+- Verified availability and infrastructure alert-delivery paths.
+- Added automated daily PostgreSQL custom-format backups from the production Lightsail host.
+- Added automated daily attachment backups to a separate versioned Amazon S3 backup bucket.
+- Added backup retention policies for database archives and historical attachment versions.
+- Added PostgreSQL backup validation using `pg_restore --list`, SHA-256 integrity metadata, and downloaded-object verification.
+- Added incremental attachment backup behavior that skips unchanged objects and does not propagate source deletions.
+- Added systemd backup scheduling with persistent timers and randomized start delays.
+- Added systemd `OnFailure` backup-failure notification through the production SNS alarm topic.
+- Verified the backup failure-notification path using a disposable intentionally failing systemd service without breaking either real production backup.
+- Updated production backup, recovery, environment, and operational documentation for the automated backup architecture.
+
+Phase 26D paid-pilot operational-readiness work is in progress. Automated backup hardening and operational alerting are complete; final paid-pilot release-readiness work remains.
+
 ### Phase 25C: Production Security Hardening
 
 Completed:
@@ -232,7 +253,10 @@ Key technical areas include:
 - Review history event tracking
 - Sequelize migrations for database schema management
 - Jest and Supertest backend test coverage
+- Playwright frontend end-to-end test coverage
 - Production deployment using AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Amazon S3, Nginx, and systemd
+- Layered production monitoring using Better Stack, AWS Lightsail alarms, Amazon CloudWatch, and Amazon SNS
+- Automated PostgreSQL and attachment backups to separate versioned Amazon S3 backup storage
 - Comprehensive backend security hardening covering HTTP headers, rate limiting, authentication, authorization, tenant isolation, request validation, attachment security, logging/redaction, dependency review, and production configuration
 
 ---
@@ -260,7 +284,7 @@ This deployment uses:
 - Amazon RDS for PostgreSQL for the production database
 - Amazon S3 for private attachment storage
 - Nginx as the HTTPS reverse proxy
-- systemd for backend process supervision and attachment-cleanup scheduling
+- systemd for backend process supervision, attachment-cleanup scheduling, automated database backups, automated attachment backups, and backup-failure handling
 
 This is a portfolio/demo deployment with seeded test data. It should not be used with real laboratory, research, customer, or institutional data.
 
@@ -1204,6 +1228,17 @@ Labfluss demonstrates several full-stack development concepts:
 - Liveness/readiness separation that detects database failures independently of backend-process availability
 - Secrets Manager-aware production Sequelize CLI migration path
 - Passwordless production migration workflow using child-process-only credential injection
+- Automated daily PostgreSQL custom-format backups using Secrets Manager-aware credential retrieval
+- Automated daily attachment backups to separate versioned Amazon S3 backup storage
+- Incremental attachment backup behavior using source ETag and size metadata
+- S3 lifecycle-based backup retention without backup-script delete permission
+- Database backup SHA-256 integrity metadata and `pg_restore --list` archive validation
+- systemd backup timers with persistent scheduling and randomized execution delay
+- systemd `OnFailure` backup-failure notification through Amazon SNS
+- Better Stack frontend/liveness/readiness monitoring
+- AWS Lightsail resource alarms
+- Amazon RDS CloudWatch CPU, storage, memory, and connection alarms
+- Playwright end-to-end frontend testing
 
 ---
 
@@ -1238,11 +1273,13 @@ Labfluss demonstrates several full-stack development concepts:
 - AWS SDK for JavaScript S3 client and URL presigning
 - AWS SDK for JavaScript Secrets Manager client
 - AWS SDK for JavaScript SES v2 client
+- AWS SDK for JavaScript SNS client
 
 ### Testing
 
 - Jest
 - Supertest
+- Playwright
 
 ### Development Tools
 
@@ -1369,8 +1406,12 @@ labflow/
         taskRoutes.js
         userRoutes.js
       scripts/
+        backupProductionAttachments.js
+        backupProductionDatabase.js
         cleanupPendingAttachments.js
         exportOrganizationData.js
+        notifyBackupFailure.js
+        runSequelizeCli.js
         seedDemoData.js
         setupDatabase.js
       seeders/
@@ -2611,7 +2652,8 @@ Current limitations include:
 - PostgreSQL restoration and Amazon S3 verification cannot participate in one distributed transaction.
 - Attachment malware scanning, broader content inspection, large multipart uploads, and organization storage quotas are not yet included. Organization-level attachment deletion and offboarding are implemented, but routine per-file hard-delete workflows remain intentionally distinct from archive behavior.
 - Notebook entries use plain text and do not yet support rich text or PDF export.
-- Frontend automated tests are not yet included.
+- Production monitoring now covers frontend availability, backend liveness/readiness, Lightsail resource health, and key RDS resource metrics. Account lockout monitoring, centralized long-term log aggregation, and fully automated deployment/migration orchestration are not yet included.
+- Automated database and attachment backups are implemented in a separate versioned Amazon S3 backup bucket, but the automated backup layer remains within AWS and does not currently provide an independent off-provider copy.
 - Production monitoring and alerting are configured for core frontend/backend health checks, but broader operational alert coverage, account lockout, and fully automated deployment/migration orchestration are not yet complete.
 - User email addresses are globally unique, so one account cannot currently belong to multiple organizations.
 - Demo accounts use shared credentials and are not suitable for real production use.
@@ -2633,6 +2675,9 @@ The project demonstrates:
 - Production deployment using AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Amazon S3, Nginx, and systemd
 - Practical domain modeling based on university research laboratory workflows
 - Backend automated testing with Jest and Supertest
+- Frontend end-to-end testing with Playwright
+- Layered production monitoring and alerting
+- Automated database and attachment backup operations with integrity verification and failure notification
 
 Labfluss was built as a portfolio project to demonstrate applied software development in a real-world scientific workflow domain.
 
@@ -2654,7 +2699,8 @@ Recommended Version 2 improvements:
 - Immutable audit controls, audit export, signatures, and locked review history
 - Rich-text notebook entries and experiment notebook PDF export
 - Equipment maintenance history and calendar-based booking views
-- Frontend component and workflow tests
+- Expanded frontend component tests and broader Playwright end-to-end workflow coverage
+- Independent off-provider backup replication for broader provider-failure resilience
 - Attachment previews, malware scanning, file-content inspection, retention policies, storage quotas, and multipart uploads
 - Read-only archived-record detail views before restoration
 - Delegated archive-recovery permissions where appropriate
@@ -2693,6 +2739,14 @@ Key portfolio talking points:
 - Scoped supervisor access to supervised projects
 - Enforced supervisor-scoped review actions on the backend
 - Updated Review Queue and dashboard visibility for supervisor-scoped workflows
+- Migrated the production stack to AWS Amplify, Lightsail, RDS, and S3
+- Implemented passwordless RDS runtime authentication through AWS Secrets Manager
+- Added a Secrets Manager-aware production migration path
+- Added Playwright end-to-end testing for critical frontend workflows
+- Added layered application and infrastructure monitoring with Better Stack, Lightsail alarms, CloudWatch, and SNS
+- Implemented automated daily PostgreSQL and attachment backups
+- Added versioned S3 backup retention and database/attachment integrity verification
+- Added systemd backup-failure notification handling and verified the failure path safely with a disposable test service
 
 ---
 

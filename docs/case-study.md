@@ -132,6 +132,12 @@ I designed and built the full-stack MVP, including:
 - Frontend stale-session handling and login redirect
 - Password-reset and email-verification email templates
 - Account-security automated and manual regression testing
+- Playwright frontend end-to-end testing
+- Production monitoring and alerting with Better Stack, AWS Lightsail alarms, CloudWatch, and Amazon SNS
+- Automated PostgreSQL backup design and implementation
+- Automated attachment backup design and implementation
+- Versioned S3 backup retention and lifecycle configuration
+- Backup-integrity verification and failure-notification handling
 
 ## Tech Stack
 
@@ -163,11 +169,13 @@ I designed and built the full-stack MVP, including:
 - AWS SDK for JavaScript S3 client and URL presigning
 - AWS SDK for JavaScript Secrets Manager client
 - AWS SDK for JavaScript SES v2 client
+- AWS SDK for JavaScript SNS client
 
 ### Testing and Deployment
 
 - Jest
 - Supertest
+- Playwright
 - AWS Amplify Hosting
 - AWS Lightsail
 - Amazon RDS for PostgreSQL
@@ -442,6 +450,37 @@ The same Secrets Manager credential model was also extended to production Sequel
 
 This migration path was verified against the private production RDS database using `npm run migrate:status`, which successfully reported the complete production migration state without exposing or restoring a static database password.
 
+### Automated Production Backup and Recovery Hardening
+
+Labfluss now uses automated production backups for both PostgreSQL and research-file attachments.
+
+The production database backup runs daily from the AWS Lightsail backend host. It retrieves the current Amazon RDS credential from AWS Secrets Manager, creates a PostgreSQL custom-format archive with `pg_dump`, validates the archive with `pg_restore --list`, calculates a SHA-256 digest, and uploads the result to a separate versioned Amazon S3 backup bucket.
+
+The production attachment backup also runs daily. It mirrors attachment objects into the backup bucket under a separate namespace while preserving the original storage keys. Source ETag and size metadata are used to detect unchanged objects so subsequent runs can skip copies that are already current.
+
+Production deletion is intentionally not propagated into the attachment backup. The backup IAM identity also does not have `s3:DeleteObject`, so routine retention is enforced through Amazon S3 lifecycle configuration rather than application code.
+
+Database backups are retained for approximately 35 to 36 days. Current attachment backup objects remain retained, while overwritten historical attachment versions are retained for 35 days.
+
+Both backup jobs run through persistent systemd timers with randomized start delays. Backup services use systemd `OnFailure` handling to invoke a dedicated notifier that publishes failures to the existing production Amazon SNS alarm topic.
+
+A controlled disposable failing systemd service was used to verify the failure path without intentionally breaking either real backup job.
+
+The verification demonstrated:
+
+```text
+controlled failure
+-> systemd OnFailure
+-> backup notifier
+-> successful SNS publish
+```
+
+Database backup integrity was also verified by downloading a stored backup, comparing its SHA-256 value with the S3 metadata, and successfully running pg_restore --list against the downloaded archive.
+
+A representative attachment backup was checked against the production source object's size and ETag metadata.
+
+The automated backup bucket is off-machine but remains within AWS. An independent off-provider automated backup is not currently part of the pilot-stage architecture.
+
 ### Automated Backend Testing
 
 The backend includes automated tests using Jest and Supertest.
@@ -706,7 +745,9 @@ A dedicated IAM identity is restricted to `secretsmanager:GetSecretValue` for on
 
 I then tested the fix by rotating the secret again while the backend remained running. Multiple readiness requests continued to return HTTP 200 after the rotation, and the backend logs showed no password-authentication or Secrets Manager authorization failures.
 
-The incident also demonstrated an operational monitoring lesson: Better Stack detected the readiness failure correctly, but the outage lasted approximately 15 hours and 32 minutes, so alert routing and escalation still need improvement before a paid pilot.
+The incident also demonstrated an operational monitoring lesson: Better Stack detected the readiness failure correctly, but the outage lasted approximately 15 hours and 32 minutes because alert routing had not yet been fully verified.
+
+That gap was subsequently addressed during paid-pilot operational hardening. Better Stack email delivery, AWS Lightsail alarm delivery, and the CloudWatch/SNS email path were all verified, and production resource alarms were added for the Lightsail host and Amazon RDS database.
 
 ## Result
 
@@ -734,6 +775,17 @@ The project includes:
 - Verified no-restart database credential rotation in production
 - Secrets Manager-aware production Sequelize CLI migration path
 - Verified production migration-status access with a passwordless `DATABASE_URL`
+- Playwright frontend end-to-end testing baseline
+- Better Stack frontend, liveness, and readiness monitoring
+- AWS Lightsail resource alarms
+- Amazon RDS CloudWatch resource alarms
+- Amazon SNS production alarm routing
+- Automated daily PostgreSQL logical backups
+- Automated daily attachment backups to separate versioned Amazon S3 storage
+- Backup lifecycle retention for database archives and historical attachment versions
+- PostgreSQL backup SHA-256 and archive verification
+- Attachment backup integrity verification
+- systemd backup-failure notification handling
 - Amazon SES provider implemented and AWS sending identity configured while Mailgun remains the active production provider pending SES production access
 - Role-based authentication and protected routes
 - Project membership and project-specific access control
@@ -781,8 +833,9 @@ Current limitations include:
 - No rich-text editor or PDF export for experiment notebooks
 - Password reset, email verification, invitation delivery, verification resend, and stale-session handling are implemented. Production verification covered workspace registration, verification-email delivery, resend, verification completion, and immediate post-verification access. Task reminders, booking reminders, and broader notification preferences are not yet included.
 - Local Mailgun keys should currently be injected into the backend process or stored in an operating-system secret store rather than saved in the local `.env` file, because repeated automated key disabling was observed when stored there.
-- No frontend automated tests yet
-- External uptime monitoring is configured, but centralized long-term application log aggregation is still limited.
+- A Playwright end-to-end frontend baseline covers critical workflows, but broad component-level frontend unit testing is not yet included.
+- Production monitoring now covers frontend availability, backend liveness/readiness, Lightsail resource health, and key RDS metrics, but centralized long-term application log aggregation remains limited.
+- Automated PostgreSQL and attachment backups are stored in a separate versioned Amazon S3 backup bucket, but no independent off-provider automated backup is currently configured.
 - Organization isolation, workspace creation, first-administrator onboarding, invitation-based user onboarding, basic settings, and production custom domains exist, but multi-organization memberships, subscriptions, billing, and full institutional tenant administration are not yet included.
 - Equipment inventory metrics are organization-wide because equipment is not project-owned.
 - Review history and audit logs are not yet immutable or signature-backed.
@@ -805,7 +858,8 @@ Recommended future improvements include:
 - Expanded centralized logging, alerting, and automated deployment/migration workflows
 - Rich-text notebook entries and experiment notebook PDF export
 - Equipment maintenance history and calendar-based bookings
-- Frontend component and workflow tests
+- Expanded frontend component tests and broader Playwright end-to-end workflow coverage
+- Independent off-provider backup replication for broader provider-failure resilience
 - Immutable audit controls, signatures, and export
 - Project invitation and membership approval workflows
 - Project-specific workflow permissions
@@ -830,3 +884,7 @@ The project shows experience with:
 - Automated backend testing
 - Production deployment with AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, Amazon S3, Nginx, and systemd
 - Translating scientific workflow knowledge into software features
+- Frontend end-to-end testing with Playwright
+- Layered production monitoring and infrastructure alerting
+- Automated PostgreSQL and attachment backup operations
+- Backup integrity verification, retention, and failure handling

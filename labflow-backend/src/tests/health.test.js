@@ -13,7 +13,7 @@ describe("Health check", () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toEqual({
       status: "success",
-      message: "Labflow API is running",
+      message: "Labfluss API is running",
     });
   });
 
@@ -26,7 +26,7 @@ describe("Health check", () => {
 
     expect(response.body).toEqual({
       status: "success",
-      message: "LabFlow API is ready",
+      message: "Labfluss API is ready",
       checks: {
         database: "ready",
       },
@@ -44,7 +44,7 @@ describe("Health check", () => {
 
     expect(response.body).toMatchObject({
       status: "error",
-      message: "LabFlow API is not ready",
+      message: "Labfluss API is not ready",
       checks: {
         database: "unavailable",
       },

@@ -379,7 +379,11 @@ Provider durability protects against underlying storage-device failure, but dura
 
 The original R2 recovery strategy was evaluated and validated in Phase 25B.4. Phase 26C.4 later migrated the production attachment store to Amazon S3 while preserving object keys and byte content.
 
-The current strategy uses private production S3 storage together with independent dated attachment backups. The historical R2 recovery bucket remains an isolated recovery-test artifact and is not part of the production runtime.
+The current strategy uses private production S3 storage together with an automated daily attachment backup stored in a separate versioned Amazon S3 backup bucket.
+
+The production attachment bucket and backup bucket are separate storage targets. The backup IAM identity can read the production attachment bucket and write to the backup bucket but does not have object-deletion permission.
+
+The historical R2 recovery bucket remains an isolated recovery-test artifact and is not part of the production runtime.
 
 A representative attachment restore was historically tested in isolated R2 storage, and the later R2-to-S3 production migration was independently verified with SHA-256 integrity checks across all 52 migrated objects.
 
@@ -397,19 +401,21 @@ Project configuration represented in repository files is recoverable through Git
 
 ## Current Recovery Status
 
-| Component                   | Backup/recovery state                                                                                                    | Restore tested                      |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| PostgreSQL                  | Backup and restore procedures verified                                                                                   | Yes, isolated restore               |
-| S3 attachments              | Dated backup and recovery procedures verified                                                                            | Yes, restore and reconciliation     |
-| GitHub source               | Version controlled                                                                                                       | Yes, normal clone/redeploy workflow |
-| AWS Lightsail configuration | Production service and systemd timer configuration inventoried; secret regeneration and recreation procedures documented | No                                  |
-| AWS Amplify configuration   | Production frontend configuration inventoried; recreation procedure documented                                           | No                                  |
-| Mailgun configuration       | Current sending infrastructure inventoried; credential regeneration procedure documented                                 | No                                  |
-| Better Stack configuration  | Production monitors and notification routing inventoried; recreation procedure documented                                | No                                  |
+| Component                   | Backup/recovery state                                                                                                    | Restore tested                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| PostgreSQL                  | RDS automated backups plus automated daily custom-format logical backup to versioned S3 backup storage                   | Yes, isolated restore and archive verification           |
+| S3 attachments              | Automated daily attachment mirror to separate versioned S3 backup storage with historical-version retention              | Yes, restore, reconciliation, and integrity verification |
+| GitHub source               | Version controlled                                                                                                       | Yes, normal clone/redeploy workflow                      |
+| AWS Lightsail configuration | Production service and systemd timer configuration inventoried; secret regeneration and recreation procedures documented | No                                                       |
+| AWS Amplify configuration   | Production frontend configuration inventoried; recreation procedure documented                                           | No                                                       |
+| Mailgun configuration       | Current sending infrastructure inventoried; credential regeneration procedure documented                                 | No                                                       |
+| Better Stack configuration  | Production monitors and notification routing inventoried; recreation procedure documented                                | No                                                       |
 
 The isolated PostgreSQL restore, application-level recovery validation, and combined PostgreSQL/attachment-backup reconciliation were completed successfully during Phase 25B.7.
 
-Remaining backup-hardening gaps include automated daily attachment backups and an off-machine or off-provider attachment backup copy.
+Automated daily PostgreSQL and attachment backups are now implemented on the production Lightsail host and stored in a separate versioned Amazon S3 backup bucket.
+
+Remaining disaster-recovery limitations include that full production infrastructure reconstruction and a production recovery cutover have not been drill-tested. The current automated backup bucket is off-machine but remains within the AWS provider ecosystem.
 
 ## PostgreSQL Backup Strategy
 
@@ -466,7 +472,7 @@ A post-cutover production snapshot has been created for the current RDS deployme
 
 ### Layer 3: Portable PostgreSQL logical export
 
-Labfluss should maintain the ability to create an independent logical PostgreSQL backup using `pg_dump`.
+Labfluss maintains an automated daily logical PostgreSQL backup using `pg_dump` in PostgreSQL custom format.
 
 This backup is intended primarily for:
 
@@ -503,26 +509,48 @@ Do not place database passwords or credential-bearing connection strings directl
 - screenshots
 - terminal output shared publicly
 
-The historical Phase 25B logical-backup and restore verification remains valid evidence that the logical-backup recovery path works. The current production logical-backup command path should use a reviewed Secrets Manager-aware procedure before the next manual production `pg_dump`.
+The historical Phase 25B logical-backup and restore verification remains valid evidence that the logical-backup recovery path works.
+
+The production automated backup script now retrieves the current RDS credential from AWS Secrets Manager, supplies it only to the `pg_dump` child process, verifies PostgreSQL TLS using the RDS CA bundle, creates a custom-format archive, validates it with `pg_restore --list`, calculates a SHA-256 hash, uploads the archive to the backup bucket, and verifies the uploaded object metadata and size.
 
 ## Backup File Verification
 
 A successful `pg_dump` process exit alone is not sufficient evidence that a backup is usable.
 
-For each manually retained logical backup:
+The automated production database backup performs the following verification during every successful run:
 
-1. confirm the command exits successfully
-2. confirm the backup file exists
-3. confirm the file size is greater than zero
-4. inspect the archive using `pg_restore --list`
-5. retain enough metadata to identify when and why the backup was created
-6. eventually verify it through an actual restore drill
+1. confirms that `pg_dump` exits successfully
+2. confirms that the custom-format archive exists and is non-empty
+3. validates the archive using `pg_restore --list`
+4. computes a SHA-256 digest
+5. stores the SHA-256 value as S3 object metadata
+6. uploads the archive to the production backup bucket
+7. verifies the uploaded object size using S3 object metadata
 
-Example inspection:
+A production backup object was subsequently downloaded from the backup bucket and independently verified.
 
-`pg_restore --list .\labflow-production-YYYYMMDD-HHMM.dump`
+Verified automated backup:
 
-This backup was restore-verified successfully during Phase 25B.7.
+```text
+Key: database/2026/09/10/labfluss-production-20260910T212130Z.dump
+Size: 104502 bytes
+SHA-256: f366edc941ddaa3c348c9ff47971492250257792bb8a446d700619941b07bbdd
+```
+
+The SHA-256 stored in S3 metadata matched the SHA-256 calculated from the downloaded object.
+
+The downloaded archive also passed:
+
+`pg_restore --list`
+
+Result:
+
+```text
+SHA-256 verification: PASS
+pg_restore archive verification: PASS
+```
+
+The earlier full isolated restore performed during Phase 25B.7 remains the restore-level validation of the logical-backup recovery path.
 
 ## Backup Storage Security
 
@@ -545,11 +573,17 @@ Encryption at rest should be used where practical.
 
 The backup storage account should use strong authentication and multi-factor authentication where available.
 
-Current logical backup location:
+Current automated production backup location:
 
 ```text
-F:\LabFlow Backups
+Amazon S3 bucket: labfluss-production-backups
+Region: eu-central-1
+Public access: blocked
+Versioning: enabled
+Default encryption: SSE-S3
 ```
+
+Historical locally retained recovery material under `F:\LabFlow Backups` remains recovery evidence from the earlier Phase 25B drills but is not the current automated production backup destination.
 
 ## Backup Naming
 
@@ -592,13 +626,35 @@ Manual RDS snapshots are retained until explicitly deleted and are not limited t
 
 ### External logical backups
 
-Portable PostgreSQL logical backups remain an additional provider-independent recovery layer.
+Portable PostgreSQL logical backups remain an additional recovery layer independent of the active RDS DB instance.
 
 The current production strategy uses:
 
 - 7-day Amazon RDS automated backup retention and point-in-time recovery
 - manually created RDS DB snapshots around significant production changes
-- periodic portable PostgreSQL logical backups
+- automated daily PostgreSQL custom-format logical backups
+- automated daily attachment backups
+- a separate versioned Amazon S3 backup bucket
+
+Database backup objects under:
+
+```text
+database/
+```
+
+expire as current versions after 35 days. Because the backup bucket is versioned, the resulting noncurrent database version is permanently deleted after 1 additional day.
+
+Attachment backup objects under:
+
+```text
+attachments/current/
+```
+
+do not expire while they remain the current version.
+
+Historical noncurrent attachment versions are permanently deleted 35 days after becoming noncurrent.
+
+This preserves the latest backup copy of an attachment while limiting retained overwritten-version history.
 
 ## Pre-Migration Backup Policy
 
@@ -664,6 +720,234 @@ Public accessibility: No
 ```
 
 The PostgreSQL logical-backup recovery path has been restore-verified successfully through the isolated Phase 25B.7 recovery drill.
+
+## Automated Production Backup System
+
+### Backup Bucket
+
+Current automated backup storage:
+
+```text
+Provider: Amazon S3
+Bucket: labfluss-production-backups
+Region: eu-central-1
+Public access: blocked
+Object Ownership: BucketOwnerEnforced
+Versioning: enabled
+Default encryption: SSE-S3
+```
+
+The backup bucket is separate from:
+
+```text
+labfluss-attachments-production
+```
+
+The production application does not use the backup bucket as its runtime attachment store.
+
+### Backup IAM Identity
+
+A dedicated backup IAM identity is used for automated backup operations.
+
+Its required permissions are limited to:
+
+- listing the backup bucket
+- reading and writing backup objects
+- listing the production attachment bucket
+- reading production attachment objects
+- reading the exact production RDS-managed Secrets Manager secret
+- publishing backup-failure notifications to the production SNS alarm topic
+
+The backup identity does not have s3:DeleteObject.
+
+Lifecycle retention is therefore enforced by S3 rather than by the backup scripts.
+
+### Automated Database Backup
+
+Production script:
+
+```text
+src/scripts/backupProductionDatabase.js
+```
+
+npm command:
+
+```powershell
+npm run backup:database
+```
+
+Backup-object namespace:
+
+```text
+database/YYYY/MM/DD/labfluss-production-<timestamp>.dump
+```
+
+The script:
+
+1. requires production mode
+2. reads the passwordless production DATABASE_URL
+3. retrieves the AWSCURRENT RDS credential from AWS Secrets Manager
+4. supplies the password only to the pg_dump child process
+5. uses PostgreSQL 17 client tools
+6. verifies TLS with the RDS CA bundle
+7. creates a custom-format archive
+8. validates the archive with pg_restore --list
+9. computes SHA-256
+10. uploads the archive to the backup bucket
+11. stores SHA-256 metadata
+12. verifies the uploaded size
+13. removes temporary local backup and CA files
+
+### Automated Attachment Backup
+
+Production script:
+
+```text
+src/scripts/backupProductionAttachments.js
+```
+
+npm command:
+
+```powershell
+npm run backup:attachments
+```
+
+Destination namespace:
+
+```text
+attachments/current/<original-production-storage-key>
+```
+
+The attachment backup behaves as a non-destructive mirror.
+
+For each production object it:
+
+1. reads source object size and ETag
+2. checks the corresponding backup object
+3. skips unchanged objects
+4. copies changed or missing objects
+5. records source ETag and source size as backup metadata
+6. verifies destination size after copy
+
+Source deletions are intentionally not propagated to the backup bucket.
+
+Because the backup bucket has versioning enabled, replacement of an existing backup object preserves the previous version until lifecycle retention removes the noncurrent version.
+
+First controlled production run:
+
+```text
+Objects scanned: 54
+Objects copied: 54
+Objects unchanged: 0
+```
+
+Second controlled production run:
+
+```text
+Objects scanned: 54
+Objects copied: 0
+Objects unchanged: 54
+```
+
+This verified both initial mirroring and incremental unchanged-object detection.
+
+### systemd Scheduling
+
+Database backup:
+
+```text
+Service: labflow-database-backup.service
+Timer: labflow-database-backup.timer
+Schedule: daily at 02:30 UTC
+RandomizedDelaySec: 10 minutes
+Persistent: true
+```
+
+Attachment backup:
+
+```text
+Service: labflow-attachment-backup.service
+Timer: labflow-attachment-backup.timer
+Schedule: daily at 03:00 UTC
+RandomizedDelaySec: 10 minutes
+Persistent: true
+```
+
+Both timers are enabled and active.
+
+The schedules are deliberately separated so the database and attachment backup jobs do not normally run simultaneously.
+
+### Backup Failure Alerting
+
+Both backup services use:
+
+```text
+OnFailure=labflow-backup-failure-notify@%n.service
+```
+
+Notification template:
+
+```text
+labflow-backup-failure-notify@.service
+```
+
+Notification script:
+
+```text
+src/scripts/notifyBackupFailure.js
+```
+
+The notifier publishes to the existing production SNS alarm topic using the dedicated backup IAM identity.
+
+A disposable systemd service was used to test the failure path without breaking either real backup job.
+
+Verified path:
+
+controlled systemd failure
+-> OnFailure
+-> backup notification service
+-> SNS publish
+
+The SNS topic's email-delivery path had already been independently verified through the production alarm configuration.
+
+The test service was removed after verification.
+
+### Attachment Backup Integrity Verification
+
+A representative production attachment was compared directly with its backup object.
+
+Verified values:
+
+```text
+Source size: 13927
+Backup size: 13927
+Source ETag: matched backup source-Etag metadata
+Backup source-size metadata: 13927
+```
+
+Result:
+
+```text
+Attachment backup integrity spot-check: PASS
+```
+
+### Current Automated Backup Status
+
+```text
+Daily PostgreSQL backup: Enabled
+Daily attachment backup: Enabled
+Separate backup bucket: Enabled
+Backup bucket versioning: Enabled
+Database retention: Approximately 35-36 days
+Attachment current versions: Retained
+Attachment noncurrent-version retention: 35 days
+Database archive verification: PASS
+Database SHA-256 verification: PASS
+Attachment integrity spot-check: PASS
+Failure notification path: Verified
+Production infrastructure reconstruction drill: Not performed
+Production recovery cutover drill: Not performed
+```
 
 ## PostgreSQL Restore Procedure
 
@@ -1838,6 +2122,11 @@ AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
 S3_BUCKET_NAME
 S3_REGION
+BACKUP_AWS_ACCESS_KEY_ID
+BACKUP_AWS_SECRET_ACCESS_KEY
+BACKUP_S3_BUCKET
+BACKUP_S3_REGION
+BACKUP_ALERT_SNS_TOPIC_ARN
 ```
 
 The backend listens on port 5000, and Nginx proxies production API traffic to 127.0.0.1:5000.
@@ -1850,23 +2139,28 @@ JWT_SECRET
 MAILGUN_API_KEY
 AWS_SECRET_ACCESS_KEY
 DB_SECRET_SECRET_ACCESS_KEY
+BACKUP_AWS_SECRET_ACCESS_KEY
 ```
 
 ```text
 Sensitive credential identifier:
 AWS_ACCESS_KEY_ID
 DB_SECRET_ACCESS_KEY_ID
+BACKUP_AWS_ACCESS_KEY_ID
 ```
 
 ```text
 Sensitive deployment identifier:
 DB_SECRET_ARN
+BACKUP_ALERT_SNS_TOPIC_ARN
 ```
 
 ```text
 Operational/deployment configuration:
 DATABASE_URL
 DB_SECRET_REGION
+BACKUP_S3_BUCKET
+BACKUP_S3_REGION
 ```
 
 Production DATABASE_URL contains the PostgreSQL protocol, username, host, port, and database name, but does not contain the database password.
@@ -1980,6 +2274,48 @@ failed: 0
 ```
 
 The timer was verified as enabled and active, with the next invocation scheduled approximately 15 minutes after the preceding execution.
+
+### Production Backup systemd timers on Lightsail
+
+Automated production backups are scheduled independently from the attachment-cleanup timer.
+
+Database backup:
+
+```text
+Service unit: labflow-database-backup.service
+Timer unit: labflow-database-backup.timer
+Working directory: /opt/labflow/labflow-backend
+Environment file: /opt/labflow/labflow-backend/.env
+Command: /usr/bin/npm run backup:database
+Schedule: daily 02:30 UTC
+Randomized delay: up to 10 minutes
+Persistent: true
+Status: enabled and active
+```
+
+Attachment backup:
+
+```text
+Service unit: labflow-attachment-backup.service
+Timer unit: labflow-attachment-backup.timer
+Working directory: /opt/labflow/labflow-backend
+Environment file: /opt/labflow/labflow-backend/.env
+Command: /usr/bin/npm run backup:attachments
+Schedule: daily 03:00 UTC
+Randomized delay: up to 10 minutes
+Persistent: true
+Status: enabled and active
+```
+
+Failure notification:
+
+```text
+Template unit: labflow-backup-failure-notify@.service
+Notification command: node src/scripts/notifyBackupFailure.js
+SNS publish path: verified
+SNS email-delivery path: independently verified
+Controlled systemd failure through SNS publish: verified
+```
 
 ### AWS Amplify Frontend Configuration
 
@@ -2392,32 +2728,32 @@ Do not recover Mailgun credentials from Git history.
 
 #### Current Transactional Email Domain Status
 
-Labfluss now uses `labfluss.com` as its production product domain.
+Labfluss uses `labfluss.com` as its production product domain.
 
-The current Mailgun integration still temporarily uses the shared sending domain:
+Amazon SES support has been implemented in the backend, and the production SES sending infrastructure has been configured, including:
 
-`mg.cockadoodlemeatmarket.com`
+- the `labfluss.com` SES identity
+- DKIM
+- custom MAIL FROM
+- SPF
+- DMARC
+- account-level bounce/complaint suppression
+- a dedicated least-privilege SES sending identity
 
-This temporary dependency will be removed during Phase 26C.5 when transactional email is migrated from Mailgun to Amazon SES.
+Amazon SES production access is still pending AWS approval.
 
-A dedicated Labfluss transactional-email identity and required DNS authentication records will be configured as part of that migration.
+Until production access is approved and the final production delivery workflows are verified, Mailgun remains the active production transactional-email provider and rollback path.
 
-Before the first paid pilot, Phase 26C.5 will migrate Labfluss transactional email from Mailgun to Amazon SES.
+After SES production access is approved, Phase 26C.5 will temporarily resume to:
 
-That migration will include:
+1. enable SES as the active production provider
+2. verify invitation email delivery
+3. verify password-reset email delivery
+4. verify email-verification delivery
+5. confirm production logs and delivery behavior
+6. retire the temporary Mailgun production dependency when the SES cutover is confirmed successful
 
-1. configure the Labfluss SES sending identity
-2. configure the required domain authentication records
-3. verify SPF/DKIM and the intended DMARC alignment
-4. configure an appropriately scoped production sending identity
-5. update the Labfluss backend email-provider configuration
-6. verify invitation email delivery
-7. verify password-reset email delivery
-8. verify email-verification delivery
-9. remove the temporary Mailgun dependency from Labfluss
-10. revoke or retire Labfluss access to the shared Mailgun sending infrastructure when no longer required
-
-The temporary shared Mailgun sending domain must not remain a production dependency for the paid pilot after Phase 26C.5 is complete.
+The current Mailgun dependency therefore remains temporary and should be removed before the paid pilot once SES production access and production delivery verification are complete.
 
 ### Better Stack Configuration
 
@@ -4098,4 +4434,6 @@ The wrapper retrieves the `AWSCURRENT` RDS credential and passes the credentiale
 
 This path was verified successfully against the private production RDS database on 2026-09-07 using `npm run migrate:status`.
 
-Better Stack detected the outage correctly, but the approximately 15-hour 32-minute recovery time demonstrates that alert routing and escalation should still be reviewed before the paid pilot.
+Better Stack detected the outage correctly, but the approximately 15-hour 32-minute recovery time demonstrated that alert routing required additional verification before the paid pilot.
+
+That follow-up was completed during Phase 26D.4. Better Stack email delivery, AWS Lightsail alarm email delivery, and the CloudWatch/SNS email-delivery path were verified on 2026-09-09.

@@ -14,6 +14,7 @@ Labfluss is currently suitable for portfolio demonstrations, controlled pilot de
 - Backend: AWS Lightsail
 - Database: Amazon RDS for PostgreSQL
 - Attachment storage: Amazon S3
+- Backup storage: separate versioned Amazon S3 backup bucket
 - Transactional email: Mailgun
 - External uptime monitoring: Better Stack
 
@@ -338,6 +339,186 @@ sudo systemctl status labflow-attachment-cleanup.service --no-pager
 sudo journalctl -u labflow-attachment-cleanup.service -n 100 --no-pager
 ```
 
+## Backup Job Failures
+
+Production PostgreSQL and attachment backups run as separate systemd services and timers on the AWS Lightsail backend host.
+
+Database backup:
+
+```text
+Service: labflow-database-backup.service
+Timer: labflow-database-backup.timer
+Schedule: daily at 02:30 UTC
+Randomized delay: up to 10 minutes
+Persistent: true
+```
+
+Attachment backup:
+
+```text
+Service: labflow-attachment-backup.service
+Timer: labflow-attachment-backup.timer
+Schedule: daily at 03:00 UTC
+Randomized delay: up to 10 minutes
+Persistent: true
+```
+
+Both services use the production environment file:
+
+```text
+/opt/labflow/labflow-backend/.env
+```
+
+### Checking Backup Timers
+
+Check both timers:
+
+```bash
+sudo systemctl status labflow-database-backup.timer --no-pager
+sudo systemctl status labflow-attachment-backup.timer --no-pager
+```
+
+View the scheduled execution times:
+
+```bash
+systemctl list-timers --all | grep labflow
+```
+
+A healthy timer should normally show:
+
+```text
+Active: active (waiting)
+```
+
+### Checking Database Backup Failures
+
+Check the most recent database-backup service state:
+
+```bash
+sudo systemctl status labflow-database-backup.service --no-pager
+```
+
+Review its journal:
+
+```bash
+sudo journalctl -u labflow-database-backup.service -n 100 --no-pager
+```
+
+A successful database backup should complete the custom-format pg_dump, archive validation, SHA-256 calculation, S3 upload, and uploaded-object verification without error.
+
+If the database backup fails, investigate:
+
+1. PostgreSQL/RDS availability.
+2. Private Lightsail-to-RDS connectivity.
+3. PostgreSQL 17 client availability.
+4. RDS TLS certificate configuration.
+5. DATABASE_URL.
+6. backup IAM credentials.
+7. Secrets Manager access to the exact production RDS secret.
+8. access to the production backup bucket.
+9. available local temporary storage.
+
+Do not place the RDS password into DATABASE_URL as a troubleshooting shortcut.
+
+### Checking Attachment Backup Failures
+
+Check the most recent attachment-backup service state:
+
+```bash
+sudo systemctl status labflow-attachment-backup.service --no-pager
+```
+
+Review its journal:
+
+```bash
+sudo journalctl -u labflow-attachment-backup.service -n 100 --no-pager
+```
+
+If the attachment backup fails, investigate:
+
+1. production S3 attachment-bucket availability
+2. backup S3 bucket availability
+3. backup IAM credentials
+4. source-bucket list/read permissions
+5. backup-bucket list/read/write permissions
+6. source-object ETag or size changes during copy
+7. AWS SDK errors reported by the backup script
+
+The attachment backup does not propagate production deletions into the backup bucket.
+
+### Manual Backup Execution
+
+A database backup can be run manually from:
+
+```text
+/opt/labflow/labflow-backend
+```
+
+using:
+
+```bash
+npm run backup:database
+```
+
+An attachment backup can be run manually using:
+
+```bash
+npm run backup:attachments
+```
+
+Do not run multiple manual copies of the same backup job concurrently.
+
+### Backup Failure Notifications
+
+Both production backup services use systemd OnFailure handling:
+
+```text
+OnFailure=labflow-backup-failure-notify@%n.service
+```
+
+Notification template:
+
+```text
+labflow-backup-failure-notify@.service
+```
+
+Notification script:
+
+```text
+src/scripts/notifyBackupFailure.js
+```
+
+The notifier publishes the failed service name, host, and failure time to the existing production SNS alarm topic.
+
+To inspect a backup-failure notifier invocation, first identify the failed backup service and then inspect the corresponding instantiated notification unit.
+
+For example, for a database-backup failure:
+
+```bash
+sudo journalctl -u 'labflow-backup-failure-notify@labflow-database-backup.service.service' --no-pager -n 50
+```
+
+A successful notification invocation includes:
+
+```text
+Backup failure notification sent for labflow-database-backup.service.
+```
+
+The systemd failure-notification path was tested using a disposable intentionally failing service rather than by deliberately breaking either production backup.
+
+The controlled test verified:
+
+```text
+intentional systemd failure
+-> OnFailure
+-> backup failure notifier
+-> Amazon SNS publish
+```
+
+The disposable test service was removed after verification.
+
+A complete Lightsail-instance outage may prevent the local `OnFailure` notifier from running. The independent Lightsail status-check alarm provides separate detection for host-level failures.
+
 ## HTTP 500 Investigation
 
 When an API request returns HTTP 500:
@@ -449,14 +630,22 @@ Current verified recovery capabilities include:
 - Amazon RDS automated backups with a 7-day retention window
 - Amazon RDS point-in-time recovery within the retained backup window
 - a post-cutover manual Amazon RDS DB snapshot
-- portable PostgreSQL logical backups
+- automated daily PostgreSQL custom-format logical backups
+- PostgreSQL backup execution using the current RDS credential from AWS Secrets Manager without storing the database password in `DATABASE_URL`
+- PostgreSQL archive validation using `pg_restore --list`
+- SHA-256 verification of a downloaded automated database backup
+- automated daily attachment backups to a separate versioned Amazon S3 backup bucket
+- incremental attachment backup behavior that skips unchanged objects
+- source deletions intentionally not propagated to backup storage
+- retention of the current attachment backup object plus 35 days of noncurrent attachment versions
+- approximately 35 to 36 days of automated logical-database backup retention
 - a successfully tested isolated PostgreSQL logical restore
-- independent dated attachment backups retained outside production object storage
-- SHA-256 attachment-integrity verification
-- historically tested representative object recovery in isolated R2 storage
+- historically tested representative attachment recovery in isolated R2 storage
 - verified R2-to-S3 attachment migration integrity with SHA-256 checks
 - successfully completed PostgreSQL/attachment-backup reconciliation
 - successfully completed application-level validation against the recovered database
+- automated backup failure handling through systemd `OnFailure`
+- controlled verification that a failed systemd backup-style service triggers the backup notifier and publishes to the production SNS alarm topic
 
 During a database or attachment-recovery incident:
 
@@ -473,11 +662,11 @@ A production cutover was intentionally not performed during the Phase 25B.7 reco
 
 Current recovery limitations include:
 
-- automated daily attachment backups are not yet implemented
-- the independent attachment backup is currently stored locally
-- no off-machine or off-provider attachment backup copy is currently configured
+- the automated backup bucket is off-machine but remains within the AWS provider ecosystem
+- no independent off-provider automated production backup is currently configured
 - production infrastructure reconstruction has not been drill-tested
 - production recovery cutover has not been drill-tested
+- a complete Lightsail host outage cannot rely on the host-local backup `OnFailure` notifier, so host-level outage detection depends on the independent Lightsail status-check alarm
 
 For detailed recovery method selection, restore commands, attachment reconciliation, configuration reconstruction, validation criteria, and recovery evidence requirements, use `docs/backup-recovery.md`.
 
@@ -514,6 +703,7 @@ When an alert arrives:
 6. Review structured backend logs and request IDs for application failures.
 7. Begin investigation before acknowledging or dismissing the alert.
 8. Confirm that the affected monitor returns to its normal state after remediation.
+9. If the alert identifies a failed backup service, inspect the relevant backup service and notifier journals before rerunning the backup.
 
 ### Better Stack Alerts
 
@@ -580,6 +770,59 @@ For high database connections:
 6. Investigate sustained growth before the connection limit is reached.
 7. Do not increase `max_connections` merely to suppress the alarm without first identifying the source of connection pressure.
 
+### Backup Failure Alerts
+
+A backup failure notification identifies which production backup service failed.
+
+For a database-backup failure, inspect:
+
+```bash
+sudo systemctl status labflow-database-backup.service --no-pager
+sudo journalctl -u labflow-database-backup.service -n 100 --no-pager
+```
+
+For an attachment-backup failure, inspect:
+
+```bash
+sudo systemctl status labflow-attachment-backup.service --no-pager
+sudo journalctl -u labflow-attachment-backup.service -n 100 --no-pager
+```
+
+Do not immediately rerun a failed backup repeatedly.
+
+First determine whether the failure is caused by:
+
+- database availability
+- AWS credentials
+- Secrets Manager access
+- S3 permissions
+- network connectivity
+- local disk/temp-file problems
+- PostgreSQL tooling
+- source-object changes during attachment copying
+
+After correcting the cause, change to the production backend directory:
+
+```bash
+cd /opt/labflow/labflow-backend
+```
+
+Then run the affected backup once manually and verify successful completion.
+
+For database backup:
+
+```bash
+npm run backup:database
+```
+
+For attachment backup:
+
+```bash
+npm run backup:attachments
+```
+
+Then confirm the corresponding service journal reports a successful run.
+
 ### September 2026 Readiness Incident
 
 The 2026-09-05 database credential-rotation incident demonstrated that the
@@ -624,7 +867,9 @@ Backup and recovery hardening has been completed for the current demo/pilot stag
 
 Frontend end-to-end testing and the operational-alerting baseline are also complete.
 
-Remaining pre-pilot hardening includes automated and off-provider attachment backups, transactional-email production cleanup, and final customer/compliance readiness work.
+Automated daily PostgreSQL and attachment backups are now implemented, including versioned backup storage, retention policies, integrity verification, and backup-failure notification handling.
+
+Remaining pre-pilot hardening includes transactional-email production cleanup pending Amazon SES production access, final customer/compliance readiness work, and consideration of an independent off-provider backup layer if the pilot risk profile requires protection from a broader AWS provider failure.
 
 ## Related Documentation
 
