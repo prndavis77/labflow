@@ -23,6 +23,7 @@
     "cleanup:attachments": "node src/scripts/cleanupPendingAttachments.js",
     "backup:database": "node src/scripts/backupProductionDatabase.js",
     "backup:attachments": "node src/scripts/backupProductionAttachments.js",
+    "backup:notify-failure": "node src/scripts/notifyBackupFailure.js",
     "export:organization": "node scripts/exportOrganizationData.js",
     "drill:organization-export": "cross-env NODE_ENV=test node scripts/organizationDataExportDrill.js"
   },
@@ -33,6 +34,7 @@
     "@aws-sdk/client-s3": "^3.1094.0",
     "@aws-sdk/client-secrets-manager": "^3.1127.0",
     "@aws-sdk/client-sesv2": "^3.1127.0",
+    "@aws-sdk/client-sns": "^3.1130.0",
     "@aws-sdk/s3-request-presigner": "^3.1094.0",
     "archiver": "7.0.1",
     "bcrypt": "^6.0.0",
