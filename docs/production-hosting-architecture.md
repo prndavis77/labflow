@@ -146,7 +146,7 @@ Current status:
 - [ ] Mailgun transactional email to Amazon SES
 - [ ] further CloudWatch consolidation
 - [x] DNS and production-domain finalization for `app.labfluss.com` and `api.labfluss.com`
-- [ ] automated attachment backup and remaining recovery automation
+- [x] automated PostgreSQL and attachment backup automation, retention, integrity verification, and backup-failure handling
 - [x] production smoke testing for the migrated AWS frontend/backend/database stack
 - [ ] final infrastructure sign-off
 
@@ -194,5 +194,4 @@ Moving infrastructure to AWS does not by itself make Labfluss HIPAA compliant, F
 
 - Mailgun to Amazon SES
 - further CloudWatch consolidation
-- automated attachment backup and remaining recovery automation
 - final infrastructure sign-off
