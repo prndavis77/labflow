@@ -27,7 +27,7 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 Labfluss MVP Version 1.6 is complete and deployed in a production-style AWS environment. The project is now in paid-pilot-readiness preparation for an initial United States university-laboratory pilot.
 
-The application includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral email delivery with Mailgun support, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboards, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory and booking, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
+The application includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral transactional email with Amazon SES active in production, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboards, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory and booking, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
 
 Labfluss also now includes substantial production-security and tenant-lifecycle hardening, including organization access freezing, JWT and account-recovery-token invalidation, organization-scoped destructive deletion, provider-neutral object-storage namespace deletion, PostgreSQL/object-storage reconciliation after partial failure, signed-upload quiescence enforcement, tenant-isolation deletion tests, a dedicated local integration-test database, and a destructive deletion drill using isolated non-production PostgreSQL and R2 resources.
 
@@ -79,7 +79,7 @@ Completed:
 
 ### Phase 26C: AWS Production Migration
 
-Completed:
+Completed so far:
 
 - Migrated the production frontend from Vercel to AWS Amplify Hosting.
 - Migrated the production backend from Render to AWS Lightsail.
@@ -95,8 +95,11 @@ Completed:
 - Cut production over to `ATTACHMENT_STORAGE_PROVIDER=s3`, reconciled available attachment metadata to `s3`, and changed the database/model default to `s3`.
 - Verified post-cutover reads and writes through the production application, including new objects appearing only in S3.
 - Removed production R2 credentials from Lightsail and revoked the former production R2 credential after successful no-R2 runtime testing.
-- Added an Amazon SES email provider while retaining Mailgun as the production rollback provider during SES production-access approval.
+- Added the Amazon SES email provider, received SES production access in `eu-central-1`, and cut the production backend over to `EMAIL_PROVIDER=ses`.
 - Configured the `labfluss.com` Amazon SES identity, DKIM, custom MAIL FROM domain, SPF, DMARC, account-level bounce/complaint suppression, and a least-privilege SES sending identity.
+- Verified production Amazon SES delivery for password reset, email verification, and administrator invitation workflows.
+- Verified backend transactional-email delivery logs with provider `ses`.
+- Retained the former Mailgun production configuration temporarily only as rollback configuration pending formal retirement.
 - Added a dedicated least-privilege AWS Secrets Manager runtime identity for the production RDS-managed database secret.
 - Removed the production database password from `DATABASE_URL`.
 - Updated the production Sequelize runtime to retrieve the `AWSCURRENT` RDS credential from AWS Secrets Manager before opening new physical PostgreSQL connections.
@@ -120,7 +123,7 @@ Completed so far:
 - Added incremental attachment backup behavior that skips unchanged objects and does not propagate source deletions.
 - Added systemd backup scheduling with persistent timers and randomized start delays.
 - Added systemd `OnFailure` backup-failure notification through the production SNS alarm topic.
-- Verified the backup failure-notification path using a disposable intentionally failing systemd service without breaking either real production backup.
+- Verified the complete backup failure-notification path using a disposable intentionally failing systemd service, including `OnFailure`, Amazon SNS publish, and email delivery, without breaking either real production backup.
 - Updated production backup, recovery, environment, and operational documentation for the automated backup architecture.
 
 Phase 26D paid-pilot operational-readiness work is in progress. Automated backup hardening and operational alerting are complete; final paid-pilot release-readiness work remains.
@@ -283,6 +286,7 @@ This deployment uses:
 - AWS Lightsail for the Node.js/Express backend API
 - Amazon RDS for PostgreSQL for the production database
 - Amazon S3 for private attachment storage
+- Amazon SES for production transactional-email delivery
 - Nginx as the HTTPS reverse proxy
 - systemd for backend process supervision, attachment-cleanup scheduling, automated database backups, automated attachment backups, and backup-failure handling
 
@@ -354,7 +358,7 @@ Labfluss provides a structured system for managing these workflows in one place.
 
 - Public workspace creation for a new organization and its first administrator
 - Invitation-only account creation for additional admins, supervisors, and researchers
-- Invitation emails through a provider-neutral email service with Mailgun support
+- Invitation emails through a provider-neutral email service with Amazon SES active in production
 - Invitation delivery tracking and an admin-only backend resend workflow
 - Existing-session clearing after invitation acceptance before login
 - User login
@@ -707,7 +711,7 @@ This layered model allows Labfluss to combine global user roles, project-specifi
 - Role-based access control for admins, supervisors, and researchers
 - Organization-scoped lab workspaces
 - Admin-created invitations
-- Provider-neutral invitation email service with Mailgun support verified locally
+- Provider-neutral transactional-email service with Amazon SES active in production and Mailgun retained temporarily as a rollback provider
 - HTML and plain-text invitation templates
 - Invitation email delivery tracking
 - Admin-only backend invitation resend with token rotation and renewed expiration
@@ -1073,7 +1077,7 @@ The invitation flow includes:
 1. An admin creates an invitation with name, email, role, optional department, and researcher permissions.
 2. Labfluss generates a cryptographically secure token and stores only its SHA-256 hash.
 3. Labfluss commits the invitation and audit event before attempting external email delivery.
-4. The email service sends branded HTML and plain-text invitation messages through Mailgun when enabled.
+4. The email service sends branded HTML and plain-text invitation messages through the configured provider. Amazon SES is the active production provider.
 5. Delivery status, provider, provider message ID, last attempt time, and sent time are recorded.
 6. The invited user opens the link and sets a password.
 7. Labfluss creates the user inside the invitation's organization and marks the invitation as accepted.
@@ -1190,8 +1194,8 @@ Labfluss demonstrates several full-stack development concepts:
 - Security headers with Helmet
 - Authentication route rate limiting
 - Restricted CORS configuration for local and deployed frontend origins
-- Provider-neutral email delivery architecture
-- Mailgun Domain Sending Key support through the Mailgun HTTP API
+- Provider-neutral transactional-email architecture with Amazon SES and Mailgun provider implementations
+- Amazon SES production delivery using a least-privilege sending identity
 - HTML and plain-text invitation email templates
 - Invitation delivery tracking and resend with token rotation
 - External-provider failure isolation so invitation persistence is preserved
@@ -1954,7 +1958,7 @@ For the complete security model, production requirements, dependency-risk notes,
 
 Production environment variables must be stored only in the hosting provider's environment or secret-management system. Do not commit real `.env` files, database URLs, JWT secrets, email-provider credentials, AWS storage credentials, or other production secrets to Git.
 
-Mailgun production credentials must remain backend-only. Do not expose the API key to the Vite frontend, prefix it with `VITE_`, print it in logs, or place it in committed configuration.
+Transactional-email credentials must remain backend-only. Do not expose Amazon SES credentials, legacy Mailgun credentials, or other provider secrets to the Vite frontend, prefix them with `VITE_`, print them in logs, or place them in committed configuration.
 
 Labfluss's backend security controls include:
 
@@ -2084,7 +2088,11 @@ FRONTEND_URL=http://localhost:5173
 
 EMAIL_PROVIDER=disabled
 EMAIL_FROM_NAME=Labfluss
-EMAIL_FROM_ADDRESS=labflow@example.com
+EMAIL_FROM_ADDRESS=no-reply@labfluss.com
+
+SES_REGION=eu-central-1
+SES_ACCESS_KEY_ID=
+SES_SECRET_ACCESS_KEY=
 
 MAILGUN_API_KEY=
 MAILGUN_DOMAIN=mg.example.com
@@ -2105,7 +2113,7 @@ S3_REGION=eu-central-1
 
 Use `EMAIL_PROVIDER=disabled` when local email delivery is not needed.
 
-In the current development environment, do not store a working Mailgun key in `.env`. Supply it through a temporary process environment variable or an operating-system secret store.
+Do not commit working transactional-email credentials. For local development, prefer `EMAIL_PROVIDER=disabled` unless email delivery is specifically being tested. Supply real provider credentials through appropriately protected local environment or secret-management mechanisms.
 
 The S3 values are required when `ATTACHMENT_STORAGE_PROVIDER=s3`. The backend still contains an R2 provider for isolated historical/test workflows, but R2 is no longer the production attachment store.
 
@@ -2643,8 +2651,8 @@ Labfluss MVP Version 1.6 is intentionally focused on core workflows.
 Current limitations include:
 
 - Organization ownership, backend isolation, public workspace creation, invitation onboarding, basic organization settings, and production custom domains are included, but multi-organization memberships, organization switching, billing, subscription management, and full institutional tenant administration are not yet implemented.
-- Invitation, password-reset, and email-verification delivery are implemented through the provider-neutral email layer, with Mailgun configured for the deployed demo. Overdue-task notifications, booking reminders, and broader notification preferences are not yet included.
-- Production Mailgun secrets are stored only in the restricted AWS Lightsail backend environment. Local development keys should be injected securely and should not be committed to Git.
+- Invitation, password-reset, and email-verification delivery are implemented through the provider-neutral email layer, with Amazon SES active in production. Overdue-task notifications, booking reminders, and broader notification preferences are not yet included.
+- The former Mailgun production configuration remains temporarily available only as rollback configuration pending formal retirement after the SES post-cutover rollback window.
 - Dashboard project-linked metrics are role-aware, but equipment inventory remains organization-wide because equipment is not project-owned.
 - Audit logging exists for important admin, review, restore, invitation, and delivery-related actions, but it is not immutable and does not yet include export, retention policies, signatures, or locked review controls.
 - Archive and recovery cover projects, tasks, experiments, protocols, and attachments. Equipment, bookings, notebook entries, and project memberships retain their existing lifecycle behavior.

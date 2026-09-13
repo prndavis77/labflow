@@ -58,16 +58,17 @@ Provider-maintained lists should be reviewed periodically and before material pr
 
 ### Service
 
-Production infrastructure, application hosting, relational database storage, and private object storage.
+Production infrastructure, application hosting, relational database storage, private object storage, and transactional-email delivery.
 
 ### Labfluss use
 
-Amazon Web Services currently provides four core production services used by Labfluss:
+Amazon Web Services currently provides five core production services used by Labfluss:
 
 - AWS Amplify Hosting for the React/Vite frontend
 - AWS Lightsail for the Node.js/Express backend API
 - Amazon RDS for PostgreSQL for the production relational database
 - Amazon S3 for private production attachment storage
+- Amazon SES for production transactional-email delivery
 
 ### Data potentially processed
 
@@ -139,6 +140,21 @@ Amazon S3 stores private customer attachment binaries, including:
 
 Attachment metadata is primarily stored in PostgreSQL, while raw attachment binaries are stored in Amazon S3.
 
+Amazon SES may process:
+
+- recipient name
+- recipient email address
+- sender information
+- email subject
+- email body
+- delivery metadata
+- timestamps
+- one-time invitation URLs
+- one-time email-verification URLs
+- one-time password-reset URLs
+
+Because one-time URLs contain temporary authentication or account-recovery tokens, those token values exist within the email message transmitted through Amazon SES even though Labfluss stores only token hashes in PostgreSQL.
+
 ### Purpose
 
 - frontend hosting and static asset delivery
@@ -146,6 +162,7 @@ Attachment metadata is primarily stored in PostgreSQL, while raw attachment bina
 - persistent relational database storage
 - database backup and recovery
 - private object storage and delivery of customer attachments
+- transactional account and authentication email delivery
 
 ### Provider role
 
@@ -164,6 +181,7 @@ Current verified production configuration includes:
 - private Lightsail-to-RDS connectivity
 - RDS publicly accessible: No
 - S3 public access blocked
+- Amazon SES production transactional-email service in `eu-central-1`
 
 AWS identifies Europe (Frankfurt) as Region `eu-central-1` in Germany.
 
@@ -171,13 +189,15 @@ The production S3 attachment bucket is located in `eu-central-1`.
 
 If a customer requires explicit US-only object-storage residency, the current `eu-central-1` production bucket must not be represented as meeting that requirement.
 
+Amazon SES production access was approved in the Europe (Frankfurt) Region. Labfluss uses Amazon SES in `eu-central-1` for production invitation, password-reset, and email-verification delivery.
+
 Customer-data residency should not be described more broadly than the verified service configuration and applicable AWS service terms.
 
 ### Contractual/privacy documentation
 
 AWS publishes an AWS Data Processing Addendum governing the processing of Customer Data through covered AWS services.
 
-Amazon S3 is an AWS service and is covered under the applicable AWS Data Processing Addendum and AWS service terms.
+The AWS services used by Labfluss, including Amazon RDS, Amazon S3, Amazon SES, AWS Lightsail, and AWS Amplify Hosting, are governed by the applicable AWS service terms and data-processing documentation.
 
 AWS also maintains official subprocessor information. The subprocessors relevant to an individual customer may depend on the AWS services and Regions used.
 
@@ -231,6 +251,19 @@ Amazon S3 safeguards include:
 - dedicated least-privilege production IAM credential
 - account-wide bucket enumeration denied
 
+Amazon SES safeguards include:
+
+- verified `labfluss.com` sending identity
+- DKIM
+- custom MAIL FROM
+- SPF
+- DMARC
+- account-level bounce/complaint suppression
+- dedicated least-privilege SES sending credentials
+- raw invitation/reset/verification tokens are not stored in PostgreSQL
+- production API responses do not expose raw invitation links
+- transactional-email delivery verified for invitation, password-reset, and email-verification workflows
+
 ### Pilot status
 
 **PRODUCTION INFRASTRUCTURE CONFIGURATION VERIFIED, AWS LEGAL/SUBPROCESSOR REVIEW REQUIRED BEFORE FIRST PAID PILOT**
@@ -246,23 +279,31 @@ Before first pilot:
 
 ---
 
-## 2. Mailgun / Sinch Email
+## 2. Mailgun / Sinch Email, Legacy Rollback Provider
 
 ### Service
 
-Transactional email delivery.
+Former production transactional-email provider, currently retained only as temporary rollback configuration.
 
 ### Labfluss use
 
-Mailgun sends:
+Mailgun was the Labfluss production transactional-email provider before the Amazon SES cutover.
+
+It previously delivered:
 
 - organization invitations
 - email-verification messages
 - password-reset messages
 
+Amazon SES is now the active production provider.
+
+Mailgun is not used for normal production transactional-email delivery while `EMAIL_PROVIDER=ses`.
+
+The previous Mailgun configuration remains temporarily available only during the documented post-cutover rollback window.
+
 ### Data potentially processed
 
-Mailgun may process:
+During its period as the active production provider, Mailgun could process:
 
 - recipient name
 - recipient email address
@@ -275,70 +316,69 @@ Mailgun may process:
 - one-time email-verification URLs
 - one-time password-reset URLs
 
-Because one-time URLs contain authentication/recovery tokens, those tokens exist within the message sent to Mailgun even though Labfluss stores only token hashes in PostgreSQL.
+If Mailgun were deliberately reactivated during the rollback window, the same categories could again be processed.
 
-This makes transactional-email handling security-sensitive.
+Because one-time URLs contain authentication or recovery tokens, transactional-email handling remains security-sensitive even though Labfluss stores only token hashes in PostgreSQL.
 
 ### Purpose
 
-Delivery of transactional account and authentication email.
+Historical production transactional-email delivery and temporary emergency rollback capability during the Amazon SES post-cutover rollback window.
 
 ### Provider role
 
-Subprocessor.
+Former production subprocessor.
+
+Mailgun would again act as a subprocessor if it were deliberately reactivated and used to process Labfluss production transactional email.
 
 ### Contractual/privacy documentation
 
 Mailgun is operated as part of Sinch Email.
 
-Mailgun states that it acts as a processor when processing personal data on behalf of customers.
+Mailgun's contractual, privacy, DPA, and subprocessor documentation was reviewed while it was the active Labfluss production email provider.
 
-Mailgun's Terms incorporate a Data Processing Agreement for such processing.
-
-Mailgun also uses downstream infrastructure subprocessors.
+If Mailgun is intentionally retained or reactivated for a paid pilot, the applicable documentation must be reviewed again before customer data is transmitted through it.
 
 ### Data location
 
-The current Mailgun account and sending domain use the United States region.
+The historical Labfluss Mailgun account and sending configuration use the United States region.
 
-The production API configuration must continue to use the Mailgun US API endpoint unless an intentional migration is performed.
+Historical production configuration used the Mailgun US API endpoint.
 
-Do not assume the region solely from the Labfluss deployment region.
+Mailgun region information is retained here for historical and rollback traceability and must not be interpreted as the current Labfluss transactional-email data location.
+
+The active production email provider is Amazon SES in `eu-central-1`.
 
 ### Retention
 
-The current Mailgun Free account shows:
+The previously reviewed Mailgun Free account showed:
 
 - dashboard log retention: 1 day
-- message-body retention: unavailable on the current plan
+- message-body retention: unavailable on the reviewed plan
 
-Mailgun may retain other operational or statistical records according to its service terms and legal documentation.
-
-The dashboard-visible retention values should be reviewed again if the account is upgraded.
+These values describe the previously reviewed Mailgun configuration and should be reverified if Mailgun is reactivated.
 
 ### Labfluss safeguards
 
 - raw token values are not stored in PostgreSQL
 - invitation/reset/verification tokens are cryptographically generated
-- only hashes are stored in the application database
+- only token hashes are stored in the application database
 - links expire
 - replacement links invalidate earlier links
 - production responses do not expose raw invitation links
-- email provider message identifiers are excluded from customer-facing responses and customer exports
+- email-provider message identifiers are excluded from customer-facing responses and customer exports
 - email service failures do not corrupt application transaction state
+- Mailgun is not selected during normal production operation while Amazon SES is healthy
 
 ### Pilot status
 
-**CONFIGURATION VERIFIED, DEDICATED LABFLUSS SENDING DOMAIN PENDING**
+**NOT ACTIVE FOR NORMAL PRODUCTION DELIVERY, TEMPORARY ROLLBACK CONFIGURATION PENDING RETIREMENT**
 
-Before first pilot:
+Before the first paid pilot, either:
 
-- create a dedicated Labfluss production sending domain
-- verify SPF/DKIM for the Labfluss production sending domain
-- update production `MAILGUN_DOMAIN`
-- verify production `MAILGUN_API_BASE_URL` remains the US endpoint
-- subscribe to Mailgun/Sinch subprocessor-change notifications where available
-- decide whether the Free plan is appropriate for paid-pilot transactional email
+1. close the SES rollback window, remove the remaining Mailgun production configuration, revoke the Labfluss Mailgun credential, remove obsolete protected rollback material containing that credential, and update this inventory to mark Mailgun fully retired; or
+2. if Mailgun is intentionally retained as a production-capable fallback, complete a fresh legal, security, retention, subprocessor, and customer-disclosure review for that continued role.
+
+The preferred Phase 26C.5 completion path is retirement after the SES rollback decision is finalized.
 
 ---
 
@@ -526,31 +566,36 @@ The following items remain configuration-specific and must be verified before th
 - [x] production IAM credential restricted to required attachment operations
 - [x] account-wide bucket enumeration denied
 - [ ] decide whether localhost should remain allowed on the production S3 bucket before pilot
+- [x] Amazon SES identified as the active production transactional-email provider
+- [x] SES production region recorded: `eu-central-1`
+- [x] SES production access approved on 2026-09-09
+- [x] SES account confirmed outside the production sandbox
+- [x] `labfluss.com` production sending identity configured
+- [x] DKIM configured
+- [x] custom MAIL FROM configured
+- [x] SPF configured
+- [x] DMARC configured
+- [x] account-level bounce/complaint suppression configured
+- [x] dedicated least-privilege SES sending credential configured
+- [x] production password-reset delivery verified through SES
+- [x] production email-verification delivery verified through SES
+- [x] production administrator-invitation delivery verified through SES
+- [x] backend delivery logs verified with provider `ses`
 
-### Mailgun / Sinch Email
+### Mailgun / Sinch Email, Legacy Rollback Provider
 
-- [x] production email provider identified: Mailgun / Sinch Email
-- [x] current account region recorded: US
-- [x] current plan recorded: Free
-- [x] current API region identified: US
-- [x] current sending domain recorded: `mg.cockadoodlemeatmarket.com`
-- [x] message-retention capability reviewed: unavailable on current plan
-- [x] dashboard log retention recorded: 1 day
-- [x] click tracking confirmed disabled
-- [x] open tracking confirmed disabled
-- [x] unsubscribe tracking confirmed disabled
-- [x] TLS mode recorded: Opportunistic
-- [x] certificate verification confirmed required
-- [x] dedicated IP count recorded: 0
-- [x] Labfluss-specific sending key confirmed
-- [x] current Mailgun/Sinch DPA reviewed
-- [x] current Mailgun/Sinch subprocessor list reviewed
-- [ ] create a dedicated Labfluss production sending domain
-- [ ] verify SPF/DKIM for the Labfluss production sending domain
-- [ ] update Labfluss production `MAILGUN_DOMAIN`
-- [ ] verify production `MAILGUN_API_BASE_URL` remains the US endpoint
-- [ ] configure subprocessor-change notifications where available
-- [ ] decide whether the Free plan is appropriate for paid-pilot transactional email
+- [x] former production transactional-email provider identified
+- [x] historical account region recorded: US
+- [x] historical sending domain recorded
+- [x] Mailgun confirmed not active for normal production delivery
+- [x] production backend confirmed using `EMAIL_PROVIDER=ses`
+- [x] Mailgun retained only as temporary rollback configuration
+- [ ] formally close the SES post-cutover rollback window
+- [ ] remove remaining Mailgun production environment variables
+- [ ] revoke the Labfluss Mailgun credential
+- [ ] remove protected rollback material containing obsolete Mailgun credentials when no longer required
+- [ ] perform final SES verification after Mailgun retirement
+- [ ] update this inventory to mark Mailgun fully retired
 
 ### Better Stack
 
@@ -580,8 +625,8 @@ The following items remain configuration-specific and must be verified before th
 
 ## Review Record
 
-**Last reviewed:** 2026-09-04
+**Last reviewed:** 2026-09-13
 
 **Next review:** Before first paid pilot or upon material provider change, whichever occurs first.
 
-**Status:** Production provider inventory updated after AWS migration. AWS legal/subprocessor review and remaining pre-pilot remediation items remain open.
+**Status:** Production provider inventory updated after the Amazon SES cutover. Amazon SES is the active production transactional-email provider. Mailgun remains temporary rollback-only configuration pending the Phase 26C.5 retirement decision. AWS legal/subprocessor review and remaining pre-pilot remediation items remain open.

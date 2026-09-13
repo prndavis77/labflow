@@ -15,7 +15,7 @@ Labfluss is currently suitable for portfolio demonstrations, controlled pilot de
 - Database: Amazon RDS for PostgreSQL
 - Attachment storage: Amazon S3
 - Backup storage: separate versioned Amazon S3 backup bucket
-- Transactional email: Mailgun
+- Transactional email: Amazon SES
 - External uptime monitoring: Better Stack
 
 ## Production URLs
@@ -233,7 +233,7 @@ Likely area:
 
 - application/controller error
 - authorization
-- external dependency such as S3 or Mailgun
+- external dependency such as Amazon S3 or Amazon SES
 - data-specific failure
 
 Use the request correlation ID from the failed API request where available.
@@ -283,7 +283,7 @@ Sensitive values that must not be intentionally logged include:
 - authorization headers
 - cookies
 - database credentials
-- Mailgun API keys
+- Amazon SES access credentials
 - S3 credentials
 - signed upload URLs
 - signed download URLs
@@ -305,10 +305,12 @@ If email delivery fails:
 
 1. Check the Lightsail backend journal for `email_delivery_failed`.
 2. Check the associated feature-specific event.
-3. Check Mailgun status and configuration.
-4. Verify the configured domain and sender.
-5. Confirm MAILGUN_API_KEY, domain, and API base URL are present.
-6. Do not expose reset, verification, or invitation tokens while troubleshooting.
+3. Check Amazon SES service health and account status in `eu-central-1`.
+4. Confirm `EMAIL_PROVIDER=ses`.
+5. Confirm `SES_REGION`, `SES_ACCESS_KEY_ID`, and `SES_SECRET_ACCESS_KEY` are present in the restricted production environment.
+6. Verify the configured sender identity and domain remain valid.
+7. Check SES sending metrics, suppression status, bounce activity, and complaint activity where relevant.
+8. Do not expose reset, verification, or invitation tokens while troubleshooting.
 
 ## Attachment Cleanup Failures
 
@@ -513,6 +515,7 @@ intentional systemd failure
 -> OnFailure
 -> backup failure notifier
 -> Amazon SNS publish
+-> email delivery
 ```
 
 The disposable test service was removed after verification.
@@ -869,7 +872,9 @@ Frontend end-to-end testing and the operational-alerting baseline are also compl
 
 Automated daily PostgreSQL and attachment backups are now implemented, including versioned backup storage, retention policies, integrity verification, and backup-failure notification handling.
 
-Remaining pre-pilot hardening includes transactional-email production cleanup pending Amazon SES production access, final customer/compliance readiness work, and consideration of an independent off-provider backup layer if the pilot risk profile requires protection from a broader AWS provider failure.
+Amazon SES production access and production transactional-email verification are complete.
+
+Remaining pre-pilot hardening includes final customer/compliance readiness work, final infrastructure sign-off, and consideration of an independent off-provider backup layer if the pilot risk profile requires protection from a broader AWS provider failure.
 
 ## Related Documentation
 

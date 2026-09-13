@@ -12,7 +12,7 @@ Labfluss uses Sequelize migrations for production schema changes. Production mig
 - Backend: AWS Lightsail
 - Database: Amazon RDS for PostgreSQL
 - Attachment storage: Amazon S3
-- Transactional email: Mailgun
+- Transactional email: Amazon SES
 - External monitoring: Better Stack
 
 ## Critical Safety Rules
@@ -155,39 +155,51 @@ Confirm the required schema changes are present before enabling this workflow in
 
 Historical or isolated recovery environments that use a complete database connection string may still use Sequelize CLI directly where appropriate.
 
-Mailgun must be configured on the deployed backend:
+Amazon SES must be configured on the deployed backend:
 
 ```text
-EMAIL_PROVIDER=mailgun
+EMAIL_PROVIDER=ses
 EMAIL_FROM_NAME=Labfluss
-EMAIL_FROM_ADDRESS=<verified sender>
-MAILGUN_API_KEY=<secret>
-MAILGUN_DOMAIN=<configured domain>
-MAILGUN_API_BASE_URL=https://api.mailgun.net
+EMAIL_FROM_ADDRESS=no-reply@labfluss.com
+SES_REGION=eu-central-1
+SES_ACCESS_KEY_ID=<sensitive credential identifier>
+SES_SECRET_ACCESS_KEY=<secret>
 ```
 
-Use `https://api.eu.mailgun.net` for an EU-region Mailgun domain.
+Amazon SES production access was approved on 2026-09-09 in the Europe (Frankfurt) region.
+
+The production SES sender and transactional delivery paths were verified on 2026-09-12.
+
+The previous Mailgun configuration may remain temporarily as rollback-only configuration until the rollback window is closed. It is not the active production email provider.
 
 ### Completed production verification
 
-1. Register a new workspace.
-2. Confirm the administrator is authenticated but marked unverified.
-3. Confirm normal workspace API calls return `403 EMAIL_VERIFICATION_REQUIRED`.
-4. Confirm the initial verification email arrives.
-5. Use Resend Verification Email and confirm a replacement message arrives.
-6. Verify the email through the explicit confirmation button.
-7. Confirm the user returns to the dashboard without logging in again.
-8. Confirm protected workspace data loads and the unverified banner disappears.
+Production transactional-email delivery through Amazon SES was verified on 2026-09-12.
 
-### Remaining production verification
+Verified flows:
 
-1. Request a password-reset email.
-2. Confirm the password-reset email arrives and opens the deployed frontend route.
-3. Complete the reset.
-4. Confirm an older JWT returns `401 SESSION_INVALIDATED`.
-5. Confirm the frontend removes the old token, redirects to login, and shows the notice once.
-6. Refresh the login page and confirm the notice does not repeat.
-7. Log in with the new password and confirm the fresh JWT works.
+1. Password-reset request accepted by the production application.
+2. Password-reset email delivered through Amazon SES.
+3. Password-reset link opened the deployed frontend route.
+4. Unverified user state enforced normal workspace access restrictions.
+5. Resend Verification Email delivered through Amazon SES.
+6. Email-verification link opened the deployed frontend route.
+7. Verification completed successfully.
+8. The account returned to the verified state and normal dashboard access was restored.
+9. Administrator invitation creation returned successfully.
+10. Invitation email delivered through Amazon SES.
+11. Invitation link opened the correct deployed acceptance route.
+12. Backend logs recorded `email_delivery_succeeded` with provider `ses` for password-reset, email-verification, and invitation delivery.
+
+### Remaining account-security verification
+
+The following deeper password-reset/session behavior remains separate from the SES cutover verification:
+
+1. Complete an actual password reset.
+2. Confirm an older JWT returns `401 SESSION_INVALIDATED`.
+3. Confirm the frontend removes the old token, redirects to login, and shows the notice once.
+4. Refresh the login page and confirm the notice does not repeat.
+5. Log in with the new password and confirm the fresh JWT works.
 
 Do not record raw reset or verification tokens in logs or documentation.
 

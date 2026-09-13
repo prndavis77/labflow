@@ -35,8 +35,7 @@ Required non-secret variables:
 - `EMAIL_PROVIDER`
 - `EMAIL_FROM_NAME`
 - `EMAIL_FROM_ADDRESS`
-- `MAILGUN_DOMAIN`
-- `MAILGUN_API_BASE_URL`
+- `SES_REGION`
 - `ATTACHMENT_STORAGE_PROVIDER`
 - `ATTACHMENT_MAX_FILE_SIZE_BYTES`
 - `ATTACHMENT_PENDING_TTL_MINUTES`
@@ -53,7 +52,7 @@ Required non-secret variables:
 Required non-database secret variables:
 
 - `JWT_SECRET`
-- `MAILGUN_API_KEY`
+- `SES_SECRET_ACCESS_KEY`
 - `AWS_SECRET_ACCESS_KEY`
 - `BACKUP_AWS_SECRET_ACCESS_KEY`
 
@@ -62,6 +61,7 @@ Sensitive credential identifiers:
 - `AWS_ACCESS_KEY_ID`
 - `DB_SECRET_ACCESS_KEY_ID`
 - `BACKUP_AWS_ACCESS_KEY_ID`
+- `SES_ACCESS_KEY_ID`
 
 Sensitive deployment identifiers:
 
@@ -91,6 +91,12 @@ Sensitive credential identifier.
 
 DB_SECRET_SECRET_ACCESS_KEY:
 Secret.
+
+SES_ACCESS_KEY_ID:
+Sensitive credential identifier for the production Amazon SES sending IAM identity.
+
+SES_SECRET_ACCESS_KEY:
+Secret for the production Amazon SES sending IAM identity.
 
 BACKUP_AWS_ACCESS_KEY_ID:
 Sensitive credential identifier for the dedicated production backup IAM identity.
@@ -368,13 +374,35 @@ The database and attachment schedules are intentionally separated so the jobs do
 
 ## Email
 
-Provider: Mailgun
+Provider: Amazon SES
 
-Production credentials are stored only in:
+Region:
+
+```text
+eu-central-1
+```
+
+Production sender:
+
+```text
+Labfluss <no-reply@labfluss.com>
+```
+
+Amazon SES production access was approved on 2026-09-09, and the account is out of the SES sandbox in the Europe (Frankfurt) region.
+
+Production SES credentials are stored only in:
 
 `/opt/labflow/labflow-backend/.env`
 
 The file must remain restricted and must not be committed to Git.
+
+Production SES delivery was verified on 2026-09-12 for:
+
+- password-reset email
+- email-verification email
+- invitation email
+
+The previous Mailgun configuration may remain temporarily in the production environment as rollback-only configuration until the rollback window is closed. It is no longer the active transactional-email provider.
 
 ## Account Security Behavior
 
@@ -387,7 +415,7 @@ Current application constants:
 - JWT expiry: 7 days
 - JWT session invalidation: database-backed `tokenVersion`
 
-Production Mailgun configuration is required for invitation, password-reset, and email-verification delivery.
+Production Amazon SES configuration is required for invitation, password-reset, and email-verification delivery.
 
 ## Deployment Safety
 

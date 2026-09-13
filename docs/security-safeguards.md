@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
-**Last reviewed:** 2026-09-04
+**Last reviewed:** 2026-09-13
 
 ## 1. Purpose
 
@@ -474,8 +474,14 @@ Current recovery measures include:
 - Amazon RDS automated backups with a 7-day retention window;
 - Amazon RDS point-in-time recovery within the retained backup window;
 - a post-cutover manual Amazon RDS DB snapshot;
-- portable PostgreSQL logical backups;
-- attachment backup procedures;
+- automated daily PostgreSQL custom-format logical backups;
+- automated daily attachment backups;
+- a separate versioned Amazon S3 backup bucket;
+- lifecycle retention for database archives and historical attachment versions;
+- PostgreSQL archive and SHA-256 integrity verification;
+- attachment backup integrity verification;
+- systemd backup scheduling and failure notification;
+- verified backup-failure notification through Amazon SNS and email delivery;
 - recovery validation;
 - isolated database restore testing;
 - object-storage recovery testing; and
@@ -494,9 +500,7 @@ The initial pilot recovery architecture has operational limitations.
 
 Current limitations include:
 
-- automated recurring attachment backups are not yet implemented;
-- the independent attachment backup is currently stored locally;
-- no off-machine or off-provider attachment backup copy is currently configured;
+- automated database and attachment backups remain within the AWS provider ecosystem rather than using an independent off-provider automated replica;
 - full infrastructure reconstruction has not been drill-tested;
 - a production disaster-recovery cutover has not been drill-tested; and
 - some recovery procedures still depend on provider control planes and documented manual operations.
@@ -806,12 +810,10 @@ A complete automated infrastructure reconstruction and disaster-recovery product
 
 The following areas are recognized as requiring continued improvement before or during broader production use:
 
-- automated recurring object-storage backups;
-- independent off-provider or off-machine attachment backup;
+- independent off-provider automated backup replication for broader provider-failure resilience;
 - full infrastructure reconstruction testing;
 - disaster-recovery production cutover testing;
-- dedicated Labfluss transactional-email domain;
-- dedicated production transactional-email configuration, including either hardened Mailgun production use or migration to Amazon SES;
+- formal closure of the Amazon SES post-cutover rollback window and retirement of the remaining legacy Mailgun production configuration;
 - review of whether the localhost development origin should remain allowed on the production S3 bucket;
 - production-provider account hardening;
 - enforcement of appropriate multi-factor authentication on provider administrative accounts;
@@ -819,7 +821,7 @@ The following areas are recognized as requiring continued improvement before or 
 - formal vulnerability scanning;
 - independent penetration testing;
 - broader security incident-response exercises;
-- automated frontend/E2E testing; and
+- broader frontend component-level and end-to-end regression coverage; and
 - expanded centralized log aggregation and retention where justified.
 
 Open items must not be represented as completed controls.
@@ -923,7 +925,15 @@ This document should be reviewed:
 
 **Database backup and recovery procedures:** Implemented, including 7-day Amazon RDS automated backups, point-in-time recovery capability, a manual post-cutover snapshot, and tested portable PostgreSQL restore procedures.
 
-**Attachment backup and recovery procedures:** Implemented, with further automation required.
+**Attachment backup and recovery procedures:** Implemented, including automated daily attachment backups, versioned backup storage, retention controls, integrity verification, and tested recovery procedures.
+
+**Automated PostgreSQL logical backups:** Implemented and integrity-verified.
+
+**Backup failure notification:** Implemented and verified end-to-end through systemd, Amazon SNS, and email delivery.
+
+**Production transactional email:** Implemented with Amazon SES in `eu-central-1`; password-reset, email-verification, and administrator-invitation delivery verified in production.
+
+**Legacy Mailgun production configuration:** Rollback-only, pending formal retirement.
 
 **External availability monitoring:** Implemented.
 

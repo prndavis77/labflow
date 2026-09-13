@@ -75,7 +75,7 @@ Labfluss centralizes core research lab workflows into one system:
 - Public organization workspace creation
 - First-administrator onboarding
 - Invitation-only onboarding for additional users
-- Mailgun-backed invitation email delivery implemented and verified locally
+- Provider-neutral transactional email with Amazon SES active in production
 - Delivery status tracking and provider diagnostics
 - Admin-only backend invitation resend with token rotation and renewed expiration
 - Safe partial-failure behavior when email delivery is unavailable
@@ -113,6 +113,7 @@ I designed and built the full-stack MVP, including:
 - Sequelize migrations
 - Backend automated tests with Jest and Supertest
 - Production deployment to AWS Amplify Hosting, AWS Lightsail, Amazon RDS for PostgreSQL, and Amazon S3
+- Amazon SES production cutover and transactional-email verification
 - Amazon RDS credential-rotation architecture using AWS Secrets Manager
 - Passwordless production database configuration
 - Least-privilege IAM design for database-secret, attachment-storage, and transactional-email access
@@ -258,7 +259,9 @@ This workflow better reflects supervised lab work, where task completion may nee
 
 ### Invitation Email Delivery and Resend
 
-Labfluss includes a provider-neutral email service with a Mailgun implementation. Mailgun delivery has been verified locally.
+Labfluss includes a provider-neutral email service with Amazon SES and Mailgun implementations.
+
+Amazon SES is the active production provider. Production delivery was verified for invitation, password-reset, and email-verification workflows. Mailgun was the earlier provider and is retained temporarily only as a rollback option while the SES rollback window remains open.
 
 The invitation creation workflow intentionally separates database persistence from the external provider call:
 
@@ -268,7 +271,7 @@ The invitation creation workflow intentionally separates database persistence fr
 4. Attempt email delivery.
 5. Persist the delivery result.
 
-This ordering prevents a temporary Mailgun failure from deleting or rolling back a valid invitation. The API can return a successful invitation-creation response with a partial-delivery warning, and the backend provides an admin-only resend operation.
+This ordering prevents a temporary external email-provider failure from deleting or rolling back a valid invitation. The API can return a successful invitation-creation response with a partial-delivery warning, and the backend provides an admin-only resend operation.
 
 Delivery tracking records:
 
@@ -473,6 +476,7 @@ controlled failure
 -> systemd OnFailure
 -> backup notifier
 -> successful SNS publish
+-> email delivery
 ```
 
 Database backup integrity was also verified by downloading a stored backup, comparing its SHA-256 value with the S3 metadata, and successfully running pg_restore --list against the downloaded archive.
@@ -786,7 +790,10 @@ The project includes:
 - PostgreSQL backup SHA-256 and archive verification
 - Attachment backup integrity verification
 - systemd backup-failure notification handling
-- Amazon SES provider implemented and AWS sending identity configured while Mailgun remains the active production provider pending SES production access
+- Amazon SES production access approved and production backend cut over to SES
+- Production SES delivery verified for password reset, email verification, and administrator invitation workflows
+- Backend delivery logs verified with provider `ses`
+- Former Mailgun configuration retained temporarily only as rollback configuration
 - Role-based authentication and protected routes
 - Project membership and project-specific access control
 - Experiment, protocol, task, equipment, booking, notebook, and review workflows
@@ -798,7 +805,7 @@ The project includes:
 - Seeded demo data and demo accounts
 - Public workspace creation with first-administrator onboarding
 - Invitation-only onboarding for additional users
-- Provider-neutral invitation email delivery with Mailgun support, verified locally
+- Provider-neutral transactional-email architecture with Amazon SES and Mailgun provider support
 - HTML and plain-text invitation templates
 - Invitation delivery tracking and partial-failure handling
 - Admin-only backend invitation resend with token rotation, renewed expiration, and audit logging
@@ -832,7 +839,6 @@ Current limitations include:
 
 - No rich-text editor or PDF export for experiment notebooks
 - Password reset, email verification, invitation delivery, verification resend, and stale-session handling are implemented. Production verification covered workspace registration, verification-email delivery, resend, verification completion, and immediate post-verification access. Task reminders, booking reminders, and broader notification preferences are not yet included.
-- Local Mailgun keys should currently be injected into the backend process or stored in an operating-system secret store rather than saved in the local `.env` file, because repeated automated key disabling was observed when stored there.
 - A Playwright end-to-end frontend baseline covers critical workflows, but broad component-level frontend unit testing is not yet included.
 - Production monitoring now covers frontend availability, backend liveness/readiness, Lightsail resource health, and key RDS metrics, but centralized long-term application log aggregation remains limited.
 - Automated PostgreSQL and attachment backups are stored in a separate versioned Amazon S3 backup bucket, but no independent off-provider automated backup is currently configured.

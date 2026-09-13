@@ -138,11 +138,11 @@ Recovery priority:
 
 High
 
-### 6. Mailgun configuration
+### 6. Amazon SES configuration
 
 Provider:
 
-Mailgun
+Amazon SES
 
 Required for:
 
@@ -152,11 +152,14 @@ Required for:
 
 Recoverable configuration includes:
 
-- sending domain
-- sender identity
-- API-region selection
+- SES region
+- verified sending identity
+- sender address
+- DKIM configuration
+- custom MAIL FROM configuration
 - DNS configuration
-- API credentials or the ability to generate replacement credentials
+- account production-access state
+- IAM sending credential or the ability to generate a replacement credential
 
 Historical delivered email messages are not part of the Labfluss application backup requirement.
 
@@ -408,7 +411,7 @@ Project configuration represented in repository files is recoverable through Git
 | GitHub source               | Version controlled                                                                                                       | Yes, normal clone/redeploy workflow                      |
 | AWS Lightsail configuration | Production service and systemd timer configuration inventoried; secret regeneration and recreation procedures documented | No                                                       |
 | AWS Amplify configuration   | Production frontend configuration inventoried; recreation procedure documented                                           | No                                                       |
-| Mailgun configuration       | Current sending infrastructure inventoried; credential regeneration procedure documented                                 | No                                                       |
+| Amazon SES configuration    | Current sending infrastructure inventoried; credential regeneration procedure documented                                 | No                                                       |
 | Better Stack configuration  | Production monitors and notification routing inventoried; recreation procedure documented                                | No                                                       |
 
 The isolated PostgreSQL restore, application-level recovery validation, and combined PostgreSQL/attachment-backup reconciliation were completed successfully during Phase 25B.7.
@@ -903,10 +906,13 @@ A disposable systemd service was used to test the failure path without breaking 
 
 Verified path:
 
+```text
 controlled systemd failure
 -> OnFailure
 -> backup notification service
 -> SNS publish
+-> email delivery
+```
 
 The SNS topic's email-delivery path had already been independently verified through the production alarm configuration.
 
@@ -1994,7 +2000,7 @@ Examples:
 
 ```text
 JWT_SECRET
-MAILGUN_API_KEY
+SES_SECRET_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY
 DB_SECRET_SECRET_ACCESS_KEY
 ```
@@ -2019,6 +2025,7 @@ Examples:
 ```text
 AWS_ACCESS_KEY_ID
 DB_SECRET_ACCESS_KEY_ID
+SES_ACCESS_KEY_ID
 ```
 
 #### Sensitive deployment identifier
@@ -2035,7 +2042,7 @@ R2_BUCKET_NAME
 
 Other examples include:
 
-- Mailgun sending domain
+- Amazon SES sending identity
 - frontend and backend production URLs
 
 #### Operational configuration
@@ -2114,9 +2121,9 @@ EMAIL_FROM_NAME
 EMAIL_PROVIDER
 FRONTEND_URL
 JWT_SECRET
-MAILGUN_API_BASE_URL
-MAILGUN_API_KEY
-MAILGUN_DOMAIN
+SES_REGION
+SES_ACCESS_KEY_ID
+SES_SECRET_ACCESS_KEY
 NODE_ENV
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
@@ -2136,7 +2143,7 @@ The backend listens on port 5000, and Nginx proxies production API traffic to 12
 ```text
 Secret:
 JWT_SECRET
-MAILGUN_API_KEY
+SES_SECRET_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY
 DB_SECRET_SECRET_ACCESS_KEY
 BACKUP_AWS_SECRET_ACCESS_KEY
@@ -2147,6 +2154,7 @@ Sensitive credential identifier:
 AWS_ACCESS_KEY_ID
 DB_SECRET_ACCESS_KEY_ID
 BACKUP_AWS_ACCESS_KEY_ID
+SES_ACCESS_KEY_ID
 ```
 
 ```text
@@ -2171,7 +2179,7 @@ Deployment-specific but not secret:
 
 ```text
 FRONTEND_URL
-MAILGUN_DOMAIN
+SES_REGION
 S3_BUCKET_NAME
 S3_REGION
 EMAIL_FROM_ADDRESS
@@ -2183,7 +2191,6 @@ Operational configuration:
 NODE_ENV
 EMAIL_PROVIDER
 EMAIL_FROM_NAME
-MAILGUN_API_BASE_URL
 ATTACHMENT_STORAGE_PROVIDER
 ATTACHMENT_CLEANUP_BATCH_SIZE
 ATTACHMENT_DOWNLOAD_URL_TTL_SECONDS
@@ -2249,7 +2256,7 @@ S3_BUCKET_NAME
 S3_REGION
 ```
 
-Mailgun, JWT, and frontend variables are not required by the cleanup process.
+Amazon SES, JWT, and frontend variables are not required by the cleanup process.
 
 #### Lightsail systemd Timer Verification
 
@@ -2314,7 +2321,7 @@ Template unit: labflow-backup-failure-notify@.service
 Notification command: node src/scripts/notifyBackupFailure.js
 SNS publish path: verified
 SNS email-delivery path: independently verified
-Controlled systemd failure through SNS publish: verified
+Controlled systemd failure through SNS publish and email delivery: verified
 ```
 
 ### AWS Amplify Frontend Configuration
@@ -2641,57 +2648,44 @@ This credential isolation was verified as part of Phase 25B.4.
 
 Recovery-test credentials should not be used by the production application.
 
-### Mailgun Configuration
+### Amazon SES Configuration
 
 #### Current Sending Infrastructure
 
-Current Mailgun sending domain:
+Amazon SES is the active Labfluss production transactional-email provider.
 
-mg.cockadoodlemeatmarket.com
-
-This domain is shared infrastructure from another project and is being used temporarily by Labfluss.
-
-A Mailgun sending key currently exists with the description:
-
-Labflow development key
-
-The actual key value is secret and must not be documented.
-
-Mailgun account region shown in the current dashboard:
-
-US
-
-#### Verified Domain Configuration
-
-Current domain authentication state includes:
+Current production configuration:
 
 ```text
-SPF: verified
-DKIM: active
-Tracking CNAME: verified
-DMARC: configured
+Provider: Amazon SES
+Region: eu-central-1
+Sender: Labfluss <no-reply@labfluss.com>
+Production access: Approved
+Production access approval date: 2026-09-09
+Production sandbox: No
 ```
 
-Receiving MX state:
+The production sending infrastructure includes:
 
-```text
-mxa.mailgun.org: verified
-mxb.mailgun.org: unverified
-```
+- verified `labfluss.com` SES identity
+- DKIM
+- custom MAIL FROM
+- SPF
+- DMARC
+- account-level bounce/complaint suppression
+- dedicated least-privilege SES sending credentials
 
-The unverified second MX record is relevant primarily to receiving mail and does not currently block Labfluss's outbound transactional-email use case.
+Production transactional-email delivery through Amazon SES was verified on 2026-09-12.
 
-Other verified domain settings:
+Verified application flows:
 
-- TLS connection: Opportunistic
-- Certificate verification: Required
-- Click tracking: Off
-- Open tracking: Off
-- Unsubscribes: Off
-- Wildcard domain: Off
-- Message retention: unavailable on current plan
+- invitation email delivery
+- password-reset email delivery
+- email-verification delivery
 
-#### Mailgun Environment Configuration
+Backend logs confirmed successful SES delivery events for all three flows.
+
+#### Amazon SES Environment Configuration
 
 Required backend values:
 
@@ -2699,61 +2693,112 @@ Required backend values:
 EMAIL_PROVIDER
 EMAIL_FROM_NAME
 EMAIL_FROM_ADDRESS
+SES_REGION
+SES_ACCESS_KEY_ID
+SES_SECRET_ACCESS_KEY
+```
+
+```text
+Secret:
+SES_SECRET_ACCESS_KEY
+```
+
+```text
+Sensitive credential identifier:
+SES_ACCESS_KEY_ID
+```
+
+The remaining values are operational or deployment-specific configuration.
+
+Current production provider selection:
+
+```text
+EMAIL_PROVIDER=ses
+```
+
+#### Amazon SES Credential Recovery
+
+If the production SES sending credential is lost or compromised:
+
+1. create a replacement least-privilege SES sending credential
+2. restrict it to the required SES sending actions
+3. update SES_ACCESS_KEY_ID and SES_SECRET_ACCESS_KEY in the protected AWS Lightsail environment
+4. confirm SES_REGION=eu-central-1
+5. restart the backend
+6. verify /api/health
+7. verify /api/ready
+8. verify invitation email delivery
+9. verify password-reset email delivery
+10. verify email-verification delivery
+11. confirm email_delivery_succeeded events use provider ses
+12. revoke the superseded credential after successful verification
+
+Do not recover SES credentials from Git history or documentation.
+
+#### Current Transactional Email Status
+
+Labfluss uses `labfluss.com` as its production product and transactional-email domain.
+
+Amazon SES production access was approved on 2026-09-09.
+
+The production backend was cut over to Amazon SES and the application-level delivery paths were verified successfully on 2026-09-12.
+
+Current production state:
+
+```text
+Active provider: Amazon SES
+SES region: eu-central-1
+Production access: Approved
+Invitation delivery: Verified
+Password-reset delivery: Verified
+Email-verification delivery: Verified
+```
+
+The former Mailgun configuration is no longer the active production email provider.
+
+Mailgun configuration remains temporarily available only as a rollback path while the post-cutover rollback window remains open. It should not be selected during normal recovery when Amazon SES is available.
+
+### Historical Mailgun Rollback Configuration
+
+Mailgun was the production transactional-email provider before the Phase 26C.5 Amazon SES cutover.
+
+Historical sending infrastructure included:
+
+```text
+Sending domain: mg.cockadoodlemeatmarket.com
+Account region: US
+```
+
+The Mailgun domain was shared infrastructure from another project and was always intended to be temporary for Labfluss.
+
+Historical backend configuration used:
+
+```text
+EMAIL_PROVIDER=mailgun
+EMAIL_FROM_NAME
+EMAIL_FROM_ADDRESS
 MAILGUN_DOMAIN
 MAILGUN_API_BASE_URL
 MAILGUN_API_KEY
 ```
 
-```text
-Secret:
-MAILGUN_API_KEY
-```
+`MAILGUN_API_KEY` is secret and must never be recorded in documentation.
 
-The remaining values are operational or deployment-specific configuration.
+The previous Mailgun production configuration currently remains in the protected production environment only as temporary rollback configuration.
 
-#### Mailgun Secret Recovery
+If Amazon SES suffers a cutover-related failure while the rollback window is still deliberately open, Mailgun may be used only as a controlled rollback after the failure and rollback decision are documented.
 
-If the Mailgun sending credential is lost or compromised:
+Once the SES rollback window is formally closed:
 
-1. create a replacement sending/API credential
-2. restrict it appropriately for the Mailgun integration
-3. update MAILGUN_API_KEY in AWS Lightsail
-4. restart/redeploy the backend
-5. verify invitation email delivery
-6. verify password-reset delivery
-7. verify email-verification delivery
-8. revoke the superseded credential when safe
+1. remove the Mailgun production variables from the Lightsail environment
+2. revoke the Labfluss Mailgun credential
+3. remove any rollback environment backup that still contains the obsolete Mailgun credential
+4. verify the backend continues to start with EMAIL_PROVIDER=ses
+5. verify health and readiness
+6. perform a final SES transactional-email verification
+7. update this recovery documentation to mark Mailgun as fully retired
 
-Do not recover Mailgun credentials from Git history.
-
-#### Current Transactional Email Domain Status
-
-Labfluss uses `labfluss.com` as its production product domain.
-
-Amazon SES support has been implemented in the backend, and the production SES sending infrastructure has been configured, including:
-
-- the `labfluss.com` SES identity
-- DKIM
-- custom MAIL FROM
-- SPF
-- DMARC
-- account-level bounce/complaint suppression
-- a dedicated least-privilege SES sending identity
-
-Amazon SES production access is still pending AWS approval.
-
-Until production access is approved and the final production delivery workflows are verified, Mailgun remains the active production transactional-email provider and rollback path.
-
-After SES production access is approved, Phase 26C.5 will temporarily resume to:
-
-1. enable SES as the active production provider
-2. verify invitation email delivery
-3. verify password-reset email delivery
-4. verify email-verification delivery
-5. confirm production logs and delivery behavior
-6. retire the temporary Mailgun production dependency when the SES cutover is confirmed successful
-
-The current Mailgun dependency therefore remains temporary and should be removed before the paid pilot once SES production access and production delivery verification are complete.
+Historical Mailgun configuration details are retained only for migration and recovery traceability.
 
 ### Better Stack Configuration
 
@@ -2845,7 +2890,7 @@ The previous secret should not be recovered from Git history.
 | AWS Amplify frontend                    | This document + GitHub                                  | Recreate project/configuration                                                       |
 | Amazon RDS PostgreSQL database          | Amazon RDS PostgreSQL if available + PostgreSQL backups | Recover or recreate the RDS-managed secret path and replacement database as required |
 | Amazon S3                               | This document + attachment backups                      | Generate replacement least-privilege AWS credential                                  |
-| Mailgun                                 | This document + Mailgun domain/DNS configuration        | Generate replacement sending/API credential                                          |
+| Amazon SES                              | This document + AWS SES identity/DNS configuration      | Generate replacement least-privilege SES sending credential                          |
 | Better Stack                            | This document                                           | Recreate monitors and notification routing                                           |
 | JWT secret                              | AWS Lightsail if still securely available               | Generate a new secret if lost                                                        |
 
@@ -2935,7 +2980,7 @@ Secret values:
 
 ```text
 JWT_SECRET
-MAILGUN_API_KEY
+SES_SECRET_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY
 DB_SECRET_SECRET_ACCESS_KEY
 ```
@@ -2945,6 +2990,7 @@ Sensitive credential identifiers:
 ```text
 AWS_ACCESS_KEY_ID
 DB_SECRET_ACCESS_KEY_ID
+SES_ACCESS_KEY_ID
 ```
 
 Required database configuration:
@@ -3001,24 +3047,28 @@ If the frontend origin changes:
 3. redeploy/restart affected services
 4. update Better Stack monitoring
 
-#### 7. Recover Mailgun transactional email
+#### 7. Recover Amazon SES transactional email
 
-Generate or restore Mailgun sending access.
+Restore or recreate the Amazon SES sending configuration.
 
 Restore:
 
-- EMAIL_PROVIDER
-- EMAIL_FROM_NAME
-- EMAIL_FROM_ADDRESS
-- MAILGUN_DOMAIN
-- MAILGUN_API_BASE_URL
-- MAILGUN_API_KEY
+- `EMAIL_PROVIDER=ses`
+- `EMAIL_FROM_NAME`
+- `EMAIL_FROM_ADDRESS`
+- `SES_REGION`
+- `SES_ACCESS_KEY_ID`
+- `SES_SECRET_ACCESS_KEY`
 
 Verify:
 
-- invitation email
-- password reset
-- email verification
+- SES production access remains enabled
+- the `labfluss.com` sending identity is valid
+- DKIM and required DNS configuration remain valid
+- invitation email delivery
+- password-reset email delivery
+- email-verification delivery
+- backend delivery logs report provider `ses`
 
 Email recovery is required before declaring account lifecycle workflows fully operational.
 
@@ -3083,6 +3133,14 @@ After rebuilding configuration, verify at least:
 - [x] Amazon RDS PostgreSQL database configuration verified
 - [x] Amazon RDS PostgreSQL direct connection configuration verified
 - [x] Amazon RDS PostgreSQL networking configuration reviewed
+- [x] Amazon SES production access approved
+- [x] Amazon SES production sending identity and configuration verified
+- [x] Production backend cut over to `EMAIL_PROVIDER=ses`
+- [x] Amazon SES password-reset delivery verified
+- [x] Amazon SES email-verification delivery verified
+- [x] Amazon SES administrator-invitation delivery verified
+- [x] Backend SES delivery logs verified
+- [x] Historical Mailgun configuration retained only as temporary rollback configuration
 - [x] Secret classification documented
 - [x] Secret regeneration policy documented
 - [x] Configuration restore order documented
@@ -3100,7 +3158,8 @@ AWS Amplify frontend configuration: Inventoried
 Amazon RDS PostgreSQL platform configuration: Inventoried
 Amazon S3 configuration: Inventoried
 Historical Cloudflare R2 configuration: Retained for recovery evidence
-Mailgun configuration: Inventoried
+Amazon SES configuration: Inventoried and production-verified
+Historical Mailgun rollback configuration: Retained temporarily
 Better Stack configuration: Inventoried
 Secret classifications: Documented
 Credential regeneration procedures: Documented
@@ -3179,7 +3238,7 @@ Identify whether the incident affects one or more of the following:
 - attachment-cleanup systemd timer
 - AWS Amplify frontend deployment
 - production credentials
-- Mailgun transactional email
+- Amazon SES transactional email
 - Better Stack monitoring
 - multiple infrastructure providers
 
@@ -3380,9 +3439,9 @@ If the production frontend origin changes:
 3. redeploy or restart affected services
 4. update Better Stack monitoring
 
-#### 6. Mailgun
+#### 6. Amazon SES
 
-Restore transactional email configuration and generate replacement credentials when required.
+Restore transactional-email configuration and generate replacement least-privilege SES credentials when required.
 
 #### 7. Better Stack
 
@@ -3398,7 +3457,8 @@ Where required, generate or rotate replacements for:
 RDS-managed database credential
 Secrets Manager runtime IAM credential
 JWT_SECRET
-MAILGUN_API_KEY
+SES_ACCESS_KEY_ID
+SES_SECRET_ACCESS_KEY
 AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY
 ```
@@ -3467,7 +3527,7 @@ During cutover:
 3. update backend configuration
 4. redeploy or restart the backend
 5. update frontend configuration when required
-6. update Mailgun configuration when required
+6. update Amazon SES configuration when required
 7. update monitoring URLs when deployment addresses changed
 
 Immediately after cutover, repeat critical validation.
@@ -3571,7 +3631,8 @@ Do not record:
 - API secret values
 - JWT secrets
 - object-storage secret keys or AWS secret access keys
-- Mailgun secret keys
+- Amazon SES secret access keys
+- legacy Mailgun secret keys
 - deploy-hook URLs
 - temporary signed URLs
 

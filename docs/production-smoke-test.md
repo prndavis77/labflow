@@ -2,7 +2,9 @@
 
 Last verified: 2026-09-01
 
-Attachment storage migrated from Cloudflare R2 to Amazon S3 during Phase 26C.4 on 2026-09-04. Storage-specific production verification was performed as part of that migration. A full end-to-end production smoke-test rerun remains scheduled for Phase 26C.10.
+Attachment storage migrated from Cloudflare R2 to Amazon S3 during Phase 26C.4 on 2026-09-04. Storage-specific production verification was performed as part of that migration.
+
+Transactional email migrated from Mailgun to Amazon SES during Phase 26C.5. Production SES delivery was verified on 2026-09-12 for password reset, email verification, and administrator invitation workflows.
 
 ## Purpose
 
@@ -55,7 +57,7 @@ Production API target:
 
 - `https://api.labfluss.com/api`
 
-The frontend contains no database, JWT, Mailgun, or AWS/S3 secret credentials.
+The frontend contains no database, JWT, Amazon SES, or AWS/S3 secret credentials.
 
 ### Backend
 
@@ -67,7 +69,7 @@ Verified configuration areas:
 - PostgreSQL connection
 - JWT authentication
 - Frontend origin
-- Mailgun email delivery
+- Amazon SES email delivery
 - Amazon S3 attachment storage
 
 The backend application listens on port 5000. Nginx proxies public HTTPS API traffic to `127.0.0.1:5000`.
@@ -339,9 +341,8 @@ The production S3 bucket CORS policy permits the deployed AWS Amplify frontend a
 
 Backend test result:
 
-Test Suites: 36 passed, 36 total
-Tests: 525 passed, 525 total
-Snapshots: 0 total
+Test Suites: 1 skipped, 66 passed, 66 of 67 total
+Tests: 2 skipped, 840 passed, 842 total
 
 Verified coverage includes:
 
@@ -373,11 +374,9 @@ Verified coverage includes:
 ## Open items
 
 - Production invitation resend has not yet been manually re-verified after the AWS migration.
-- Automated frontend/E2E testing remains planned.
-- Automated daily attachment backup remains to be implemented.
-- Off-machine or off-provider attachment backup remains to be implemented.
-- Mailgun remains the current transactional-email provider pending the planned email-infrastructure migration.
+- An independent off-provider automated production backup is not currently configured.
 - Further institutional tenant-administration capabilities remain future work.
+- Final customer/compliance readiness work and final infrastructure sign-off remain before the paid pilot is considered fully ready.
 
 ## Current result
 
@@ -397,6 +396,9 @@ The deployed Labfluss application has passed production verification for:
 - Attachment archive and restoration
 - Production password reset
 - Production email verification
+- Verified Amazon SES password-reset delivery
+- Verified Amazon SES email-verification delivery
+- Verified Amazon SES invitation delivery
 - JWT session invalidation after password reset
 - Structured production logging
 - Request correlation IDs
@@ -409,6 +411,7 @@ The deployed Labfluss application has passed production verification for:
 - AWS Amplify production frontend
 - AWS Lightsail production backend
 - Amazon RDS PostgreSQL production database
+- Amazon SES production transactional email
 - Private Lightsail-to-RDS connectivity
 - HTTPS on `app.labfluss.com` and `api.labfluss.com`
 - systemd backend supervision
