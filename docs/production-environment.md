@@ -402,7 +402,7 @@ Production SES delivery was verified on 2026-09-12 for:
 - email-verification email
 - invitation email
 
-The previous Mailgun configuration may remain temporarily in the production environment as rollback-only configuration until the rollback window is closed. It is no longer the active transactional-email provider.
+The previous Mailgun configuration has been removed from the production environment. Amazon SES is the only active production transactional-email provider.
 
 ## Account Security Behavior
 

@@ -124,7 +124,7 @@ The current production deployment uses:
 - AWS Lightsail for backend execution
 - AWS Amplify Hosting for frontend hosting and delivery
 - Amazon SES for transactional email delivery
-- Mailgun remains temporarily configured only as a rollback provider and is not the active production email provider
+- Mailgun is retired from production and retained only as a historical provider implementation
 - Better Stack for uptime monitoring and alerting
 - Amazon Route 53 for production DNS
 
@@ -193,7 +193,7 @@ Raw reset, verification, and invitation tokens should not be persisted in applic
 
 Amazon SES is the active production transactional-email provider in the Europe (Frankfurt) Region. Production delivery has been verified for invitation, password-reset, and email-verification workflows.
 
-The former Mailgun configuration remains temporarily available only as rollback configuration while the SES post-cutover rollback window remains open.
+The former Mailgun production configuration has been retired. Production Mailgun environment variables were removed, the Labfluss Mailgun credential was revoked, and obsolete rollback material was deleted after successful Amazon SES verification.
 
 ### Application Logs
 

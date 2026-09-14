@@ -170,7 +170,7 @@ Amazon SES production access was approved on 2026-09-09 in the Europe (Frankfurt
 
 The production SES sender and transactional delivery paths were verified on 2026-09-12.
 
-The previous Mailgun configuration may remain temporarily as rollback-only configuration until the rollback window is closed. It is not the active production email provider.
+The previous Mailgun production configuration has been retired. Amazon SES is the only active production transactional-email provider.
 
 ### Completed production verification
 

@@ -99,7 +99,7 @@ Completed so far:
 - Configured the `labfluss.com` Amazon SES identity, DKIM, custom MAIL FROM domain, SPF, DMARC, account-level bounce/complaint suppression, and a least-privilege SES sending identity.
 - Verified production Amazon SES delivery for password reset, email verification, and administrator invitation workflows.
 - Verified backend transactional-email delivery logs with provider `ses`.
-- Retained the former Mailgun production configuration temporarily only as rollback configuration pending formal retirement.
+- Retired the former Mailgun production configuration after successful Amazon SES cutover verification, including removal of production Mailgun environment variables, credential revocation, and removal of obsolete rollback material.
 - Added a dedicated least-privilege AWS Secrets Manager runtime identity for the production RDS-managed database secret.
 - Removed the production database password from `DATABASE_URL`.
 - Updated the production Sequelize runtime to retrieve the `AWSCURRENT` RDS credential from AWS Secrets Manager before opening new physical PostgreSQL connections.
@@ -711,7 +711,7 @@ This layered model allows Labfluss to combine global user roles, project-specifi
 - Role-based access control for admins, supervisors, and researchers
 - Organization-scoped lab workspaces
 - Admin-created invitations
-- Provider-neutral transactional-email service with Amazon SES active in production and Mailgun retained temporarily as a rollback provider
+- Provider-neutral transactional-email service with Amazon SES active in production and the former Mailgun provider retained only as a historical implementation
 - HTML and plain-text invitation templates
 - Invitation email delivery tracking
 - Admin-only backend invitation resend with token rotation and renewed expiration
@@ -1958,7 +1958,7 @@ For the complete security model, production requirements, dependency-risk notes,
 
 Production environment variables must be stored only in the hosting provider's environment or secret-management system. Do not commit real `.env` files, database URLs, JWT secrets, email-provider credentials, AWS storage credentials, or other production secrets to Git.
 
-Transactional-email credentials must remain backend-only. Do not expose Amazon SES credentials, legacy Mailgun credentials, or other provider secrets to the Vite frontend, prefix them with `VITE_`, print them in logs, or place them in committed configuration.
+Transactional-email credentials must remain backend-only. Do not expose Amazon SES credentials or other provider secrets to the Vite frontend, prefix them with `VITE_`, print them in logs, or place them in committed configuration.
 
 Labfluss's backend security controls include:
 
@@ -2652,7 +2652,7 @@ Current limitations include:
 
 - Organization ownership, backend isolation, public workspace creation, invitation onboarding, basic organization settings, and production custom domains are included, but multi-organization memberships, organization switching, billing, subscription management, and full institutional tenant administration are not yet implemented.
 - Invitation, password-reset, and email-verification delivery are implemented through the provider-neutral email layer, with Amazon SES active in production. Overdue-task notifications, booking reminders, and broader notification preferences are not yet included.
-- The former Mailgun production configuration remains temporarily available only as rollback configuration pending formal retirement after the SES post-cutover rollback window.
+- Mailgun has been retired from production after successful Amazon SES cutover verification. The provider implementation remains in the codebase for historical traceability but is not configured for production use.
 - Dashboard project-linked metrics are role-aware, but equipment inventory remains organization-wide because equipment is not project-owned.
 - Audit logging exists for important admin, review, restore, invitation, and delivery-related actions, but it is not immutable and does not yet include export, retention policies, signatures, or locked review controls.
 - Archive and recovery cover projects, tasks, experiments, protocols, and attachments. Equipment, bookings, notebook entries, and project memberships retain their existing lifecycle behavior.

@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Applies to:** Initial United States paid pilot program
-**Last reviewed:** 2026-09-13
+**Last reviewed:** 2026-09-14
 
 ## 1. Purpose
 
@@ -813,7 +813,6 @@ The following areas are recognized as requiring continued improvement before or 
 - independent off-provider automated backup replication for broader provider-failure resilience;
 - full infrastructure reconstruction testing;
 - disaster-recovery production cutover testing;
-- formal closure of the Amazon SES post-cutover rollback window and retirement of the remaining legacy Mailgun production configuration;
 - review of whether the localhost development origin should remain allowed on the production S3 bucket;
 - production-provider account hardening;
 - enforcement of appropriate multi-factor authentication on provider administrative accounts;
@@ -933,7 +932,7 @@ This document should be reviewed:
 
 **Production transactional email:** Implemented with Amazon SES in `eu-central-1`; password-reset, email-verification, and administrator-invitation delivery verified in production.
 
-**Legacy Mailgun production configuration:** Rollback-only, pending formal retirement.
+**Legacy Mailgun production configuration:** Retired. Production variables removed, credential revoked, and obsolete rollback material deleted after successful Amazon SES verification.
 
 **External availability monitoring:** Implemented.
 

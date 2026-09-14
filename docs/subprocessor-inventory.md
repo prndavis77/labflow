@@ -279,11 +279,11 @@ Before first pilot:
 
 ---
 
-## 2. Mailgun / Sinch Email, Legacy Rollback Provider
+## 2. Mailgun / Sinch Email, Former Production Provider
 
 ### Service
 
-Former production transactional-email provider, currently retained only as temporary rollback configuration.
+Former production transactional-email provider. Mailgun is no longer configured or authorized for Labfluss production use.
 
 ### Labfluss use
 
@@ -299,7 +299,7 @@ Amazon SES is now the active production provider.
 
 Mailgun is not used for normal production transactional-email delivery while `EMAIL_PROVIDER=ses`.
 
-The previous Mailgun configuration remains temporarily available only during the documented post-cutover rollback window.
+The previous Mailgun production configuration has been retired. Production environment variables were removed, the Labfluss Mailgun sending credential was revoked, and obsolete rollback material was deleted.
 
 ### Data potentially processed
 
@@ -316,19 +316,19 @@ During its period as the active production provider, Mailgun could process:
 - one-time email-verification URLs
 - one-time password-reset URLs
 
-If Mailgun were deliberately reactivated during the rollback window, the same categories could again be processed.
+Mailgun is not authorized for current Labfluss production processing. Any future reactivation would require a new security, privacy, legal, retention, and subprocessor review before customer data could be transmitted through it.
 
 Because one-time URLs contain authentication or recovery tokens, transactional-email handling remains security-sensitive even though Labfluss stores only token hashes in PostgreSQL.
 
 ### Purpose
 
-Historical production transactional-email delivery and temporary emergency rollback capability during the Amazon SES post-cutover rollback window.
+Historical production transactional-email delivery before the Amazon SES migration.
 
 ### Provider role
 
 Former production subprocessor.
 
-Mailgun would again act as a subprocessor if it were deliberately reactivated and used to process Labfluss production transactional email.
+Mailgun is no longer an active Labfluss production subprocessor. It would become a subprocessor again only if intentionally reintroduced for production processing after a new review.
 
 ### Contractual/privacy documentation
 
@@ -344,7 +344,7 @@ The historical Labfluss Mailgun account and sending configuration use the United
 
 Historical production configuration used the Mailgun US API endpoint.
 
-Mailgun region information is retained here for historical and rollback traceability and must not be interpreted as the current Labfluss transactional-email data location.
+Mailgun region information is retained only for historical traceability and must not be interpreted as the current Labfluss transactional-email data location.
 
 The active production email provider is Amazon SES in `eu-central-1`.
 
@@ -371,14 +371,9 @@ These values describe the previously reviewed Mailgun configuration and should b
 
 ### Pilot status
 
-**NOT ACTIVE FOR NORMAL PRODUCTION DELIVERY, TEMPORARY ROLLBACK CONFIGURATION PENDING RETIREMENT**
+**FORMER PRODUCTION PROVIDER, FULLY RETIRED**
 
-Before the first paid pilot, either:
-
-1. close the SES rollback window, remove the remaining Mailgun production configuration, revoke the Labfluss Mailgun credential, remove obsolete protected rollback material containing that credential, and update this inventory to mark Mailgun fully retired; or
-2. if Mailgun is intentionally retained as a production-capable fallback, complete a fresh legal, security, retention, subprocessor, and customer-disclosure review for that continued role.
-
-The preferred Phase 26C.5 completion path is retirement after the SES rollback decision is finalized.
+The preferred Phase 26C.5 retirement path was completed after final SES verification. Mailgun production environment variables were removed, the Labfluss Mailgun credential was revoked, obsolete rollback material was deleted, and Amazon SES remained healthy during final production verification.
 
 ---
 
@@ -582,20 +577,15 @@ The following items remain configuration-specific and must be verified before th
 - [x] production administrator-invitation delivery verified through SES
 - [x] backend delivery logs verified with provider `ses`
 
-### Mailgun / Sinch Email, Legacy Rollback Provider
+### Mailgun / Sinch Email, Former Production Provider
 
-- [x] former production transactional-email provider identified
-- [x] historical account region recorded: US
-- [x] historical sending domain recorded
 - [x] Mailgun confirmed not active for normal production delivery
-- [x] production backend confirmed using `EMAIL_PROVIDER=ses`
-- [x] Mailgun retained only as temporary rollback configuration
-- [ ] formally close the SES post-cutover rollback window
-- [ ] remove remaining Mailgun production environment variables
-- [ ] revoke the Labfluss Mailgun credential
-- [ ] remove protected rollback material containing obsolete Mailgun credentials when no longer required
-- [ ] perform final SES verification after Mailgun retirement
-- [ ] update this inventory to mark Mailgun fully retired
+- [x] SES post-cutover rollback window formally closed
+- [x] Remaining Mailgun production environment variables removed
+- [x] Labfluss Mailgun credential revoked
+- [x] Protected rollback material containing obsolete Mailgun credentials removed
+- [x] Final SES verification performed after Mailgun removal
+- [x] Mailgun marked fully retired from production
 
 ### Better Stack
 
@@ -625,8 +615,8 @@ The following items remain configuration-specific and must be verified before th
 
 ## Review Record
 
-**Last reviewed:** 2026-09-13
+**Last reviewed:** 2026-09-14
 
 **Next review:** Before first paid pilot or upon material provider change, whichever occurs first.
 
-**Status:** Production provider inventory updated after the Amazon SES cutover. Amazon SES is the active production transactional-email provider. Mailgun remains temporary rollback-only configuration pending the Phase 26C.5 retirement decision. AWS legal/subprocessor review and remaining pre-pilot remediation items remain open.
+**Status:** Production provider inventory updated after completion of the Amazon SES migration. Amazon SES is the active production transactional-email provider. Mailgun has been fully retired from Labfluss production use. AWS legal/subprocessor review and remaining pre-pilot remediation items remain open.

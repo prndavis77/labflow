@@ -2754,11 +2754,13 @@ Password-reset delivery: Verified
 Email-verification delivery: Verified
 ```
 
-The former Mailgun configuration is no longer the active production email provider.
+The former Mailgun configuration is fully retired from production.
 
-Mailgun configuration remains temporarily available only as a rollback path while the post-cutover rollback window remains open. It should not be selected during normal recovery when Amazon SES is available.
+The Amazon SES post-cutover rollback window was formally closed after successful production verification. Mailgun production environment variables were removed, the Labfluss Mailgun sending credential was revoked, and obsolete rollback material containing the former credential was deleted.
 
-### Historical Mailgun Rollback Configuration
+Amazon SES is the only active Labfluss production transactional-email provider.
+
+### Historical Mailgun Configuration
 
 Mailgun was the production transactional-email provider before the Phase 26C.5 Amazon SES cutover.
 
@@ -2784,21 +2786,20 @@ MAILGUN_API_KEY
 
 `MAILGUN_API_KEY` is secret and must never be recorded in documentation.
 
-The previous Mailgun production configuration currently remains in the protected production environment only as temporary rollback configuration.
+The previous Mailgun production configuration no longer exists in the active production environment.
 
-If Amazon SES suffers a cutover-related failure while the rollback window is still deliberately open, Mailgun may be used only as a controlled rollback after the failure and rollback decision are documented.
+The SES rollback window was formally closed after final production verification.
 
-Once the SES rollback window is formally closed:
+Completed retirement actions:
 
-1. remove the Mailgun production variables from the Lightsail environment
-2. revoke the Labfluss Mailgun credential
-3. remove any rollback environment backup that still contains the obsolete Mailgun credential
-4. verify the backend continues to start with EMAIL_PROVIDER=ses
-5. verify health and readiness
-6. perform a final SES transactional-email verification
-7. update this recovery documentation to mark Mailgun as fully retired
-
-Historical Mailgun configuration details are retained only for migration and recovery traceability.
+1. removed the Mailgun production variables from the Lightsail environment
+2. revoked the Labfluss Mailgun credential
+3. removed rollback environment material containing the obsolete Mailgun credential
+4. restarted the backend with SES-only email configuration
+5. verified production health and readiness
+6. verified a live password-reset email through Amazon SES
+7. confirmed backend delivery logging with provider `ses`
+8. updated recovery documentation to mark Mailgun fully retired
 
 ### Better Stack Configuration
 
@@ -3140,7 +3141,7 @@ After rebuilding configuration, verify at least:
 - [x] Amazon SES email-verification delivery verified
 - [x] Amazon SES administrator-invitation delivery verified
 - [x] Backend SES delivery logs verified
-- [x] Historical Mailgun configuration retained only as temporary rollback configuration
+- [x] Historical Mailgun configuration retained only for migration and recovery traceability
 - [x] Secret classification documented
 - [x] Secret regeneration policy documented
 - [x] Configuration restore order documented
@@ -3159,7 +3160,7 @@ Amazon RDS PostgreSQL platform configuration: Inventoried
 Amazon S3 configuration: Inventoried
 Historical Cloudflare R2 configuration: Retained for recovery evidence
 Amazon SES configuration: Inventoried and production-verified
-Historical Mailgun rollback configuration: Retained temporarily
+Historical Mailgun configuration: Retained for traceability only; production provider retired
 Better Stack configuration: Inventoried
 Secret classifications: Documented
 Credential regeneration procedures: Documented

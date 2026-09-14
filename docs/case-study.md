@@ -261,7 +261,7 @@ This workflow better reflects supervised lab work, where task completion may nee
 
 Labfluss includes a provider-neutral email service with Amazon SES and Mailgun implementations.
 
-Amazon SES is the active production provider. Production delivery was verified for invitation, password-reset, and email-verification workflows. Mailgun was the earlier provider and is retained temporarily only as a rollback option while the SES rollback window remains open.
+Amazon SES is the active production provider. Production delivery was verified for invitation, password-reset, and email-verification workflows. Mailgun was the earlier production provider and was fully retired after successful SES post-cutover verification.
 
 The invitation creation workflow intentionally separates database persistence from the external provider call:
 
@@ -793,7 +793,7 @@ The project includes:
 - Amazon SES production access approved and production backend cut over to SES
 - Production SES delivery verified for password reset, email verification, and administrator invitation workflows
 - Backend delivery logs verified with provider `ses`
-- Former Mailgun configuration retained temporarily only as rollback configuration
+- Former Mailgun production configuration retired after successful Amazon SES cutover verification
 - Role-based authentication and protected routes
 - Project membership and project-specific access control
 - Experiment, protocol, task, equipment, booking, notebook, and review workflows
