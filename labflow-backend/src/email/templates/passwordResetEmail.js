@@ -80,12 +80,12 @@ const buildPasswordResetEmail = ({
     timeZone,
   });
 
-  const subject = "Reset your LabFlow password";
+  const subject = "Reset your Labfluss password";
 
   const text = [
     `Hello ${normalizedUserName},`,
     "",
-    `A password reset was requested for your LabFlow account in ${normalizedOrganizationName}.`,
+    `A password reset was requested for your Labfluss account in ${normalizedOrganizationName}.`,
     "",
     "Reset your password:",
     normalizedResetLink,
@@ -94,7 +94,7 @@ const buildPasswordResetEmail = ({
     "",
     "If you did not request a password reset, you can ignore this email. Your password will remain unchanged.",
     "",
-    "LabFlow",
+    "Labfluss",
   ].join("\n");
 
   const htmlUserName = escapeHtml(normalizedUserName);
@@ -169,7 +169,7 @@ const buildPasswordResetEmail = ({
                     color: #1677ff;
                   "
                 >
-                  LabFlow
+                  Labfluss
                 </div>
               </td>
             </tr>
@@ -209,7 +209,7 @@ const buildPasswordResetEmail = ({
                   "
                 >
                   A password reset was requested
-                  for your LabFlow account in
+                  for your Labfluss account in
                   <strong>
                     ${htmlOrganizationName}
                   </strong>.

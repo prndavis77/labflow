@@ -66,7 +66,7 @@ const LoginPage = () => {
       }}
     >
       <Card style={{ width: 420 }}>
-        <Title level={2}>Log In to LabFlow</Title>
+        <Title level={2}>Log In to Labfluss</Title>
 
         <Paragraph>
           Access your organization’s projects, experiments, protocols, tasks,

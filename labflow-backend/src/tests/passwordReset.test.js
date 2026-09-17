@@ -202,7 +202,7 @@ describe("Password reset", () => {
 
       expect(emailCall.to).toBe("reset@test.com");
 
-      expect(emailCall.subject).toBe("Reset your LabFlow password");
+      expect(emailCall.subject).toBe("Reset your Labfluss password");
 
       expect(emailCall.text).toContain(`/reset-password/${TEST_RAW_TOKEN}`);
 
@@ -635,7 +635,7 @@ describe("Password reset", () => {
     it("builds the expected subject and text", () => {
       const result = buildPasswordResetEmail(templateData);
 
-      expect(result.subject).toBe("Reset your LabFlow password");
+      expect(result.subject).toBe("Reset your Labfluss password");
 
       expect(result.text).toContain("Hello Reset User,");
 

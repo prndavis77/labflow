@@ -30,7 +30,7 @@ describe("Email service", () => {
   it("sends a provider-neutral message", async () => {
     const result = await sendEmail({
       to: "researcher@example.com",
-      subject: "LabFlow invitation",
+      subject: "Labfluss invitation",
       text: "Invitation text",
       html: "<p>Invitation HTML</p>",
       tags: ["invitation"],
@@ -38,7 +38,7 @@ describe("Email service", () => {
 
     expect(emailProvider.sendMessage).toHaveBeenCalledWith({
       to: "researcher@example.com",
-      subject: "LabFlow invitation",
+      subject: "Labfluss invitation",
       text: "Invitation text",
       html: "<p>Invitation HTML</p>",
       tags: ["invitation"],

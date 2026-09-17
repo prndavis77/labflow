@@ -728,17 +728,13 @@ Users should avoid unnecessarily copying or redistributing prohibited informatio
 
 Security incidents and security-related questions should be directed to:
 
-**[SECURITY EMAIL ADDRESS]**
-
-This address must be completed before the security documentation is published to pilot customers.
+**security@labfluss.com**
 
 ## 45. Privacy Contact
 
 Privacy-related questions should be directed to:
 
-**[PRIVACY EMAIL ADDRESS]**
-
-This address must be completed before the security documentation is published to pilot customers.
+**privacy@labfluss.com**
 
 ## 46. Organizational Measures
 

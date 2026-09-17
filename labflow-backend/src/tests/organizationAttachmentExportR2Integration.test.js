@@ -250,12 +250,12 @@ describeR2Integration("organization attachment export R2 integration", () => {
 
   it("exports only the requested organization's attachment binary", async () => {
     const contentA = Buffer.from(
-      "LabFlow organization A attachment export integration test",
+      "Labfluss organization A attachment export integration test",
       "utf8",
     );
 
     const contentB = Buffer.from(
-      "LabFlow organization B attachment that must not be exported",
+      "Labfluss organization B attachment that must not be exported",
       "utf8",
     );
 

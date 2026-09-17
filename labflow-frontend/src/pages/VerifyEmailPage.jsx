@@ -272,10 +272,10 @@ const VerifyEmailPage = () => {
             status="success"
             icon={<CheckCircleOutlined />}
             title="Email address verified"
-            subTitle="Your LabFlow email address has been verified successfully."
+            subTitle="Your Labfluss email address has been verified successfully."
             extra={
               <Link to="/dashboard">
-                <Button type="primary">Continue to LabFlow</Button>
+                <Button type="primary">Continue to Labfluss</Button>
               </Link>
             }
           />
@@ -288,7 +288,7 @@ const VerifyEmailPage = () => {
             subTitle="This email address has already been verified."
             extra={
               <Link to="/dashboard">
-                <Button type="primary">Continue to LabFlow</Button>
+                <Button type="primary">Continue to Labfluss</Button>
               </Link>
             }
           />
@@ -302,7 +302,7 @@ const VerifyEmailPage = () => {
             extra={
               isAuthenticated ? (
                 <Link to="/dashboard">
-                  <Button type="primary">Return to LabFlow</Button>
+                  <Button type="primary">Return to Labfluss</Button>
                 </Link>
               ) : (
                 <Link to="/login">

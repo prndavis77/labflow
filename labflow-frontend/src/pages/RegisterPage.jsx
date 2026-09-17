@@ -82,7 +82,7 @@ const RegisterPage = () => {
       }}
     >
       <Card style={{ width: 460 }}>
-        <Title level={2}>Create Your LabFlow Workspace</Title>
+        <Title level={2}>Create Your Labfluss Workspace</Title>
 
         <Paragraph>
           Create a new organization and its first administrator account.

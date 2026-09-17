@@ -501,7 +501,8 @@ const createInvitation = async (req, res) => {
       to: invitation.email,
       inviteeName: invitation.name,
       organizationName: organization.name,
-      inviterName: req.user.name || req.user.email || "A LabFlow administrator",
+      inviterName:
+        req.user.name || req.user.email || "A Labfluss administrator",
       role: invitation.role,
       inviteLink,
       expiresAt: invitation.expiresAt,
@@ -698,7 +699,8 @@ const resendInvitation = async (req, res) => {
       inviteeName: invitation.name,
       organizationName: organization.name,
 
-      inviterName: req.user.name || req.user.email || "A LabFlow administrator",
+      inviterName:
+        req.user.name || req.user.email || "A Labfluss administrator",
 
       role: invitation.role,
       inviteLink,

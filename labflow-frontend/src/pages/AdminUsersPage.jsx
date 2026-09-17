@@ -605,7 +605,7 @@ const AdminUsersPage = () => {
 
             <Paragraph style={{ marginBottom: 4 }}>
               View users and manage user roles. Role changes affect what users
-              can access and modify across LabFlow.
+              can access and modify across Labfluss.
             </Paragraph>
 
             <Paragraph type="secondary" style={{ marginBottom: 0 }}>

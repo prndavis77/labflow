@@ -1938,6 +1938,8 @@ For a real customer pilot, add an off-machine or off-provider backup copy and au
 - [ ] Off-machine/off-provider attachment backup copy not yet implemented
 - [x] Full database-plus-attachment-backup reconciliation completed in Phase 25B.7
 
+> Historical note: The unchecked automation items above reflect the Phase 25B state at the time of the original R2 recovery drill. Phase 26D later implemented and verified automated daily attachment backups to a separate versioned Amazon S3 backup bucket. Independent off-provider automated replication remains an open limitation.
+
 ### Current Attachment Recovery Status
 
 ```text

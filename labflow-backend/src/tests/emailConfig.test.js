@@ -7,7 +7,7 @@ const loadEmailConfig = (environmentOverrides = {}) => {
     ...ORIGINAL_ENV,
 
     EMAIL_PROVIDER: "disabled",
-    EMAIL_FROM_NAME: "LabFlow",
+    EMAIL_FROM_NAME: "Labfluss",
     EMAIL_FROM_ADDRESS: "no-reply@example.com",
 
     MAILGUN_API_KEY: "",
@@ -37,7 +37,7 @@ describe("Email configuration", () => {
 
     expect(emailConfig).toMatchObject({
       provider: "disabled",
-      fromName: "LabFlow",
+      fromName: "Labfluss",
       fromAddress: "no-reply@example.com",
     });
   });

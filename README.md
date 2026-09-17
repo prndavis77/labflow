@@ -234,7 +234,7 @@ Completed:
 - Prevented accepted invitation tokens from being reused.
 - Updated login, registration, and invitation acceptance wording.
 - Added workspace registration and invitation security tests.
-- Updated demo seeding so it resets only the dedicated demo organization and does not delete user-created workspaces.
+- Updated demo seeding so it resets only the dedicated demo organizations and does not delete user-created workspaces.
 - Expanded backend automated test coverage.
 
 ---
@@ -308,23 +308,19 @@ Users should never be instructed to disable or pause antivirus protection as a n
 
 ## Demo Login Credentials
 
-Use one of the following demo accounts to explore the application:
+Use one of the following demo administrator accounts to explore the application:
 
 ```txt
-Admin:
-admin@labflow.test
+Analytical Chemistry Research Lab
+admin@labfluss.test
 password123
 
-Supervisor:
-anna.keller@labflow.test
-password123
-
-Researcher:
-maria.schmidt@labflow.test
+Molecular Biology Research Lab
+admin.molecular@labfluss.test
 password123
 ```
 
-The demo database may be reset periodically. Any changes made through the live demo should be treated as temporary test data.
+All seeded demo accounts are pre-verified. The demo database may be reset periodically, and any changes made through the live demo should be treated as temporary test data.
 
 ---
 
@@ -1998,7 +1994,14 @@ Public registration creates a new organization workspace and its first administr
 
 The included demo seed data uses shared demo credentials for portfolio testing. These credentials are not suitable for real production use.
 
-The `npm run seed` command is intended for local and demo setup. The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization and does not delete records from other organizations. Production execution is refused unless `ALLOW_PRODUCTION_SEED=true` is explicitly configured.
+The `npm run seed` command is intended for local and demo setup. The seed script manages two dedicated demo organizations:
+
+- `analytical-chemistry-demo`
+- `molecular-biology-demo`
+
+Reseeding removes and recreates records only within these known demo workspaces. The legacy `labflow-demo` organization is removed if present. Other organizations are not modified.
+
+Production execution is refused unless `ALLOW_PRODUCTION_SEED=true` is explicitly configured. In production, the seed script also deletes and verifies the demo organizations' attachment-storage namespaces before removing their attachment metadata. Development reseeding does not perform physical object-storage deletion.
 
 Labfluss uses Sequelize migrations as the production schema-management mechanism.
 
@@ -2137,7 +2140,7 @@ Optional: seed the database with demo data:
 npm run seed
 ```
 
-The seed script is intended for local and portfolio/demo setup only. The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization. It does not delete data from other organizations.
+The seed script is intended for local and portfolio/demo setup only. It creates and manages two dedicated demo organizations: `analytical-chemistry-demo` and `molecular-biology-demo`. Reseeding clears and recreates only those demo workspaces and removes the legacy `labflow-demo` organization if it still exists. Other organizations are left unchanged.
 
 Start the backend:
 
@@ -2191,7 +2194,10 @@ http://localhost:5173
 
 ### Demo Seed Data
 
-Labfluss includes a demo seed script that creates realistic test data.
+Labfluss includes a demo seed script that creates realistic test data across two dedicated laboratory workspaces:
+
+- Analytical Chemistry Research Lab (`analytical-chemistry-demo`)
+- Molecular Biology Research Lab (`molecular-biology-demo`)
 
 The seed script creates:
 
@@ -2220,7 +2226,9 @@ cd labflow-backend
 npm run seed
 ```
 
-Warning: The seed script removes and recreates records belonging only to the dedicated `labflow-demo` organization. It does not delete data from other organizations.
+Warning: The seed script manages only the dedicated `analytical-chemistry-demo` and `molecular-biology-demo` organizations, plus cleanup of the legacy `labflow-demo` organization if it is still present. It does not delete data from unrelated organizations.
+
+Production execution is refused unless `ALLOW_PRODUCTION_SEED=true` is explicitly configured. In production, attachment objects belonging to the managed demo organizations are deleted from their organization-scoped Amazon S3 namespaces and verified as removed before the corresponding attachment metadata is deleted. Development reseeding does not perform physical object-storage deletion.
 
 ### Database Migrations
 
@@ -2256,25 +2264,53 @@ The `npm run setup:db` command remains in the project only as a legacy/demo fall
 
 ### Demo Accounts
 
-```txt
+All seeded demo accounts are pre-verified because the `.test` email addresses are intentionally non-deliverable.
+
+#### Analytical Chemistry Research Lab
+
+```text
 Admin:
-admin@labflow.test
+admin@labfluss.test
 password123
 
 Supervisor:
-anna.keller@labflow.test
+anna.keller@labfluss.test
 password123
 
 Researcher 1:
-maria.schmidt@labflow.test
+maria.schmidt@labfluss.test
 password123
 
 Researcher 2:
-jonas.weber@labflow.test
+jonas.weber@labfluss.test
 password123
 
 Researcher 3:
-sam.dean@labflow.test
+sam.dean@labfluss.test
+password123
+```
+
+#### Molecular Biology Research Lab
+
+```text
+Admin:
+admin.molecular@labfluss.test
+password123
+
+Supervisor:
+elena.fischer@labfluss.test
+password123
+
+Researcher 1:
+daniel.kim@labfluss.test
+password123
+
+Researcher 2:
+sophie.mueller@labfluss.test
+password123
+
+Researcher 3:
+lucas.martin@labfluss.test
 password123
 ```
 
@@ -2286,19 +2322,21 @@ Researchers intentionally have different project memberships and workflow permis
 
 The seed data also demonstrates that project links for tasks, experiments, and protocols are selected during creation and locked afterward.
 
-The seed data also includes standalone lab tasks, such as equipment maintenance or freezer restocking tasks, to demonstrate that not all lab work belongs to a research project.
+The seed data includes standalone lab tasks, such as equipment maintenance work, to demonstrate that not all laboratory work belongs to a research project.
 
-The demo researcher accounts intentionally use different project memberships and workflow permission profiles:
+The Analytical Chemistry Research Lab includes researchers with different project memberships and workflow-permission profiles:
 
 - Maria Schmidt can access only her assigned project memberships. She can create and edit experiments, but cannot create or edit protocols.
 - Jonas Weber can access his assigned project memberships and can create and edit both experiments and protocols.
 - Sam Dean demonstrates protocol permissions without experiment permissions.
 
-This demonstrates how Labfluss can support different lab supervision styles while still limiting researchers to the projects where they are members.
+The Molecular Biology Research Lab provides a separate scientific workflow with qPCR gene-expression validation, recombinant protein expression, mammalian cell culture, molecular-biology protocols, equipment, bookings, notebook entries, and review-history examples.
 
-The demo seed script manages only the dedicated `labflow-demo` organization. Reseeding removes and recreates records belonging to that demo workspace without truncating or deleting data from other organizations.
+This demonstrates how Labfluss can support different laboratories and supervision styles while still limiting researchers to the projects and workflows they are authorized to access.
 
-The seeded workspace includes admins, supervisors, researchers with different workflow and review policies, project leads and members, review history, notebook entries, equipment, bookings, and representative project workflows.
+The demo seed script manages the dedicated `analytical-chemistry-demo` and `molecular-biology-demo` organizations. Reseeding removes and recreates records belonging only to those demo workspaces and removes the legacy `labflow-demo` organization if present. It does not truncate the database or delete unrelated organizations.
+
+The seeded workspaces include admins, supervisors, researchers with different workflow and review policies, project leads and members, review history, notebook entries, equipment, bookings, and representative research workflows.
 
 ---
 

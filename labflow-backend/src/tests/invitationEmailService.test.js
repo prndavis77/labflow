@@ -47,7 +47,7 @@ describe("Invitation email service", () => {
         subject:
           "You have been invited to join " +
           "Analytical Chemistry Lab " +
-          "on LabFlow",
+          "on Labfluss",
 
         text: expect.stringContaining("Hello Maria Schmidt,"),
 

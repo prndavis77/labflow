@@ -23,7 +23,7 @@ describe("Invitation email template", () => {
     expect(result.subject).toBe(
       "You have been invited to join " +
         "Analytical Chemistry Lab " +
-        "on LabFlow",
+        "on Labfluss",
     );
   });
 
@@ -35,7 +35,7 @@ describe("Invitation email template", () => {
     expect(result.text).toContain(
       "Admin User has invited you to join " +
         "Analytical Chemistry Lab on " +
-        "LabFlow as a Researcher.",
+        "Labfluss as a Researcher.",
     );
 
     expect(result.text).toContain(validTemplateData.inviteLink);

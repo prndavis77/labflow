@@ -235,7 +235,7 @@ const App = () => {
         >
           <div style={{ padding: "16px", color: "white" }}>
             <Title level={4} style={{ color: "white", margin: 0 }}>
-              LabFlow
+              Labfluss
             </Title>
           </div>
 

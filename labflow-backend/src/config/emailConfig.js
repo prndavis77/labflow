@@ -25,7 +25,7 @@ if (!EMAIL_PROVIDERS.includes(emailProvider)) {
   throw new Error(`Unsupported email provider: ${emailProvider}`);
 }
 
-const fromName = String(process.env.EMAIL_FROM_NAME || "LabFlow").trim();
+const fromName = String(process.env.EMAIL_FROM_NAME || "Labfluss").trim();
 
 const fromAddress = String(
   process.env.EMAIL_FROM_ADDRESS || "no-reply@example.com",

@@ -49,11 +49,11 @@ const ForgotPasswordPage = () => {
         <Title level={2}>Reset Your Password</Title>
 
         <Paragraph>
-          Enter the email address associated with your LabFlow account.
+          Enter the email address associated with your Labfluss account.
         </Paragraph>
 
         <Paragraph type="secondary">
-          For security, LabFlow displays the same confirmation whether or not an
+          For security, Labfluss displays the same confirmation whether or not an
           account exists for the submitted address.
         </Paragraph>
 

@@ -74,7 +74,7 @@ const getRestoreDescription = (entityType) => {
 
     case "attachment":
       return (
-        "The file will return to its linked record after LabFlow verifies " +
+        "The file will return to its linked record after Labfluss verifies " +
         "that the stored object still exists."
       );
 

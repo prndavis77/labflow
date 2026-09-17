@@ -186,7 +186,7 @@ const ResetPasswordPage = () => {
         <Title level={2}>Choose a New Password</Title>
 
         <Paragraph>
-          Enter and confirm the new password for your LabFlow account.
+          Enter and confirm the new password for your Labfluss account.
         </Paragraph>
 
         {formattedExpiration && (

@@ -74,7 +74,7 @@ const parseArguments = (argv) => {
 
 const printUsage = () => {
   console.log("");
-  console.log("LabFlow organization customer-data export");
+  console.log("Labfluss organization customer-data export");
   console.log("");
   console.log("Usage:");
   console.log(
@@ -160,7 +160,7 @@ const run = async () => {
   const { organizationId, outputDir } = validateArguments(parsed);
 
   console.log("");
-  console.log("LabFlow customer-data export");
+  console.log("Labfluss customer-data export");
   console.log("----------------------------");
   console.log(`Organization ID: ${organizationId}`);
   console.log(`Output directory: ${outputDir}`);

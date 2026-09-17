@@ -15,7 +15,7 @@ test.describe("authentication", () => {
     await page.goto("/login");
 
     await expect(
-      page.getByRole("heading", { name: "Log In to LabFlow" }),
+      page.getByRole("heading", { name: "Log In to Labfluss" }),
     ).toBeVisible();
 
     await page.getByLabel("Email").fill(adminEmail);
@@ -52,7 +52,7 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/login$/);
 
     await expect(
-      page.getByRole("heading", { name: "Log In to LabFlow" }),
+      page.getByRole("heading", { name: "Log In to Labfluss" }),
     ).toBeVisible();
   });
 });

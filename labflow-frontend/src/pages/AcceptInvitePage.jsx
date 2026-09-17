@@ -90,7 +90,7 @@ const AcceptInvitePage = () => {
         replace: true,
         state: {
           email: invitation.email,
-          message: "Invitation accepted. Log in with your new LabFlow account.",
+          message: "Invitation accepted. Log in with your new Labfluss account.",
         },
       });
     } catch (error) {
@@ -132,11 +132,11 @@ const AcceptInvitePage = () => {
         <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
             <Title level={2} style={{ marginBottom: 8 }}>
-              Accept Your LabFlow Invitation
+              Accept Your Labfluss Invitation
             </Title>
 
             <Text type="secondary">
-              Set a password to finish creating your LabFlow account.
+              Set a password to finish creating your Labfluss account.
             </Text>
           </div>
 

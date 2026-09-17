@@ -1428,7 +1428,7 @@ describe("Archived Items API", () => {
       /*
        * activeProject is normally active, so archive it without
        * archiving its task. This represents the non-cascading archive
-       * behavior used by LabFlow.
+       * behavior used by Labfluss.
        */
       activeProject.isArchived = true;
       activeProject.archivedAt = new Date("2026-07-20T10:00:00.000Z");

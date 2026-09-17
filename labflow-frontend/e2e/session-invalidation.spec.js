@@ -99,7 +99,7 @@ test.describe("session invalidation", () => {
 
       await expect(
         page.getByRole("heading", {
-          name: "Log In to LabFlow",
+          name: "Log In to Labfluss",
         }),
       ).toBeVisible();
 

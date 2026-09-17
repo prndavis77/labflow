@@ -119,7 +119,7 @@ const OrganizationSettingsPage = () => {
       <Card>
         <Title level={2}>Organization Settings</Title>
         <Paragraph>
-          View and manage the current lab workspace for your LabFlow account.
+          View and manage the current lab workspace for your Labfluss account.
         </Paragraph>
 
         {errorMessage && (

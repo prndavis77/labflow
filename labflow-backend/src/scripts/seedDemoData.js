@@ -17,9 +17,29 @@ const {
   Invitation,
   AuditLog,
   Attachment,
+  PasswordResetToken,
+  EmailVerificationToken,
 } = require("../models");
+const {
+  deleteOrganizationAttachmentObjects,
+} = require("../services/organizationAttachmentDeletionService");
 
 const SALT_ROUNDS = 12;
+
+const LEGACY_DEMO_SLUG = "labflow-demo";
+
+const DEMO_ORGANIZATIONS = {
+  analyticalChemistry: {
+    slug: "analytical-chemistry-demo",
+    name: "Analytical Chemistry Research Lab",
+    type: "demo",
+  },
+  molecularBiology: {
+    slug: "molecular-biology-demo",
+    name: "Molecular Biology Research Lab",
+    type: "demo",
+  },
+};
 
 // Converts a Date object into YYYY-MM-DD format for Sequelize DATEONLY fields
 const toDateOnly = (date) => {
@@ -40,9 +60,30 @@ const minutesFromNow = (minutes) => {
   return date;
 };
 
-// Deletes records belonging only to the dedicated demo organization.
+// Deletes records belonging only to a known demo organization.
 // User-created organizations and their records are left unchanged.
-const clearDemoData = async (organization, transaction) => {
+//
+// In production, attachment objects are deleted and verified before their
+// database metadata is removed. Object-storage deletion cannot be rolled back
+// if a later database operation fails, but demo organizations are deliberately
+// disposable and the seed can be rerun to reconcile the database state.
+const clearDemoData = async (
+  organization,
+  transaction,
+  { deleteAttachmentStorage = false } = {},
+) => {
+  if (deleteAttachmentStorage) {
+    const storageDeletion = await deleteOrganizationAttachmentObjects({
+      organizationId: organization.id,
+    });
+
+    if (storageDeletion.verifiedEmpty !== true) {
+      throw new Error(
+        `Attachment storage cleanup could not be verified for demo organization ${organization.id}.`,
+      );
+    }
+  }
+
   await Attachment.destroy({
     where: {
       organizationId: organization.id,
@@ -84,6 +125,16 @@ const clearDemoData = async (organization, transaction) => {
     transaction,
   });
 
+  await PasswordResetToken.destroy({
+    where: organizationWhere,
+    transaction,
+  });
+
+  await EmailVerificationToken.destroy({
+    where: organizationWhere,
+    transaction,
+  });
+
   await Experiment.destroy({
     where: organizationWhere,
     transaction,
@@ -115,26 +166,30 @@ const clearDemoData = async (organization, transaction) => {
   });
 };
 
-const getOrCreateDemoOrganization = async () => {
+const getOrCreateDemoOrganization = async (config, transaction) => {
   const [organization] = await Organization.findOrCreate({
-    where: { slug: "labflow-demo" },
+    where: { slug: config.slug },
     defaults: {
-      name: "LabFlow Demo Lab",
-      type: "demo",
+      name: config.name,
+      type: config.type,
       isActive: true,
     },
+    transaction,
   });
 
   if (
-    organization.name !== "LabFlow Demo Lab" ||
-    organization.type !== "demo" ||
+    organization.name !== config.name ||
+    organization.type !== config.type ||
     organization.isActive !== true
   ) {
-    await organization.update({
-      name: "LabFlow Demo Lab",
-      type: "demo",
-      isActive: true,
-    });
+    await organization.update(
+      {
+        name: config.name,
+        type: config.type,
+        isActive: true,
+      },
+      { transaction },
+    );
   }
 
   return organization;
@@ -147,7 +202,7 @@ const createUsers = async (organization, transaction) => {
   const admin = await User.create(
     {
       name: "Admin User",
-      email: "admin@labflow.test",
+      email: "admin@labfluss.test",
       passwordHash,
       role: "admin",
       department: "Analytical Chemistry",
@@ -157,6 +212,7 @@ const createUsers = async (organization, transaction) => {
       canCreateProtocols: true,
       canEditProtocols: true,
       requiresReview: false,
+      emailVerifiedAt: new Date(),
     },
     { transaction },
   );
@@ -164,7 +220,7 @@ const createUsers = async (organization, transaction) => {
   const supervisor = await User.create(
     {
       name: "Dr. Anna Keller",
-      email: "anna.keller@labflow.test",
+      email: "anna.keller@labfluss.test",
       passwordHash,
       role: "supervisor",
       department: "Analytical Chemistry",
@@ -174,6 +230,7 @@ const createUsers = async (organization, transaction) => {
       canCreateProtocols: true,
       canEditProtocols: true,
       requiresReview: false,
+      emailVerifiedAt: new Date(),
     },
     { transaction },
   );
@@ -181,7 +238,7 @@ const createUsers = async (organization, transaction) => {
   const researcherOne = await User.create(
     {
       name: "Maria Schmidt",
-      email: "maria.schmidt@labflow.test",
+      email: "maria.schmidt@labfluss.test",
       passwordHash,
       role: "researcher",
       department: "Analytical Chemistry",
@@ -191,6 +248,7 @@ const createUsers = async (organization, transaction) => {
       canCreateProtocols: false,
       canEditProtocols: false,
       requiresReview: true,
+      emailVerifiedAt: new Date(),
     },
     { transaction },
   );
@@ -198,7 +256,7 @@ const createUsers = async (organization, transaction) => {
   const researcherTwo = await User.create(
     {
       name: "Jonas Weber",
-      email: "jonas.weber@labflow.test",
+      email: "jonas.weber@labfluss.test",
       passwordHash,
       role: "researcher",
       department: "Analytical Chemistry",
@@ -208,6 +266,7 @@ const createUsers = async (organization, transaction) => {
       canCreateProtocols: true,
       canEditProtocols: true,
       requiresReview: false,
+      emailVerifiedAt: new Date(),
     },
     { transaction },
   );
@@ -215,7 +274,7 @@ const createUsers = async (organization, transaction) => {
   const researcherThree = await User.create(
     {
       name: "Sam Dean",
-      email: "sam.dean@labflow.test",
+      email: "sam.dean@labfluss.test",
       passwordHash,
       role: "researcher",
       department: "Analytical Chemistry",
@@ -225,6 +284,7 @@ const createUsers = async (organization, transaction) => {
       canCreateProtocols: true,
       canEditProtocols: true,
       requiresReview: true,
+      emailVerifiedAt: new Date(),
     },
     { transaction },
   );
@@ -422,7 +482,7 @@ const createTasks = async (users, projects, organization, transaction) => {
 
   const taskSix = await Task.create(
     {
-      title: "Change GC column and on Agilent GC-MS",
+      title: "Change GC column on Agilent GC-MS",
       description:
         "Install new DB-Wax GC column and run autotune after maintenance is complete.",
       status: "todo",
@@ -894,6 +954,736 @@ const createEquipmentBookings = async (
   };
 };
 
+const createMolecularBiologyUsers = async (organization, transaction) => {
+  const passwordHash = await bcrypt.hash("password123", SALT_ROUNDS);
+
+  const admin = await User.create(
+    {
+      name: "Admin User",
+      email: "admin.molecular@labfluss.test",
+      passwordHash,
+      role: "admin",
+      department: "Molecular Biology",
+      organizationId: organization.id,
+      canCreateExperiments: true,
+      canEditExperiments: true,
+      canCreateProtocols: true,
+      canEditProtocols: true,
+      requiresReview: false,
+      emailVerifiedAt: new Date(),
+    },
+    { transaction },
+  );
+
+  const supervisor = await User.create(
+    {
+      name: "Dr. Elena Fischer",
+      email: "elena.fischer@labfluss.test",
+      passwordHash,
+      role: "supervisor",
+      department: "Molecular Biology",
+      organizationId: organization.id,
+      canCreateExperiments: true,
+      canEditExperiments: true,
+      canCreateProtocols: true,
+      canEditProtocols: true,
+      requiresReview: false,
+      emailVerifiedAt: new Date(),
+    },
+    { transaction },
+  );
+
+  const researcherOne = await User.create(
+    {
+      name: "Daniel Kim",
+      email: "daniel.kim@labfluss.test",
+      passwordHash,
+      role: "researcher",
+      department: "Molecular Biology",
+      organizationId: organization.id,
+      canCreateExperiments: true,
+      canEditExperiments: true,
+      canCreateProtocols: false,
+      canEditProtocols: false,
+      requiresReview: true,
+      emailVerifiedAt: new Date(),
+    },
+    { transaction },
+  );
+
+  const researcherTwo = await User.create(
+    {
+      name: "Sophie Müller",
+      email: "sophie.mueller@labfluss.test",
+      passwordHash,
+      role: "researcher",
+      department: "Molecular Biology",
+      organizationId: organization.id,
+      canCreateExperiments: true,
+      canEditExperiments: true,
+      canCreateProtocols: true,
+      canEditProtocols: true,
+      requiresReview: false,
+      emailVerifiedAt: new Date(),
+    },
+    { transaction },
+  );
+
+  const researcherThree = await User.create(
+    {
+      name: "Lucas Martin",
+      email: "lucas.martin@labfluss.test",
+      passwordHash,
+      role: "researcher",
+      department: "Molecular Biology",
+      organizationId: organization.id,
+      canCreateExperiments: true,
+      canEditExperiments: true,
+      canCreateProtocols: true,
+      canEditProtocols: true,
+      requiresReview: true,
+      emailVerifiedAt: new Date(),
+    },
+    { transaction },
+  );
+
+  return {
+    admin,
+    supervisor,
+    researcherOne,
+    researcherTwo,
+    researcherThree,
+  };
+};
+
+const createMolecularBiologyProjects = async (
+  users,
+  organization,
+  transaction,
+) => {
+  const qpcrProject = await Project.create(
+    {
+      title: "qPCR Gene Expression Validation",
+      description:
+        "Validate relative gene-expression changes across treated and control cell samples using quantitative PCR.",
+      status: "active",
+      startDate: toDateOnly(daysFromNow(-21)),
+      targetEndDate: toDateOnly(daysFromNow(45)),
+      supervisorId: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const proteinProject = await Project.create(
+    {
+      title: "Recombinant Protein Expression Study",
+      description:
+        "Optimize bacterial expression conditions for a recombinant target protein and evaluate soluble protein yield.",
+      status: "active",
+      startDate: toDateOnly(daysFromNow(-10)),
+      targetEndDate: toDateOnly(daysFromNow(75)),
+      supervisorId: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const cellCultureProject = await Project.create(
+    {
+      title: "Mammalian Cell Culture Optimization",
+      description:
+        "Compare culture conditions to improve cell viability, growth consistency, and experimental reproducibility.",
+      status: "planning",
+      startDate: toDateOnly(daysFromNow(5)),
+      targetEndDate: toDateOnly(daysFromNow(100)),
+      supervisorId: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    qpcrProject,
+    proteinProject,
+    cellCultureProject,
+  };
+};
+
+const createMolecularBiologyProjectMembers = async (
+  users,
+  projects,
+  organization,
+  transaction,
+) => {
+  await ProjectMember.bulkCreate(
+    [
+      {
+        projectId: projects.qpcrProject.id,
+        userId: users.researcherOne.id,
+        projectRole: "lead",
+        organizationId: organization.id,
+      },
+      {
+        projectId: projects.qpcrProject.id,
+        userId: users.researcherTwo.id,
+        projectRole: "member",
+        organizationId: organization.id,
+      },
+      {
+        projectId: projects.proteinProject.id,
+        userId: users.researcherTwo.id,
+        projectRole: "lead",
+        organizationId: organization.id,
+      },
+      {
+        projectId: projects.proteinProject.id,
+        userId: users.researcherThree.id,
+        projectRole: "member",
+        organizationId: organization.id,
+      },
+      {
+        projectId: projects.cellCultureProject.id,
+        userId: users.researcherThree.id,
+        projectRole: "lead",
+        organizationId: organization.id,
+      },
+      {
+        projectId: projects.cellCultureProject.id,
+        userId: users.researcherOne.id,
+        projectRole: "member",
+        organizationId: organization.id,
+      },
+    ],
+    { transaction },
+  );
+};
+
+const createMolecularBiologyTasks = async (
+  users,
+  projects,
+  organization,
+  transaction,
+) => {
+  const taskOne = await Task.create(
+    {
+      title: "Prepare qPCR primer dilution series",
+      description:
+        "Prepare primer dilution series and template controls for efficiency testing.",
+      status: "todo",
+      priority: "high",
+      dueDate: toDateOnly(daysFromNow(2)),
+      projectId: projects.qpcrProject.id,
+      assignedToId: users.researcherOne.id,
+      createdById: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const taskTwo = await Task.create(
+    {
+      title: "Review qPCR amplification curves",
+      description:
+        "Review amplification plots, melting curves, and replicate consistency.",
+      status: "in_progress",
+      priority: "urgent",
+      dueDate: toDateOnly(daysFromNow(-1)),
+      projectId: projects.qpcrProject.id,
+      assignedToId: users.researcherOne.id,
+      createdById: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const taskThree = await Task.create(
+    {
+      title: "Prepare protein expression cultures",
+      description:
+        "Inoculate expression cultures and prepare induction conditions for comparison.",
+      status: "review",
+      priority: "medium",
+      dueDate: toDateOnly(daysFromNow(4)),
+      projectId: projects.proteinProject.id,
+      assignedToId: users.researcherTwo.id,
+      createdById: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const taskFour = await Task.create(
+    {
+      title: "Prepare cell culture viability test",
+      description:
+        "Set up replicate wells for comparison of culture conditions and viability.",
+      status: "todo",
+      priority: "high",
+      dueDate: toDateOnly(daysFromNow(8)),
+      projectId: projects.cellCultureProject.id,
+      assignedToId: users.researcherThree.id,
+      createdById: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const taskFive = await Task.create(
+    {
+      title: "Check incubator water pan and CO2 supply",
+      description:
+        "Inspect incubator humidity tray, water level, and carbon dioxide supply.",
+      status: "todo",
+      priority: "medium",
+      dueDate: null,
+      projectId: null,
+      assignedToId: users.researcherThree.id,
+      createdById: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    taskOne,
+    taskTwo,
+    taskThree,
+    taskFour,
+    taskFive,
+  };
+};
+
+const createMolecularBiologyProtocols = async (
+  users,
+  projects,
+  organization,
+  transaction,
+) => {
+  const qpcrProtocol = await Protocol.create(
+    {
+      title: "qPCR Gene Expression Analysis Protocol",
+      version: "1.0",
+      purpose:
+        "Measure relative gene-expression changes using quantitative PCR with technical replicates and appropriate controls.",
+      content:
+        "1. Prepare RNA-derived cDNA samples.\n2. Prepare primer working solutions.\n3. Assemble qPCR reactions with technical replicates.\n4. Include no-template and reference controls.\n5. Run amplification and melting-curve analysis.\n6. Review amplification efficiency and replicate consistency.\n7. Calculate relative expression values.",
+      approvalStatus: "approved",
+      reviewStatus: "approved",
+      reviewComment: null,
+      projectId: projects.qpcrProject.id,
+      equipmentId: null,
+      createdById: users.supervisor.id,
+      approvedById: users.supervisor.id,
+      approvedAt: toDateOnly(daysFromNow(-4)),
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const proteinProtocol = await Protocol.create(
+    {
+      title: "Recombinant Protein Expression Screening Protocol",
+      version: "0.8",
+      purpose:
+        "Compare induction conditions for recombinant protein expression in bacterial cultures.",
+      content:
+        "1. Prepare starter cultures.\n2. Inoculate expression cultures.\n3. Grow cultures to target optical density.\n4. Add inducer at selected concentrations.\n5. Incubate under test conditions.\n6. Harvest cells.\n7. Compare soluble and insoluble protein fractions.",
+      approvalStatus: "changes_requested",
+      reviewStatus: "changes_requested",
+      reviewComment:
+        "Please define the target optical-density range and specify the induction temperature for each comparison condition.",
+      projectId: projects.proteinProject.id,
+      equipmentId: null,
+      createdById: users.researcherTwo.id,
+      approvedById: null,
+      approvedAt: null,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const cellCultureProtocol = await Protocol.create(
+    {
+      title: "Mammalian Cell Culture Maintenance Protocol",
+      version: "1.0",
+      purpose:
+        "Maintain mammalian cell cultures under consistent conditions for experimental use.",
+      content:
+        "1. Inspect cultures for morphology and contamination.\n2. Warm medium and reagents.\n3. Remove spent medium.\n4. Wash cells if required.\n5. Passage cells at the defined confluence range.\n6. Record passage number and viability.\n7. Return cultures to the incubator.",
+      approvalStatus: "approved",
+      reviewStatus: "not_required",
+      reviewComment: null,
+      projectId: projects.cellCultureProject.id,
+      equipmentId: null,
+      createdById: users.supervisor.id,
+      approvedById: null,
+      approvedAt: null,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    qpcrProtocol,
+    proteinProtocol,
+    cellCultureProtocol,
+  };
+};
+
+const createMolecularBiologyExperiments = async (
+  users,
+  projects,
+  tasks,
+  protocols,
+  organization,
+  transaction,
+) => {
+  const experimentOne = await Experiment.create(
+    {
+      title: "qPCR primer efficiency assessment",
+      objective:
+        "Determine primer amplification efficiency using a serial dilution of cDNA template.",
+      notes:
+        "Initial amplification curves are consistent across replicates. Melting curves should be reviewed before final approval.",
+      status: "needs_review",
+      reviewStatus: "pending",
+      reviewComment: null,
+      startedAt: toDateOnly(daysFromNow(-2)),
+      completedAt: toDateOnly(daysFromNow(-2)),
+      projectId: projects.qpcrProject.id,
+      researcherId: users.researcherOne.id,
+      taskId: tasks.taskOne.id,
+      protocolId: protocols.qpcrProtocol.id,
+      createdById: users.researcherOne.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const experimentTwo = await Experiment.create(
+    {
+      title: "IPTG induction condition comparison",
+      objective:
+        "Compare recombinant protein expression across selected inducer concentrations and incubation conditions.",
+      notes:
+        "Cultures were induced successfully. Soluble and insoluble fractions still need to be compared.",
+      status: "needs_review",
+      reviewStatus: "changes_requested",
+      reviewComment:
+        "Add the measured culture density at induction and identify which temperature was used for each sample set.",
+      startedAt: toDateOnly(daysFromNow(-1)),
+      completedAt: null,
+      projectId: projects.proteinProject.id,
+      researcherId: users.researcherTwo.id,
+      taskId: tasks.taskThree.id,
+      protocolId: protocols.proteinProtocol.id,
+      createdById: users.researcherTwo.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const experimentThree = await Experiment.create(
+    {
+      title: "Cell viability condition comparison",
+      objective:
+        "Compare cell viability under two culture-medium conditions before selecting a standard workflow.",
+      notes: "Replicate wells are planned for the initial comparison.",
+      status: "planned",
+      reviewStatus: "not_required",
+      reviewComment: null,
+      startedAt: toDateOnly(daysFromNow(6)),
+      completedAt: null,
+      projectId: projects.cellCultureProject.id,
+      researcherId: users.researcherThree.id,
+      taskId: tasks.taskFour.id,
+      protocolId: protocols.cellCultureProtocol.id,
+      createdById: users.researcherThree.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    experimentOne,
+    experimentTwo,
+    experimentThree,
+  };
+};
+
+const createMolecularBiologyNotebookEntries = async (
+  users,
+  experiments,
+  organization,
+  transaction,
+) => {
+  const entryOne = await NotebookEntry.create(
+    {
+      title: "qPCR dilution-series setup notes",
+      entryType: "observation",
+      content:
+        "Prepared the cDNA dilution series and technical replicates. No-template controls were included in the plate layout.",
+      contentFormat: "plain_text",
+      experimentId: experiments.experimentOne.id,
+      projectId: experiments.experimentOne.projectId,
+      authorId: users.researcherOne.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const entryTwo = await NotebookEntry.create(
+    {
+      title: "qPCR amplification review",
+      entryType: "result",
+      content:
+        "Amplification curves were consistent across most replicates. One dilution point should be reviewed before the efficiency calculation is finalized.",
+      contentFormat: "plain_text",
+      experimentId: experiments.experimentOne.id,
+      projectId: experiments.experimentOne.projectId,
+      authorId: users.researcherOne.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const entryThree = await NotebookEntry.create(
+    {
+      title: "Protein induction observation",
+      entryType: "observation",
+      content:
+        "Cultures reached the planned induction stage. Samples were collected for soluble and insoluble fraction comparison.",
+      contentFormat: "plain_text",
+      experimentId: experiments.experimentTwo.id,
+      projectId: experiments.experimentTwo.projectId,
+      authorId: users.researcherTwo.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const entryFour = await NotebookEntry.create(
+    {
+      title: "Supervisor review follow-up",
+      entryType: "supervisor_comment",
+      content:
+        "Please add the measured culture density at induction and record the incubation temperature for each condition.",
+      contentFormat: "plain_text",
+      experimentId: experiments.experimentTwo.id,
+      projectId: experiments.experimentTwo.projectId,
+      authorId: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    entryOne,
+    entryTwo,
+    entryThree,
+    entryFour,
+  };
+};
+
+const createMolecularBiologyReviewEvents = async (
+  users,
+  experiments,
+  protocols,
+  organization,
+  transaction,
+) => {
+  const experimentChangeRequest = await ReviewEvent.create(
+    {
+      targetType: "experiment",
+      targetId: experiments.experimentTwo.id,
+      action: "changes_requested",
+      comment:
+        "Please add the measured culture density at induction and identify the incubation temperature used for each condition.",
+      reviewerId: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const protocolChangeRequest = await ReviewEvent.create(
+    {
+      targetType: "protocol",
+      targetId: protocols.proteinProtocol.id,
+      action: "changes_requested",
+      comment:
+        "Define the target optical-density range and specify the induction temperature before this protocol is approved.",
+      reviewerId: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const protocolApproval = await ReviewEvent.create(
+    {
+      targetType: "protocol",
+      targetId: protocols.qpcrProtocol.id,
+      action: "approved",
+      comment: "qPCR protocol approved for the demo workflow.",
+      reviewerId: users.supervisor.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    experimentChangeRequest,
+    protocolChangeRequest,
+    protocolApproval,
+  };
+};
+
+const createMolecularBiologyEquipment = async (organization, transaction) => {
+  const qpcr = await Equipment.create(
+    {
+      name: "Bio-Rad CFX96 Real-Time PCR System",
+      type: "qPCR",
+      location: "Molecular Biology Lab Room 310",
+      status: "available",
+      notes: "Used for quantitative PCR and gene-expression analysis.",
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const incubator = await Equipment.create(
+    {
+      name: "Thermo Scientific Heracell VIOS CO2 Incubator",
+      type: "CO2 Incubator",
+      location: "Cell Culture Room 312",
+      status: "available",
+      notes: "Primary incubator for mammalian cell culture experiments.",
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const gelDoc = await Equipment.create(
+    {
+      name: "Bio-Rad Gel Doc Go Imaging System",
+      type: "Gel Imaging",
+      location: "Molecular Biology Lab Room 311",
+      status: "maintenance",
+      notes:
+        "Used for agarose gel documentation and protein-gel imaging. Currently undergoing routine maintenance.",
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    qpcr,
+    incubator,
+    gelDoc,
+  };
+};
+
+const createMolecularBiologyEquipmentProtocols = async (
+  users,
+  equipment,
+  organization,
+  transaction,
+) => {
+  const qpcrSop = await Protocol.create(
+    {
+      title: "Bio-Rad CFX96 Startup and Run SOP",
+      version: "1.0",
+      purpose:
+        "Standard procedure for preparing and running qPCR plates on the Bio-Rad CFX96 system.",
+      content:
+        "1. Inspect the instrument and plate block.\n2. Prepare and seal the qPCR plate.\n3. Confirm plate orientation.\n4. Load the plate.\n5. Select the validated run method.\n6. Start the run.\n7. Review amplification and melting curves.\n8. Export run data.",
+      approvalStatus: "approved",
+      reviewStatus: "approved",
+      reviewComment: null,
+      projectId: null,
+      equipmentId: equipment.qpcr.id,
+      createdById: users.supervisor.id,
+      approvedById: users.supervisor.id,
+      approvedAt: toDateOnly(daysFromNow(-6)),
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const incubatorSop = await Protocol.create(
+    {
+      title: "CO2 Incubator Cleaning and Monitoring SOP",
+      version: "1.0",
+      purpose:
+        "Standard procedure for checking, cleaning, and documenting the mammalian cell culture incubator.",
+      content:
+        "1. Check temperature and CO2 readings.\n2. Inspect humidity tray and water level.\n3. Check for spills or contamination.\n4. Clean internal surfaces according to lab procedure.\n5. Refill sterile water if required.\n6. Record the maintenance check.",
+      approvalStatus: "pending_review",
+      reviewStatus: "pending",
+      reviewComment: null,
+      projectId: null,
+      equipmentId: equipment.incubator.id,
+      createdById: users.supervisor.id,
+      approvedById: null,
+      approvedAt: null,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    qpcrSop,
+    incubatorSop,
+  };
+};
+
+const createMolecularBiologyEquipmentBookings = async (
+  users,
+  projects,
+  experiments,
+  equipment,
+  organization,
+  transaction,
+) => {
+  const activeBooking = await EquipmentBooking.create(
+    {
+      title: "Active qPCR primer efficiency run",
+      startTime: minutesFromNow(-20),
+      endTime: minutesFromNow(80),
+      status: "confirmed",
+      purpose: "Run the primer dilution series for qPCR efficiency assessment.",
+      equipmentId: equipment.qpcr.id,
+      userId: users.researcherOne.id,
+      projectId: projects.qpcrProject.id,
+      experimentId: experiments.experimentOne.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  const futureBooking = await EquipmentBooking.create(
+    {
+      title: "Cell culture viability incubation",
+      startTime: daysFromNow(3),
+      endTime: new Date(daysFromNow(3).getTime() + 3 * 60 * 60 * 1000),
+      status: "confirmed",
+      purpose:
+        "Reserve incubator access for the initial cell viability condition comparison.",
+      equipmentId: equipment.incubator.id,
+      userId: users.researcherThree.id,
+      projectId: projects.cellCultureProject.id,
+      experimentId: experiments.experimentThree.id,
+      organizationId: organization.id,
+    },
+    { transaction },
+  );
+
+  return {
+    activeBooking,
+    futureBooking,
+  };
+};
+
 const ensureSchemaExists = async () => {
   const tableNames = await sequelize.getQueryInterface().showAllTables();
 
@@ -923,6 +1713,8 @@ const seedDemoData = async () => {
     );
   }
 
+  const deleteAttachmentStorage = process.env.NODE_ENV === "production";
+
   let transaction;
 
   try {
@@ -932,69 +1724,218 @@ const seedDemoData = async () => {
     console.log("Checking database schema...");
     await ensureSchemaExists();
 
-    console.log("Creating or finding demo organization...");
-    const organization = await getOrCreateDemoOrganization();
-
     transaction = await sequelize.transaction();
 
-    console.log("Clearing existing demo data...");
-    await clearDemoData(organization, transaction);
+    console.log("Removing legacy demo organization if present...");
+    const legacyOrganization = await Organization.findOne({
+      where: { slug: LEGACY_DEMO_SLUG },
+      transaction,
+    });
 
-    console.log("Creating demo users...");
-    const users = await createUsers(organization, transaction);
+    if (legacyOrganization) {
+      await clearDemoData(legacyOrganization, transaction, {
+        deleteAttachmentStorage,
+      });
+      await legacyOrganization.destroy({ transaction });
+    }
 
-    console.log("Creating demo projects...");
-    const projects = await createProjects(users, organization, transaction);
-
-    console.log("Creating project memberships...");
-    await createProjectMembers(users, projects, organization, transaction);
-
-    console.log("Creating demo tasks...");
-    const tasks = await createTasks(users, projects, organization, transaction);
-
-    console.log("Creating demo protocols...");
-    const protocols = await createProtocols(
-      users,
-      projects,
-      organization,
+    console.log(
+      "Creating or finding analytical chemistry demo organization...",
+    );
+    const analyticalOrganization = await getOrCreateDemoOrganization(
+      DEMO_ORGANIZATIONS.analyticalChemistry,
       transaction,
     );
 
-    console.log("Creating demo experiments...");
-    const experiments = await createExperiments(
-      users,
-      projects,
-      tasks,
-      protocols,
-      organization,
+    console.log("Clearing existing analytical chemistry demo data...");
+    await clearDemoData(analyticalOrganization, transaction, {
+      deleteAttachmentStorage,
+    });
+
+    console.log("Creating analytical chemistry demo users...");
+    const analyticalUsers = await createUsers(
+      analyticalOrganization,
       transaction,
     );
 
-    console.log("Creating demo notebook entries...");
-    await createNotebookEntries(users, experiments, organization, transaction);
+    console.log("Creating analytical chemistry demo projects...");
+    const analyticalProjects = await createProjects(
+      analyticalUsers,
+      analyticalOrganization,
+      transaction,
+    );
 
-    console.log("Creating demo review history...");
+    console.log("Creating analytical chemistry project memberships...");
+    await createProjectMembers(
+      analyticalUsers,
+      analyticalProjects,
+      analyticalOrganization,
+      transaction,
+    );
+
+    console.log("Creating analytical chemistry demo tasks...");
+    const analyticalTasks = await createTasks(
+      analyticalUsers,
+      analyticalProjects,
+      analyticalOrganization,
+      transaction,
+    );
+
+    console.log("Creating analytical chemistry demo protocols...");
+    const analyticalProtocols = await createProtocols(
+      analyticalUsers,
+      analyticalProjects,
+      analyticalOrganization,
+      transaction,
+    );
+
+    console.log("Creating analytical chemistry demo experiments...");
+    const analyticalExperiments = await createExperiments(
+      analyticalUsers,
+      analyticalProjects,
+      analyticalTasks,
+      analyticalProtocols,
+      analyticalOrganization,
+      transaction,
+    );
+
+    console.log("Creating analytical chemistry demo notebook entries...");
+    await createNotebookEntries(
+      analyticalUsers,
+      analyticalExperiments,
+      analyticalOrganization,
+      transaction,
+    );
+
+    console.log("Creating analytical chemistry demo review history...");
     await createReviewEvents(
-      users,
-      experiments,
-      protocols,
-      organization,
+      analyticalUsers,
+      analyticalExperiments,
+      analyticalProtocols,
+      analyticalOrganization,
       transaction,
     );
 
-    console.log("Creating demo equipment...");
-    const equipment = await createEquipment(organization, transaction);
+    console.log("Creating analytical chemistry demo equipment...");
+    const analyticalEquipment = await createEquipment(
+      analyticalOrganization,
+      transaction,
+    );
 
-    console.log("Creating equipment SOPs...");
-    await createEquipmentProtocols(users, equipment, organization, transaction);
+    console.log("Creating analytical chemistry equipment SOPs...");
+    await createEquipmentProtocols(
+      analyticalUsers,
+      analyticalEquipment,
+      analyticalOrganization,
+      transaction,
+    );
 
-    console.log("Creating demo equipment bookings...");
+    console.log("Creating analytical chemistry demo equipment bookings...");
     await createEquipmentBookings(
-      users,
-      projects,
-      experiments,
-      equipment,
-      organization,
+      analyticalUsers,
+      analyticalProjects,
+      analyticalExperiments,
+      analyticalEquipment,
+      analyticalOrganization,
+      transaction,
+    );
+
+    console.log("Creating or finding molecular biology demo organization...");
+    const molecularOrganization = await getOrCreateDemoOrganization(
+      DEMO_ORGANIZATIONS.molecularBiology,
+      transaction,
+    );
+
+    console.log("Clearing existing molecular biology demo data...");
+    await clearDemoData(molecularOrganization, transaction, {
+      deleteAttachmentStorage,
+    });
+
+    console.log("Creating molecular biology demo users...");
+    const molecularUsers = await createMolecularBiologyUsers(
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo projects...");
+    const molecularProjects = await createMolecularBiologyProjects(
+      molecularUsers,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology project memberships...");
+    await createMolecularBiologyProjectMembers(
+      molecularUsers,
+      molecularProjects,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo tasks...");
+    const molecularTasks = await createMolecularBiologyTasks(
+      molecularUsers,
+      molecularProjects,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo protocols...");
+    const molecularProtocols = await createMolecularBiologyProtocols(
+      molecularUsers,
+      molecularProjects,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo experiments...");
+    const molecularExperiments = await createMolecularBiologyExperiments(
+      molecularUsers,
+      molecularProjects,
+      molecularTasks,
+      molecularProtocols,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo notebook entries...");
+    await createMolecularBiologyNotebookEntries(
+      molecularUsers,
+      molecularExperiments,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo review history...");
+    await createMolecularBiologyReviewEvents(
+      molecularUsers,
+      molecularExperiments,
+      molecularProtocols,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo equipment...");
+    const molecularEquipment = await createMolecularBiologyEquipment(
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology equipment SOPs...");
+    await createMolecularBiologyEquipmentProtocols(
+      molecularUsers,
+      molecularEquipment,
+      molecularOrganization,
+      transaction,
+    );
+
+    console.log("Creating molecular biology demo equipment bookings...");
+    await createMolecularBiologyEquipmentBookings(
+      molecularUsers,
+      molecularProjects,
+      molecularExperiments,
+      molecularEquipment,
+      molecularOrganization,
       transaction,
     );
 
@@ -1002,12 +1943,21 @@ const seedDemoData = async () => {
 
     console.log("Demo data seeded successfully.");
     console.log("");
-    console.log("Demo login credentials:");
-    console.log("Admin: admin@labflow.test / password123");
-    console.log("Supervisor: anna.keller@labflow.test / password123");
-    console.log("Researcher 1: maria.schmidt@labflow.test / password123");
-    console.log("Researcher 2: jonas.weber@labflow.test / password123");
-    console.log("Researcher 3: sam.dean@labflow.test / password123");
+
+    console.log("Analytical Chemistry Research Lab:");
+    console.log("Admin: admin@labfluss.test / password123");
+    console.log("Supervisor: anna.keller@labfluss.test / password123");
+    console.log("Researcher 1: maria.schmidt@labfluss.test / password123");
+    console.log("Researcher 2: jonas.weber@labfluss.test / password123");
+    console.log("Researcher 3: sam.dean@labfluss.test / password123");
+    console.log("");
+
+    console.log("Molecular Biology Research Lab:");
+    console.log("Admin: admin.molecular@labfluss.test / password123");
+    console.log("Supervisor: elena.fischer@labfluss.test / password123");
+    console.log("Researcher 1: daniel.kim@labfluss.test / password123");
+    console.log("Researcher 2: sophie.mueller@labfluss.test / password123");
+    console.log("Researcher 3: lucas.martin@labfluss.test / password123");
   } catch (error) {
     if (transaction && !transaction.finished) {
       await transaction.rollback();

@@ -114,12 +114,12 @@ const buildInvitationEmail = ({
 
   const subject =
     `You have been invited to join ` +
-    `${normalizedOrganizationName} on LabFlow`;
+    `${normalizedOrganizationName} on Labfluss`;
 
   const text = [
     `Hello ${normalizedInviteeName},`,
     "",
-    `${normalizedInviterName} has invited you to join ${normalizedOrganizationName} on LabFlow as a ${roleLabel}.`,
+    `${normalizedInviterName} has invited you to join ${normalizedOrganizationName} on Labfluss as a ${roleLabel}.`,
     "",
     "Accept your invitation:",
     normalizedInviteLink,
@@ -128,7 +128,7 @@ const buildInvitationEmail = ({
     "",
     "If you were not expecting this invitation, you can ignore this email.",
     "",
-    "LabFlow",
+    "Labfluss",
   ].join("\n");
 
   const htmlInviteeName = escapeHtml(normalizedInviteeName);
@@ -207,7 +207,7 @@ const buildInvitationEmail = ({
                     color: #1677ff;
                   "
                 >
-                  LabFlow
+                  Labfluss
                 </div>
               </td>
             </tr>
@@ -251,7 +251,7 @@ const buildInvitationEmail = ({
                   <strong>
                     ${htmlOrganizationName}
                   </strong>
-                  on LabFlow as a
+                  on Labfluss as a
                   <strong>
                     ${htmlRoleLabel}
                   </strong>.

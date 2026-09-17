@@ -266,16 +266,19 @@ Amazon SES safeguards include:
 
 ### Pilot status
 
-**PRODUCTION INFRASTRUCTURE CONFIGURATION VERIFIED, AWS LEGAL/SUBPROCESSOR REVIEW REQUIRED BEFORE FIRST PAID PILOT**
+**PRODUCTION INFRASTRUCTURE, LEGAL/SUBPROCESSOR REVIEW, AND S3 CORS HARDENING VERIFIED**
 
-Before first pilot:
+Completed before first pilot:
 
-- review the current AWS Data Processing Addendum
-- review the current AWS subprocessor information
-- subscribe to AWS subprocessor-change notifications
-- confirm the AWS account and service terms applicable to the production configuration
-- confirm any customer-specific data-location requirements against the actual AWS services and Regions used
-- decide whether `http://localhost:5173` should remain allowed on the production S3 bucket
+- current AWS Data Processing Addendum reviewed
+- current AWS subprocessor information reviewed
+- AWS subprocessor-change notifications enabled
+- production S3 localhost origin removed
+- production attachment upload, download/open, and archive behavior verified after the CORS change
+
+Remaining:
+
+- confirm customer-specific data-location requirements against the actual AWS services and Regions used before onboarding a customer with specific residency requirements
 
 ---
 
@@ -427,7 +430,7 @@ The current authorized subprocessor schedule includes infrastructure, support, c
 
 Because Labfluss currently uses Better Stack only for uptime monitoring, the operational data exposed to Better Stack is intentionally limited.
 
-The "Explain with AI and AI summaries" feature should be disabled before the paid pilot to avoid unnecessary AI processing of incident data.
+The "Explain with AI and AI summaries" feature is disabled to avoid unnecessary AI processing of incident data.
 
 ### Labfluss safeguards
 
@@ -438,33 +441,118 @@ The "Explain with AI and AI summaries" feature should be disabled before the pai
 
 ### Pilot status
 
-**CONFIGURATION VERIFIED, AI FEATURE AND 2FA HARDENING PENDING**
+**CONFIGURATION AND SECURITY HARDENING VERIFIED, SUBPROCESSOR-NOTIFICATION CONFIRMATION PENDING**
 
-Before first pilot:
+Completed before first pilot:
 
-- disable "Allow Explain with AI and AI summaries"
-- enable organization-wide 2FA
-- review and subscribe to the applicable subprocessor-change notification mechanism
+- "Allow Explain with AI and AI summaries" disabled
+- account two-factor authentication enabled
+- organization-wide two-factor authentication requirement enabled
+
+Remaining:
+
+- Better Stack was contacted to confirm the applicable subprocessor-change notification mechanism; provider response is pending
 
 ---
 
-## Providers Not Currently Classified as Production Customer-Data Subprocessors
+## 4. Google Workspace
 
-### GitHub
+### Service
 
-GitHub hosts Labfluss source code.
+Operational business email and monitored security/privacy contact mailboxes.
 
-Production customer records and production secrets must not be committed to the repository.
+### Labfluss use
 
-Provided that this boundary is maintained, GitHub is not currently classified as a processor of Labfluss pilot customer content for the purposes of this inventory.
+Google Workspace provides the primary human-operated Labfluss business mailbox:
 
-If production logs, database exports, customer attachments, support tickets containing customer data, or production secrets begin to be stored in GitHub, this classification must be revisited.
+- `admin@labfluss.com`
 
-### Local development tools
+The following monitored aliases route to that mailbox:
 
-Developer editors, local test databases, and isolated test storage are not production customer-data subprocessors.
+- `security@labfluss.com`
+- `privacy@labfluss.com`
 
-Production customer data must not be copied into local development/test environments merely for convenience.
+External delivery to both aliases was verified on 2026-09-16.
+
+Google Workspace is separate from Amazon SES. Amazon SES remains the production transactional-email provider used by the Labfluss application for invitations, password resets, and email verification.
+
+### Data potentially processed
+
+Google Workspace may process customer, prospect, or operational correspondence including:
+
+- names
+- email addresses
+- message subjects
+- message bodies
+- support correspondence
+- security inquiries
+- privacy inquiries
+- attachments voluntarily sent by correspondents
+- timestamps
+- email-delivery metadata
+- administrator/account information
+
+Customer research records and application data are not intentionally routed through Google Workspace as part of normal Labfluss application operation.
+
+### Purpose
+
+- business correspondence
+- pilot/customer communication
+- security contact
+- privacy contact
+- provider and compliance correspondence
+- operational administration
+
+### Provider role
+
+Operational service provider and potential subprocessor where customer personal data is contained in correspondence processed through Google Workspace.
+
+### Data location
+
+The current Labfluss Google Workspace subscription is Business Starter.
+
+Labfluss must not represent Google Workspace email data as guaranteed to remain exclusively in the EU under the current subscription.
+
+Any customer-specific data-residency requirement must be evaluated separately before onboarding.
+
+### Contractual/privacy documentation
+
+The Google Workspace Cloud Data Processing Addendum (CDPA) was accepted by the Labfluss administrator on 2026-09-16.
+
+Google maintains its own subprocessor information for Google Workspace.
+
+The separate Google Admin option for customers with billing addresses outside Europe, the Middle East, and Africa to indicate that EU Data Protection Law applies was not selected because the current Labfluss billing context is Germany/EMEA.
+
+The HIPAA Business Associate Amendment has not been accepted because it is not part of the current pilot scope.
+
+### Labfluss safeguards
+
+- dedicated Labfluss Workspace account
+- monitored `admin@labfluss.com` mailbox
+- dedicated security and privacy aliases
+- external delivery to security and privacy aliases tested successfully
+- Google Workspace CDPA accepted
+- transactional application email remains isolated to Amazon SES
+- customer research data is not intentionally routed through Workspace
+- access should remain restricted to authorized Labfluss operators
+
+### Pilot status
+
+**OPERATIONAL EMAIL CONFIGURATION VERIFIED, BILLING VERIFICATION PENDING**
+
+Completed:
+
+- domain verified
+- Gmail activated
+- `admin@labfluss.com` operational
+- `security@labfluss.com` alias configured and externally tested
+- `privacy@labfluss.com` alias configured and externally tested
+- Cloud Data Processing Addendum accepted
+
+Remaining:
+
+- complete Google Workspace billing/payment verification after the pending bank verification deposit becomes available
+- confirm billing warning is cleared before first paid pilot
 
 ---
 
@@ -500,6 +588,26 @@ At minimum, the operator should review this inventory:
 - when changing production providers
 - after receiving a provider subprocessor-change notice
 - during annual privacy/security review
+
+---
+
+## Providers Not Currently Classified as Production Customer-Data Subprocessors
+
+### GitHub
+
+GitHub hosts Labfluss source code.
+
+Production customer records and production secrets must not be committed to the repository.
+
+Provided that this boundary is maintained, GitHub is not currently classified as a processor of Labfluss pilot customer content for the purposes of this inventory.
+
+If production logs, database exports, customer attachments, support tickets containing customer data, or production secrets begin to be stored in GitHub, this classification must be revisited.
+
+### Local development tools
+
+Developer editors, local test databases, and isolated test storage are not production customer-data subprocessors.
+
+Production customer data must not be copied into local development/test environments merely for convenience.
 
 ---
 
@@ -545,9 +653,9 @@ The following items remain configuration-specific and must be verified before th
 - [x] production health endpoint confirmed: `/api/health`
 - [x] production readiness endpoint confirmed: `/api/ready`
 - [x] attachment-cleanup systemd timer enabled and active
-- [ ] review current AWS Data Processing Addendum before paid pilot
-- [ ] review current AWS subprocessor list before paid pilot
-- [ ] subscribe to AWS subprocessor-change notifications
+- [x] review current AWS Data Processing Addendum before paid pilot
+- [x] review current AWS subprocessor list before paid pilot
+- [x] subscribe to AWS subprocessor-change notifications
 - [ ] confirm customer-specific data-location requirements against the actual AWS services and Regions used
 - [x] Amazon S3 production bucket identified: `labfluss-attachments-production`
 - [x] S3 production region recorded: `eu-central-1`
@@ -556,11 +664,13 @@ The following items remain configuration-specific and must be verified before th
 - [x] S3 default encryption confirmed: SSE-S3 (`AES256`)
 - [x] S3 CORS policy reviewed
 - [x] S3 allowed production origin recorded: `https://app.labfluss.com`
-- [x] S3 allowed development origin recorded: `http://localhost:5173`
+- [x] production S3 localhost origin removed before pilot
+- [x] production attachment upload verified after CORS change
+- [x] production attachment download/open verified after CORS change
+- [x] production attachment archive verified after CORS change
 - [x] S3 allowed methods recorded: GET, PUT, HEAD
 - [x] production IAM credential restricted to required attachment operations
 - [x] account-wide bucket enumeration denied
-- [ ] decide whether localhost should remain allowed on the production S3 bucket before pilot
 - [x] Amazon SES identified as the active production transactional-email provider
 - [x] SES production region recorded: `eu-central-1`
 - [x] SES production access approved on 2026-09-09
@@ -607,16 +717,28 @@ The following items remain configuration-specific and must be verified before th
 - [x] DPA/security posture reviewed
 - [x] current Better Stack DPA reviewed
 - [x] current Better Stack authorized subprocessor list reviewed
-- [ ] disable "Allow Explain with AI and AI summaries" before paid pilot
-- [ ] enable organization-wide 2FA requirement before paid pilot
+- [x] disable "Allow Explain with AI and AI summaries" before paid pilot
+- [x] enable account 2FA
+- [x] enable organization-wide 2FA requirement before paid pilot
 - [ ] review subprocessor-change notification mechanism
+  - Provider contacted on 2026-09-16; response pending
+
+### Google Workspace
+
+- [x] Google Workspace identified as the operational business-email provider
+- [x] `admin@labfluss.com` mailbox operational
+- [x] `security@labfluss.com` alias configured and externally tested
+- [x] `privacy@labfluss.com` alias configured and externally tested
+- [x] Google Workspace Cloud Data Processing Addendum accepted
+- [ ] complete Google Workspace billing/payment verification
+- [ ] confirm Google Workspace billing warning is cleared before first paid pilot
 
 ---
 
 ## Review Record
 
-**Last reviewed:** 2026-09-14
+**Last reviewed:** 2026-09-16
 
 **Next review:** Before first paid pilot or upon material provider change, whichever occurs first.
 
-**Status:** Production provider inventory updated after completion of the Amazon SES migration. Amazon SES is the active production transactional-email provider. Mailgun has been fully retired from Labfluss production use. AWS legal/subprocessor review and remaining pre-pilot remediation items remain open.
+**Status:** Production provider inventory reviewed during Phase 26D.6 paid-pilot readiness. AWS DPA and subprocessor materials were reviewed, AWS subprocessor-change notifications were enabled, and production S3 localhost CORS access was removed and retested successfully. Better Stack account and organization-wide 2FA are enabled and AI summaries are disabled; confirmation of its subprocessor-change notification mechanism is pending. Google Workspace has been added as an operational email provider, its CDPA has been accepted, and security/privacy aliases have been externally tested. Customer-specific data-location requirements and Google Workspace billing verification remain open before customer onboarding.

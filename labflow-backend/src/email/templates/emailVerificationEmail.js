@@ -84,21 +84,21 @@ const buildEmailVerificationEmail = ({
     timeZone,
   });
 
-  const subject = "Verify your LabFlow email address";
+  const subject = "Verify your Labfluss email address";
 
   const text = [
     `Hello ${normalizedUserName},`,
     "",
-    `Please verify the email address for your LabFlow account in ${normalizedOrganizationName}.`,
+    `Please verify the email address for your Labfluss account in ${normalizedOrganizationName}.`,
     "",
     "Verify your email address:",
     normalizedVerificationLink,
     "",
     `This link expires on ${formattedExpirationDate}.`,
     "",
-    "If you did not create this LabFlow account, you can ignore this email.",
+    "If you did not create this Labfluss account, you can ignore this email.",
     "",
-    "LabFlow",
+    "Labfluss",
   ].join("\n");
 
   const htmlUserName = escapeHtml(normalizedUserName);
@@ -173,7 +173,7 @@ const buildEmailVerificationEmail = ({
                     color: #1677ff;
                   "
                 >
-                  LabFlow
+                  Labfluss
                 </div>
               </td>
             </tr>
@@ -213,7 +213,7 @@ const buildEmailVerificationEmail = ({
                   "
                 >
                   Please verify the email
-                  address for your LabFlow
+                  address for your Labfluss
                   account in
                   <strong>
                     ${htmlOrganizationName}
@@ -308,7 +308,7 @@ const buildEmailVerificationEmail = ({
                   "
                 >
                   If you did not create this
-                  LabFlow account, you can
+                  Labfluss account, you can
                   ignore this email.
                 </p>
               </td>
