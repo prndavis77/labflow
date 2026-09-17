@@ -441,7 +441,7 @@ The "Explain with AI and AI summaries" feature is disabled to avoid unnecessary 
 
 ### Pilot status
 
-**CONFIGURATION AND SECURITY HARDENING VERIFIED, SUBPROCESSOR-NOTIFICATION CONFIRMATION PENDING**
+**CONFIGURATION, SECURITY HARDENING, AND SUBPROCESSOR CHANGE PROCESS VERIFIED**
 
 Completed before first pilot:
 
@@ -449,9 +449,12 @@ Completed before first pilot:
 - account two-factor authentication enabled
 - organization-wide two-factor authentication requirement enabled
 
-Remaining:
+Subprocessor change monitoring:
 
-- Better Stack was contacted to confirm the applicable subprocessor-change notification mechanism; provider response is pending
+- Better Stack confirmed on 2026-09-16 that it does not currently provide a mailing list or automated subscription for subprocessor changes
+- the current authorized subprocessor schedule is published under Schedule A of the Better Stack DPA
+- the schedule includes a "Last Updated" date that can be used to identify changes
+- Labfluss will review the Better Stack subprocessor schedule periodically as part of its provider-review process
 
 ---
 
@@ -538,7 +541,7 @@ The HIPAA Business Associate Amendment has not been accepted because it is not p
 
 ### Pilot status
 
-**OPERATIONAL EMAIL CONFIGURATION VERIFIED, BILLING VERIFICATION PENDING**
+**OPERATIONAL EMAIL CONFIGURATION AND BILLING VERIFICATION COMPLETED**
 
 Completed:
 
@@ -548,11 +551,10 @@ Completed:
 - `security@labfluss.com` alias configured and externally tested
 - `privacy@labfluss.com` alias configured and externally tested
 - Cloud Data Processing Addendum accepted
-
-Remaining:
-
-- complete Google Workspace billing/payment verification after the pending bank verification deposit becomes available
-- confirm billing warning is cleared before first paid pilot
+- Google Workspace bank account verification completed on 2026-09-17
+- verified bank account confirmed as the primary payment method
+- Google Workspace payment account confirmed in use
+- previous billing/payment verification warning confirmed cleared on 2026-09-17
 
 ---
 
@@ -720,8 +722,10 @@ The following items remain configuration-specific and must be verified before th
 - [x] disable "Allow Explain with AI and AI summaries" before paid pilot
 - [x] enable account 2FA
 - [x] enable organization-wide 2FA requirement before paid pilot
-- [ ] review subprocessor-change notification mechanism
-  - Provider contacted on 2026-09-16; response pending
+- [x] review subprocessor-change notification mechanism
+  - Better Stack confirmed on 2026-09-16 that no mailing list or automated subprocessor-change subscription is currently available
+  - Schedule A of the Better Stack DPA is the maintained reference and includes a "Last Updated" date
+  - periodic manual review adopted as the Labfluss monitoring control
 
 ### Google Workspace
 
@@ -730,15 +734,15 @@ The following items remain configuration-specific and must be verified before th
 - [x] `security@labfluss.com` alias configured and externally tested
 - [x] `privacy@labfluss.com` alias configured and externally tested
 - [x] Google Workspace Cloud Data Processing Addendum accepted
-- [ ] complete Google Workspace billing/payment verification
-- [ ] confirm Google Workspace billing warning is cleared before first paid pilot
+- [x] complete Google Workspace billing/payment verification
+- [x] confirm Google Workspace billing warning is cleared before first paid pilot
 
 ---
 
 ## Review Record
 
-**Last reviewed:** 2026-09-16
+**Last reviewed:** 2026-09-17
 
 **Next review:** Before first paid pilot or upon material provider change, whichever occurs first.
 
-**Status:** Production provider inventory reviewed during Phase 26D.6 paid-pilot readiness. AWS DPA and subprocessor materials were reviewed, AWS subprocessor-change notifications were enabled, and production S3 localhost CORS access was removed and retested successfully. Better Stack account and organization-wide 2FA are enabled and AI summaries are disabled; confirmation of its subprocessor-change notification mechanism is pending. Google Workspace has been added as an operational email provider, its CDPA has been accepted, and security/privacy aliases have been externally tested. Customer-specific data-location requirements and Google Workspace billing verification remain open before customer onboarding.
+**Status:** Production provider inventory reviewed during Phase 26D.6 paid-pilot readiness. AWS DPA and subprocessor materials were reviewed, AWS subprocessor-change notifications were enabled, and production S3 localhost CORS access was removed and retested successfully. Better Stack account and organization-wide 2FA are enabled and AI summaries are disabled; Better Stack confirmed that no automated subprocessor-change notification subscription is currently available, so periodic review of Schedule A of its DPA has been adopted as the monitoring control. Google Workspace operational email, security/privacy aliases, CDPA acceptance, bank-account verification, and billing/payment configuration have been verified. Customer-specific data-location requirements remain to be evaluated when applicable to an actual pilot customer.
