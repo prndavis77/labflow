@@ -201,6 +201,145 @@ describe("Experiment and protocol review workflows", () => {
     expect(createdExperiment.reviewStatus).toBe("not_required");
   });
 
+  it("allows a review-exempt researcher to directly approve an experiment", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_required",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        reviewStatus: "approved",
+        status: "completed",
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.experiment.reviewStatus).toBe("approved");
+    expect(response.body.data.experiment.status).toBe("completed");
+
+    const reviewEvent = await ReviewEvent.findOne({
+      where: {
+        targetType: "experiment",
+        targetId: experiment.id,
+        action: "approved",
+        reviewerId: researcher.id,
+      },
+    });
+
+    expect(reviewEvent).not.toBeNull();
+  });
+
+  it("rejects direct experiment approval by a researcher who requires review", async () => {
+    await researcher.update({
+      requiresReview: true,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_submitted",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        reviewStatus: "approved",
+        status: "completed",
+      });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body.status).toBe("error");
+
+    await experiment.reload();
+
+    expect(experiment.reviewStatus).toBe("not_submitted");
+  });
+
+  it("rejects direct experiment approval by a review-exempt researcher after formal review has begun", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "pending",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        reviewStatus: "approved",
+        status: "completed",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Review-exempt researchers can only directly approve experiments that do not require review.",
+    );
+
+    await experiment.reload();
+
+    expect(experiment.reviewStatus).toBe("pending");
+  });
+
+  it("rejects experiment change requests by a review-exempt researcher", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_required",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        reviewStatus: "changes_requested",
+        reviewComment: "This should not be allowed.",
+      });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Only admins and supervisors can request changes to experiments.",
+    );
+
+    await experiment.reload();
+
+    expect(experiment.reviewStatus).toBe("not_required");
+  });
+
   it("creates a protocol with review not submitted when researcher review is required", async () => {
     await researcher.update({
       requiresReview: true,
@@ -265,6 +404,139 @@ describe("Experiment and protocol review workflows", () => {
     expect(createdProtocol.reviewStatus).toBe("not_required");
   });
 
+  it("allows a review-exempt researcher to directly approve a draft protocol", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      approvalStatus: "draft",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        approvalStatus: "approved",
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.protocol.approvalStatus).toBe("approved");
+    expect(response.body.data.protocol.approvedById).toBe(researcher.id);
+    expect(response.body.data.protocol.approvedAt).not.toBeNull();
+
+    const reviewEvent = await ReviewEvent.findOne({
+      where: {
+        targetType: "protocol",
+        targetId: protocol.id,
+        action: "approved",
+        reviewerId: researcher.id,
+      },
+    });
+
+    expect(reviewEvent).not.toBeNull();
+  });
+
+  it("rejects direct protocol approval by a researcher who requires review", async () => {
+    await researcher.update({
+      requiresReview: true,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      approvalStatus: "draft",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        approvalStatus: "approved",
+      });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body.status).toBe("error");
+
+    await protocol.reload();
+
+    expect(protocol.approvalStatus).toBe("draft");
+  });
+
+  it("rejects direct protocol approval by a review-exempt researcher after formal review has begun", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      approvalStatus: "pending_review",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        approvalStatus: "approved",
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Review-exempt researchers can only directly approve draft protocols.",
+    );
+
+    await protocol.reload();
+
+    expect(protocol.approvalStatus).toBe("pending_review");
+  });
+
+  it("rejects protocol change requests by a review-exempt researcher", async () => {
+    await researcher.update({
+      requiresReview: false,
+    });
+
+    const researcherToken = await loginAndGetToken("researcher@test.com");
+
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      approvalStatus: "draft",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${researcherToken}`)
+      .send({
+        approvalStatus: "changes_requested",
+        reviewComment: "This should not be allowed.",
+      });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body.status).toBe("error");
+    expect(response.body.message).toBe(
+      "Only admins and supervisors can request changes to protocols.",
+    );
+
+    await protocol.reload();
+
+    expect(protocol.approvalStatus).toBe("draft");
+  });
+
   it("allows an admin to approve an experiment", async () => {
     const experiment = await createExperiment({
       projectId: supervisedProject.id,
@@ -289,6 +561,40 @@ describe("Experiment and protocol review workflows", () => {
         targetType: "experiment",
         targetId: experiment.id,
         action: "approved",
+      },
+    });
+
+    expect(reviewEvent).not.toBeNull();
+  });
+
+  it("allows an admin to directly approve a not-submitted experiment", async () => {
+    const experiment = await createExperiment({
+      projectId: supervisedProject.id,
+      researcherId: researcher.id,
+      createdById: researcher.id,
+      reviewStatus: "not_submitted",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/experiments/${experiment.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        reviewStatus: "approved",
+        status: "completed",
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.experiment.reviewStatus).toBe("approved");
+    expect(response.body.data.experiment.status).toBe("completed");
+
+    const reviewEvent = await ReviewEvent.findOne({
+      where: {
+        targetType: "experiment",
+        targetId: experiment.id,
+        action: "approved",
+        reviewerId: admin.id,
       },
     });
 
@@ -400,6 +706,39 @@ describe("Experiment and protocol review workflows", () => {
         targetType: "protocol",
         targetId: protocol.id,
         action: "approved",
+      },
+    });
+
+    expect(reviewEvent).not.toBeNull();
+  });
+
+  it("allows an admin to directly approve a draft protocol", async () => {
+    const protocol = await createProtocol({
+      projectId: supervisedProject.id,
+      createdById: researcher.id,
+      approvalStatus: "draft",
+      organizationId: supervisedProject.organizationId,
+    });
+
+    const response = await request(app)
+      .patch(`/api/protocols/${protocol.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        approvalStatus: "approved",
+      });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("success");
+    expect(response.body.data.protocol.approvalStatus).toBe("approved");
+    expect(response.body.data.protocol.approvedById).toBe(admin.id);
+    expect(response.body.data.protocol.approvedAt).not.toBeNull();
+
+    const reviewEvent = await ReviewEvent.findOne({
+      where: {
+        targetType: "protocol",
+        targetId: protocol.id,
+        action: "approved",
+        reviewerId: admin.id,
       },
     });
 

@@ -9,6 +9,7 @@ const {
 const {
   canCreateProtocol,
   canEditProtocol,
+  canDirectlyApproveWorkflowRecord,
 } = require("../utils/workflowPermissions");
 
 const { writeAuditLog } = require("../utils/auditLogger");
@@ -928,17 +929,55 @@ const updateProtocol = async (req, res) => {
 
     const previousApprovalStatus = protocol.approvalStatus;
 
-    // Approval decisions are restricted to admins and supervisors
-    const isApprovalDecision =
-      approvalStatus !== undefined &&
-      ["approved", "changes_requested"].includes(approvalStatus);
+    const isApprovalDecision = approvalStatus === "approved";
+    const isChangeRequestDecision = approvalStatus === "changes_requested";
 
     if (isApprovalDecision) {
+      const isFormalReviewer = ["admin", "supervisor"].includes(req.user.role);
+      const canDirectlyApprove = canDirectlyApproveWorkflowRecord(req.user);
+
+      if (!isFormalReviewer && !canDirectlyApprove) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You do not have permission to approve this protocol directly.",
+        });
+      }
+
+      if (
+        req.user.role === "researcher" &&
+        req.user.requiresReview === false &&
+        protocol.approvalStatus !== "draft"
+      ) {
+        return res.status(400).json({
+          status: "error",
+          message:
+            "Review-exempt researchers can only directly approve draft protocols.",
+        });
+      }
+
+      if (isFormalReviewer && protocol.projectId) {
+        const canReviewProtocolProject = await canReviewProjectLinkedRecord(
+          req.user,
+          protocol.projectId,
+        );
+
+        if (!canReviewProtocolProject) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "You can only review protocols for projects you are authorized to supervise.",
+          });
+        }
+      }
+    }
+
+    if (isChangeRequestDecision) {
       if (!["admin", "supervisor"].includes(req.user.role)) {
         return res.status(403).json({
           status: "error",
           message:
-            "Only admins and supervisors can make protocol approval decisions.",
+            "Only admins and supervisors can request changes to protocols.",
         });
       }
 

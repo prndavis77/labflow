@@ -440,7 +440,8 @@ Labfluss supports three user roles:
 - Can view general non-project-linked protocols
 - Can view project-linked protocols when project membership permits access
 - Can create and update protocols when workflow permissions and project membership allow it
-- Cannot approve experiments or protocols
+- Researchers who require review cannot approve experiments or protocols directly
+- Researchers who are exempt from review can directly approve eligible experiments and draft protocols that do not require formal review
 - Cannot request review changes
 - Cannot manage equipment inventory
 - Cannot delete protected records
@@ -614,11 +615,11 @@ Admins can change these settings individually from the user table or use bulk co
 
 When `requiresReview` is enabled, new experiments and protocols start with a review status of `not_submitted` and follow the normal review workflow.
 
-When `requiresReview` is disabled, new experiments and protocols start with a review status of `not_required`. This allows experienced or trusted researchers to work independently while preserving a clear audit-friendly distinction between approved work and work that does not require formal review.
+When `requiresReview` is disabled, new experiments and protocols start with a review status of `not_required`. Review-exempt researchers can directly approve eligible experiments and draft protocols without submitting them into the formal supervisor review workflow. Direct approval still respects existing project membership and edit permissions and creates the normal approval history and audit records.
 
-Admins have global workflow access. Supervisors have workflow access scoped to projects where they are assigned as the project supervisor. Researcher permissions provide finer control for labs with different supervision styles.
+Admins have global workflow access and can directly approve eligible experiments and protocols without requiring a prior review submission. Supervisors continue to use the normal reviewer workflow scoped to projects where they are assigned as the project supervisor. Researcher permissions provide finer control for labs with different supervision styles.
 
-Researchers still cannot approve experiments, approve protocols, request review changes, or archive protected experiment/protocol records unless their role allows it.
+Researchers who require review cannot bypass the formal review workflow. Review-exempt researchers cannot request review changes and cannot directly approve a record once it has entered a formal review cycle. Archive permissions for protected experiment and protocol records remain unchanged.
 
 ---
 
@@ -2539,7 +2540,10 @@ Labfluss MVP Version 1.6 was manually tested across the following workflows:
 - Allow experiment create/edit actions when researcher permissions are enabled
 - Allow protocol create/edit actions when researcher permissions are enabled
 - Keep archive actions restricted to admins and supervisors
-- Keep approve/request changes actions restricted to admins and supervisors
+- Allow direct approval for review-exempt researchers on eligible experiments and draft protocols
+- Allow admins to directly approve eligible experiments and protocols without prior review submission
+- Keep request-changes actions restricted to admins and supervisors
+- Prevent review-exempt researchers from directly approving records after formal review has begun
 - Confirm backend rejects unauthorized experiment/protocol create and edit requests
 
 ### Attachments

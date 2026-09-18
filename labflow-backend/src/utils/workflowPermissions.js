@@ -49,9 +49,22 @@ const canEditProtocol = (user) => {
   return Boolean(user.canEditProtocols);
 };
 
+const canDirectlyApproveWorkflowRecord = (user) => {
+  if (!user) {
+    return false;
+  }
+
+  if (user.role === "admin") {
+    return true;
+  }
+
+  return user.role === "researcher" && user.requiresReview === false;
+};
+
 module.exports = {
   canCreateExperiment,
   canEditExperiment,
   canCreateProtocol,
   canEditProtocol,
+  canDirectlyApproveWorkflowRecord,
 };

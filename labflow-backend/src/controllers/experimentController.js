@@ -21,6 +21,7 @@ const {
 const {
   canCreateExperiment,
   canEditExperiment,
+  canDirectlyApproveWorkflowRecord,
 } = require("../utils/workflowPermissions");
 
 const VALID_REVIEW_STATUSES = [
@@ -938,16 +939,55 @@ const updateExperiment = async (req, res) => {
 
     const previousReviewStatus = experiment.reviewStatus;
 
-    const isReviewDecision =
-      reviewStatus !== undefined &&
-      ["approved", "changes_requested"].includes(reviewStatus);
+    const isApprovalDecision = reviewStatus === "approved";
+    const isChangeRequestDecision = reviewStatus === "changes_requested";
 
-    if (isReviewDecision) {
+    if (isApprovalDecision) {
+      const isFormalReviewer = ["admin", "supervisor"].includes(req.user.role);
+      const canDirectlyApprove = canDirectlyApproveWorkflowRecord(req.user);
+
+      if (!isFormalReviewer && !canDirectlyApprove) {
+        return res.status(403).json({
+          status: "error",
+          message:
+            "You do not have permission to approve this experiment directly.",
+        });
+      }
+
+      if (
+        req.user.role === "researcher" &&
+        req.user.requiresReview === false &&
+        experiment.reviewStatus !== "not_required"
+      ) {
+        return res.status(400).json({
+          status: "error",
+          message:
+            "Review-exempt researchers can only directly approve experiments that do not require review.",
+        });
+      }
+
+      if (isFormalReviewer) {
+        const canReviewExperimentProject = await canReviewProjectLinkedRecord(
+          req.user,
+          experiment.projectId,
+        );
+
+        if (!canReviewExperimentProject) {
+          return res.status(403).json({
+            status: "error",
+            message:
+              "You can only review experiments for projects you are authorized to supervise.",
+          });
+        }
+      }
+    }
+
+    if (isChangeRequestDecision) {
       if (!["admin", "supervisor"].includes(req.user.role)) {
         return res.status(403).json({
           status: "error",
           message:
-            "Only admins and supervisors can make experiment review decisions.",
+            "Only admins and supervisors can request changes to experiments.",
         });
       }
 

@@ -47,6 +47,7 @@ import {
   getCurrentUserProjectRole,
   canEditExperimentInProject,
   canReviewProjectLinkedRecord,
+  canDirectlyApproveWorkflowRecord,
 } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import {
@@ -117,10 +118,18 @@ const ExperimentDetailPage = () => {
   // Only admins and supervisors can perform review decisions
   const canReviewExperiment = canReviewProjectLinkedRecord(currentUser);
 
+  const canDirectlyApproveExperiment =
+    canDirectlyApproveWorkflowRecord(currentUser) &&
+    canEditExperiment &&
+    (currentUser?.role === "admin"
+      ? ["not_submitted", "not_required"].includes(experiment?.reviewStatus)
+      : experiment?.reviewStatus === "not_required");
+
   const isProjectViewer = currentUserProjectRole === "viewer";
 
   const canSubmitExperimentForReview =
     !canReviewExperiment &&
+    !canDirectlyApproveExperiment &&
     canEditExperiment &&
     ["not_submitted", "changes_requested"].includes(experiment?.reviewStatus);
 
@@ -802,7 +811,7 @@ const ExperimentDetailPage = () => {
         <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
           <Descriptions column={1} size="small">
             <Descriptions.Item label="Approval Status">
-              <Tag color={EXPERIMENT_STATUS_COLORS[experiment?.reviewStatus]}>
+              <Tag color={REVIEW_STATUS_COLORS[experiment?.reviewStatus]}>
                 {formatLabel(experiment?.reviewStatus)}
               </Tag>
             </Descriptions.Item>
@@ -811,6 +820,32 @@ const ExperimentDetailPage = () => {
               {experiment?.reviewComment || "No review comment yet."}
             </Descriptions.Item>
           </Descriptions>
+
+          {canDirectlyApproveExperiment && (
+            <div>
+              <Text strong>Approval Action</Text>
+
+              <Paragraph
+                type="secondary"
+                style={{ marginTop: 4, marginBottom: 8 }}
+              >
+                This experiment does not require supervisor review. Approve it
+                when it is complete and ready to be finalized.
+              </Paragraph>
+
+              <Popconfirm
+                title="Approve experiment?"
+                description="This will approve the experiment and mark it as completed."
+                okText="Approve"
+                cancelText="Cancel"
+                onConfirm={() => handleExperimentReviewAction("approved")}
+              >
+                <Button type="primary" loading={isUpdatingReviewStatus}>
+                  Approve Experiment
+                </Button>
+              </Popconfirm>
+            </div>
+          )}
 
           {canSubmitExperimentForReview && (
             <div>

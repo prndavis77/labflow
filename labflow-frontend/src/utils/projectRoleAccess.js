@@ -189,3 +189,17 @@ export const canEditProtocolInProject = (currentUser, projectRole) => {
 export const canManageGeneralProtocol = (currentUser) => {
   return isAdminOrSupervisor(currentUser);
 };
+
+export const canDirectlyApproveWorkflowRecord = (currentUser) => {
+  if (!currentUser) {
+    return false;
+  }
+
+  if (currentUser.role === "admin") {
+    return true;
+  }
+
+  return (
+    currentUser.role === "researcher" && currentUser.requiresReview === false
+  );
+};

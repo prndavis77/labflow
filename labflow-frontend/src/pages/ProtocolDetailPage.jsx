@@ -28,6 +28,7 @@ import {
   canEditProtocolInProject,
   canReviewGeneralProtocol,
   canReviewProjectLinkedRecord,
+  canDirectlyApproveWorkflowRecord,
 } from "../utils/projectRoleAccess";
 import { formatDate, formatDateTime, formatLabel } from "../utils/formatters";
 import ProtocolFormModal from "../components/protocols/ProtocolFormModal";
@@ -95,8 +96,14 @@ const ProtocolDetailPage = () => {
       ? canReviewGeneralProtocol(currentUser)
       : canReviewProjectLinkedRecord(currentUser);
 
+  const canDirectlyApproveProtocol =
+    canDirectlyApproveWorkflowRecord(currentUser) &&
+    canEditProtocol &&
+    protocol?.approvalStatus === "draft";
+
   const canSubmitProtocolForReview =
     !canReviewProtocol &&
+    !canDirectlyApproveProtocol &&
     canEditProtocol &&
     ["draft", "changes_requested"].includes(protocol?.approvalStatus);
 
@@ -508,6 +515,32 @@ const ProtocolDetailPage = () => {
                   {protocol?.reviewComment || "No review comment yet."}
                 </Descriptions.Item>
               </Descriptions>
+
+              {canDirectlyApproveProtocol && (
+                <div>
+                  <Text strong>Approval Action</Text>
+
+                  <Paragraph
+                    type="secondary"
+                    style={{ marginTop: 4, marginBottom: 8 }}
+                  >
+                    This protocol does not require supervisor review. Approve it
+                    when it is ready for use.
+                  </Paragraph>
+
+                  <Popconfirm
+                    title="Approve protocol?"
+                    description="This will mark the protocol as approved and record approval metadata."
+                    okText="Approve"
+                    cancelText="Cancel"
+                    onConfirm={() => handleProtocolReviewAction("approved")}
+                  >
+                    <Button type="primary" loading={isUpdatingApprovalStatus}>
+                      Approve Protocol
+                    </Button>
+                  </Popconfirm>
+                </div>
+              )}
 
               {canSubmitProtocolForReview && (
                 <div>
