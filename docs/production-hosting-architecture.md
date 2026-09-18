@@ -22,7 +22,7 @@ Current production architecture:
 - External uptime monitoring: Better Stack
 - DNS: Amazon Route 53
 
-Remaining target migrations:
+Future infrastructure improvements:
 
 - Monitoring/logging: further consolidation into Amazon CloudWatch where appropriate
 
@@ -147,7 +147,7 @@ Current status:
 - [x] DNS and production-domain finalization for `app.labfluss.com` and `api.labfluss.com`
 - [x] automated PostgreSQL and attachment backup automation, retention, integrity verification, and backup-failure handling
 - [x] production smoke testing for the migrated AWS frontend/backend/database stack
-- [ ] final infrastructure sign-off
+- [x] final infrastructure sign-off
 
 Each migration stage must be validated before retiring the prior production dependency.
 
@@ -190,7 +190,31 @@ Moving infrastructure to AWS does not by itself make Labfluss HIPAA compliant, F
 - Amazon S3 production attachment storage
 - Amazon SES transactional email
 
-**Remaining infrastructure migrations:**
+**Infrastructure sign-off:** Completed on 2026-09-18
 
-- further CloudWatch consolidation
-- final infrastructure sign-off
+The AWS production architecture has completed final infrastructure sign-off for the initial paid pilot within the documented pilot scope and data restrictions.
+
+Final operational verification included:
+
+- successful production host kernel maintenance and reboot
+- automatic recovery of `labflow-backend.service`
+- Nginx active after reboot
+- zero failed systemd units
+- production liveness and readiness returning HTTP 200
+- automated database and attachment backup timers active and scheduled
+- successful most recent database and attachment backup executions
+- attachment-cleanup timer active and scheduled
+- Better Stack frontend, liveness, and readiness monitors verified Up
+- successful authenticated production browser smoke testing
+- production S3 CORS hardening verified
+- Amazon SES transactional-email workflows verified
+- production invitation resend verified
+- production password-reset session invalidation verified
+
+**Remaining future infrastructure work:**
+
+- further monitoring/logging consolidation into Amazon CloudWatch where appropriate
+- consideration of an independent off-provider automated backup layer if the pilot risk profile later requires it
+- customer-specific data-location review where required by an actual customer
+
+These items are not blockers for the initial paid pilot within the currently documented scope.

@@ -6,7 +6,7 @@ This runbook describes how to diagnose and respond to operational problems in th
 
 It is intended for the current Labfluss production/demo environment.
 
-Labfluss is currently suitable for portfolio demonstrations, controlled pilot demonstrations, invited testers, and non-sensitive test data. This runbook does not imply readiness for regulated or sensitive research data.
+Labfluss is currently suitable for portfolio demonstrations, controlled pilot use, invited testers, and the initial paid pilot within the documented pilot scope and data restrictions. This runbook does not imply readiness for regulated or sensitive research data.
 
 ## Production Services
 
@@ -859,22 +859,35 @@ The incident demonstrated that outage detection functioned correctly but also ex
 
 ## Known Operational Boundaries
 
-The current Labfluss deployment is not yet intended for:
+Labfluss is ready for the initial paid pilot within the documented pilot scope and data restrictions.
+
+The current deployment is not intended for:
 
 - regulated laboratory records
-- sensitive research data
-- institutional production workloads
-- guaranteed uptime/SLA workloads
+- sensitive research data outside the Pilot Data Policy
+- HIPAA-regulated workloads
+- FERPA-regulated workloads requiring controls outside the documented scope
+- ITAR or other export-controlled workloads
+- guaranteed uptime or contractual SLA workloads
+- customer-specific data-residency requirements that have not been separately evaluated
 
 Backup and recovery hardening has been completed for the current demo/pilot stage, including an isolated PostgreSQL restore drill and attachment-recovery reconciliation.
 
-Frontend end-to-end testing and the operational-alerting baseline are also complete.
+Frontend end-to-end testing, production authentication workflows, transactional-email verification, and the operational-alerting baseline are complete.
 
-Automated daily PostgreSQL and attachment backups are now implemented, including versioned backup storage, retention policies, integrity verification, and backup-failure notification handling.
+Automated daily PostgreSQL and attachment backups are implemented, including versioned backup storage, retention policies, integrity verification, and backup-failure notification handling.
 
 Amazon SES production access and production transactional-email verification are complete.
 
-Remaining pre-pilot hardening includes final customer/compliance readiness work, final infrastructure sign-off, and consideration of an independent off-provider backup layer if the pilot risk profile requires protection from a broader AWS provider failure.
+Final infrastructure sign-off and the Phase 26D.6 paid-pilot release-readiness review were completed on 2026-09-18.
+
+The following remain accepted limitations or future work rather than blockers for the current pilot scope:
+
+- no independent off-provider automated production backup is currently configured
+- further monitoring/logging consolidation into Amazon CloudWatch remains future work
+- production infrastructure reconstruction has not been drill-tested
+- production recovery cutover has not been drill-tested
+- customer-specific data-location requirements must be evaluated when applicable
 
 ## Related Documentation
 

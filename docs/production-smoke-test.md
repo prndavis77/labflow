@@ -1,6 +1,6 @@
 # Labfluss Production Smoke Test
 
-Last verified: 2026-09-01
+Last verified: 2026-09-18
 
 Attachment storage migrated from Cloudflare R2 to Amazon S3 during Phase 26C.4 on 2026-09-04. Storage-specific production verification was performed as part of that migration.
 
@@ -268,11 +268,13 @@ https://api.labfluss.com/api/ready
 - [x] Invited email is prefilled on the login page
 - [x] Invited user can log in
 - [x] Invited user sees only their organization’s data
-- [ ] Production invitation resend verified
+- [x] Production invitation resend verified
 
-Production invitation creation and acceptance were verified using three test invitations.
+Production invitation creation, acceptance, and resend were manually verified in production.
 
-The backend resend workflow is implemented and covered by automated tests, but it has not yet been manually verified in production.
+A fresh production invitation was created through the deployed AWS environment, the original invitation email was received through Amazon SES, the invitation was resent through the production resend endpoint, and the resent email was also received successfully.
+
+The test invitation was revoked after verification.
 
 ## Organization isolation
 
@@ -309,7 +311,9 @@ The backend resend workflow is implemented and covered by automated tests, but i
 - [x] Backend completion verification succeeds
 - [x] Attachment becomes available in Labfluss
 
-The production S3 bucket CORS policy permits the deployed AWS Amplify frontend and the local Vite development origin.
+The production S3 bucket CORS policy permits the deployed AWS Amplify frontend at `https://app.labfluss.com`.
+
+The local Vite development origin was removed from the production S3 CORS policy before paid-pilot sign-off. Production attachment upload, download/open, and archive behavior were reverified successfully after the change.
 
 ### Download
 
@@ -371,12 +375,16 @@ Verified coverage includes:
 - Email-delivery observability
 - Attachment-cleanup failure observability
 
-## Open items
+## Open items and accepted limitations
 
-- Production invitation resend has not yet been manually re-verified after the AWS migration.
-- An independent off-provider automated production backup is not currently configured.
-- Further institutional tenant-administration capabilities remain future work.
-- Final customer/compliance readiness work and final infrastructure sign-off remain before the paid pilot is considered fully ready.
+The following items remain documented limitations or future work and are not blockers for the initial paid pilot within the currently defined pilot scope:
+
+- an independent off-provider automated production backup is not currently configured
+- further institutional tenant-administration capabilities remain future work
+- further monitoring/logging consolidation into Amazon CloudWatch remains future work
+- customer-specific data-location requirements must be evaluated before onboarding any customer that has explicit residency requirements
+
+These limitations must not be interpreted as support for regulated, sensitive, or contractually restricted workloads outside the documented pilot scope.
 
 ## Current result
 
@@ -416,6 +424,69 @@ The deployed Labfluss application has passed production verification for:
 - HTTPS on `app.labfluss.com` and `api.labfluss.com`
 - systemd backend supervision
 - systemd attachment-cleanup scheduling
+- automated daily PostgreSQL backup scheduling
+- automated daily attachment backup scheduling
+- successful production database backup execution after final readiness review
+- successful production attachment backup execution after final readiness review
+- verified backup-failure notification handling
+- production invitation resend
+- production password-reset session invalidation
+- production S3 CORS hardening
+- production frontend Labfluss branding
+- successful authenticated production browser navigation
+- Better Stack frontend, liveness, and readiness monitors verified Up
+- production host kernel maintenance completed
+- successful production host reboot and automatic backend recovery
+- zero failed systemd units after reboot
+- Nginx active after reboot
+
+## Phase 26D.6 Paid-Pilot Release Decision
+
+Phase 26D.6 paid-pilot release-readiness review was completed on 2026-09-18.
+
+### Final operational verification
+
+The final operational review verified:
+
+- production Lightsail host upgraded to the current installed AWS kernel
+- pending reboot requirement cleared
+- `labflow-backend.service` automatically recovered after reboot
+- Nginx active after reboot
+- zero failed systemd units
+- production database-backup timer active and scheduled
+- production attachment-backup timer active and scheduled
+- attachment-cleanup timer active and scheduled
+- most recent database backup completed successfully
+- most recent attachment backup completed successfully
+- production `/api/health` returned HTTP 200
+- production `/api/ready` returned HTTP 200
+- no backend warning-level journal entries were present after reboot
+- frontend returned HTTP 200
+- deployed frontend title was `Labfluss`
+- deployed frontend bundle contained current Labfluss branding
+- Better Stack frontend, liveness, and readiness monitors were all Up
+- no active Labfluss Better Stack incident remained
+- authenticated browser smoke testing succeeded for dashboard, project, and experiment workflows
+- temporary production test shell credentials were cleared
+- the recovery-drill-only Cloudflare R2 credential was revoked after completion of the recovery work
+
+### Release decision
+
+**Labfluss is ready for the initial paid pilot within the documented pilot scope and data restrictions.**
+
+This release decision applies only to the current pilot scope.
+
+It does not represent approval for:
+
+- regulated laboratory records
+- sensitive research data outside the Pilot Data Policy
+- HIPAA-regulated workloads
+- FERPA-regulated workloads requiring controls outside the documented scope
+- ITAR or other export-controlled workloads
+- guaranteed uptime or contractual SLA workloads
+- customer-specific data-residency requirements that have not been separately evaluated
+
+The absence of an independent off-provider automated backup remains an accepted pilot-stage limitation. Further CloudWatch consolidation also remains future work and is not required for the current paid-pilot release decision.
 
 ## Phase 24A.9 Completion
 
