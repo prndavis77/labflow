@@ -197,7 +197,7 @@ const getOrCreateDemoOrganization = async (config, transaction) => {
 
 // Creates demo users for testing role-based access
 const createUsers = async (organization, transaction) => {
-  const passwordHash = await bcrypt.hash("password123", SALT_ROUNDS);
+  const passwordHash = await bcrypt.hash("password1234", SALT_ROUNDS);
 
   const admin = await User.create(
     {
@@ -955,7 +955,7 @@ const createEquipmentBookings = async (
 };
 
 const createMolecularBiologyUsers = async (organization, transaction) => {
-  const passwordHash = await bcrypt.hash("password123", SALT_ROUNDS);
+  const passwordHash = await bcrypt.hash("password1234", SALT_ROUNDS);
 
   const admin = await User.create(
     {
@@ -1945,19 +1945,19 @@ const seedDemoData = async () => {
     console.log("");
 
     console.log("Analytical Chemistry Research Lab:");
-    console.log("Admin: admin@labfluss.test / password123");
-    console.log("Supervisor: anna.keller@labfluss.test / password123");
-    console.log("Researcher 1: maria.schmidt@labfluss.test / password123");
-    console.log("Researcher 2: jonas.weber@labfluss.test / password123");
-    console.log("Researcher 3: sam.dean@labfluss.test / password123");
+    console.log("Admin: admin@labfluss.test / password1234");
+    console.log("Supervisor: anna.keller@labfluss.test / password1234");
+    console.log("Researcher 1: maria.schmidt@labfluss.test / password1234");
+    console.log("Researcher 2: jonas.weber@labfluss.test / password1234");
+    console.log("Researcher 3: sam.dean@labfluss.test / password1234");
     console.log("");
 
     console.log("Molecular Biology Research Lab:");
-    console.log("Admin: admin.molecular@labfluss.test / password123");
-    console.log("Supervisor: elena.fischer@labfluss.test / password123");
-    console.log("Researcher 1: daniel.kim@labfluss.test / password123");
-    console.log("Researcher 2: sophie.mueller@labfluss.test / password123");
-    console.log("Researcher 3: lucas.martin@labfluss.test / password123");
+    console.log("Admin: admin.molecular@labfluss.test / password1234");
+    console.log("Supervisor: elena.fischer@labfluss.test / password1234");
+    console.log("Researcher 1: daniel.kim@labfluss.test / password1234");
+    console.log("Researcher 2: sophie.mueller@labfluss.test / password1234");
+    console.log("Researcher 3: lucas.martin@labfluss.test / password1234");
   } catch (error) {
     if (transaction && !transaction.finished) {
       await transaction.rollback();
