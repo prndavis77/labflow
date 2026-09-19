@@ -142,6 +142,70 @@ const App = () => {
     );
   }
 
+  if (!user.emailVerifiedAt) {
+    return (
+      <>
+        <ScrollToTop />
+
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            background: "#f5f5f5",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 560,
+            }}
+          >
+            <Alert
+              type="warning"
+              showIcon
+              icon={<MailOutlined />}
+              message="Verify your email address"
+              description={
+                <Space
+                  direction="vertical"
+                  size="middle"
+                  style={{ width: "100%" }}
+                >
+                  <Text>
+                    Your Labfluss workspace has been created, but you must
+                    verify your email address before using the application.
+                  </Text>
+
+                  <Text type="secondary">
+                    Check your inbox for the verification email sent to{" "}
+                    <strong>{user.email}</strong>.
+                  </Text>
+
+                  <Space wrap>
+                    <Button
+                      type="primary"
+                      onClick={handleResendVerification}
+                      loading={isResendingVerification}
+                    >
+                      Resend Verification Email
+                    </Button>
+
+                    <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+                      Logout
+                    </Button>
+                  </Space>
+                </Space>
+              }
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const menuItems = [
     {
       key: "/dashboard",
@@ -268,12 +332,6 @@ const App = () => {
                 <Text type="secondary">Lab: {user.organization.name}</Text>
               )}
 
-              {user.emailVerifiedAt ? (
-                <Tag color="green">Email Verified</Tag>
-              ) : (
-                <Tag color="orange">Email Unverified</Tag>
-              )}
-
               {user.role && <Tag color="blue">{user.role}</Tag>}
               {user.name && <Text>{user.name}</Text>}
 
@@ -284,34 +342,6 @@ const App = () => {
           </Header>
 
           <Content style={{ margin: "24px" }}>
-            {!user.emailVerifiedAt && (
-              <Alert
-                type="warning"
-                showIcon
-                icon={<MailOutlined />}
-                message="Verify your email address"
-                description={
-                  <>
-                    Your account is active, but your email address has not been
-                    verified. Check your inbox or request a new verification
-                    email.
-                  </>
-                }
-                action={
-                  <Button
-                    size="small"
-                    onClick={handleResendVerification}
-                    loading={isResendingVerification}
-                  >
-                    Resend Verification Email
-                  </Button>
-                }
-                style={{
-                  marginBottom: 24,
-                }}
-              />
-            )}
-
             <AppRoutes />
           </Content>
         </Layout>
