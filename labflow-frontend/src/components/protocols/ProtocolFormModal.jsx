@@ -130,7 +130,7 @@ const ProtocolFormModal = ({
     if (shouldBlockCreateForSelectedProject) {
       message.error(
         watchedProjectId
-          ? "You do not have permission to create protocols for this project."
+          ? "You do not have permission to create methods for this project."
           : "Only admins and supervisors can create general SOPs.",
       );
       return;
@@ -154,17 +154,17 @@ const ProtocolFormModal = ({
 
       if (isEditing) {
         await updateProtocol(protocol.id, payload);
-        message.success("Protocol updated successfully.");
+        message.success("Method updated successfully.");
       } else {
         await createProtocol(payload);
-        message.success("Protocol created successfully.");
+        message.success("Method created successfully.");
       }
 
       form.resetFields();
       onSuccess();
     } catch (error) {
       const messageText =
-        error.response?.data?.message || "Failed to save protocol.";
+        error.response?.data?.message || "Failed to save method.";
 
       message.error(messageText);
     } finally {
@@ -174,12 +174,12 @@ const ProtocolFormModal = ({
 
   return (
     <Modal
-      title={isEditing ? "Edit Protocol" : "Create Protocol"}
+      title={isEditing ? "Edit Method" : "Create Method"}
       open={open}
       onCancel={onCancel}
       onOk={() => form.submit()}
       confirmLoading={isSubmitting}
-      okText={isEditing ? "Save Changes" : "Create Protocol"}
+      okText={isEditing ? "Save Changes" : "Create Method"}
       okButtonProps={{
         disabled: shouldBlockCreateForSelectedProject,
       }}
@@ -193,11 +193,11 @@ const ProtocolFormModal = ({
           rules={[
             {
               required: true,
-              message: "Protocol title is required.",
+              message: "Method title is required.",
             },
           ]}
         >
-          <Input placeholder="Enter protocol title" />
+          <Input placeholder="Enter method title" />
         </Form.Item>
 
         <Form.Item
@@ -206,7 +206,7 @@ const ProtocolFormModal = ({
           rules={[
             {
               required: true,
-              message: "Protocol version is required.",
+              message: "Method version is required.",
             },
           ]}
         >
@@ -216,7 +216,7 @@ const ProtocolFormModal = ({
         <Form.Item label="Purpose" name="purpose">
           <Input.TextArea
             rows={3}
-            placeholder="Describe the purpose of this protocol"
+            placeholder="Describe the purpose of this method"
           />
         </Form.Item>
 
@@ -226,13 +226,13 @@ const ProtocolFormModal = ({
           rules={[
             {
               required: true,
-              message: "Protocol content is required.",
+              message: "Method content is required.",
             },
           ]}
         >
           <Input.TextArea
             rows={8}
-            placeholder="Enter protocol steps, method notes, or SOP content"
+            placeholder="Enter method steps, notes, or SOP content"
           />
         </Form.Item>
 
@@ -254,7 +254,7 @@ const ProtocolFormModal = ({
         <Form.Item label="Project" name="projectId">
           <Select
             allowClear
-            placeholder="Optionally link this protocol to a project"
+            placeholder="Optionally link this method to a project"
             loading={isLoadingProjects || isLoadingProjectMembers}
             options={projectOptions}
             disabled={isEditing}
@@ -267,12 +267,12 @@ const ProtocolFormModal = ({
             showIcon
             message={
               watchedProjectId
-                ? "You cannot create protocols for this project."
+                ? "You cannot create methods for this project."
                 : "You cannot create general SOPs."
             }
             description={
               watchedProjectId
-                ? "Only admins, project supervisors, project leads, and workflow-authorized project members can create project-linked protocols."
+                ? "Only admins, project supervisors, project leads, and workflow-authorized project members can create project-linked methods."
                 : "General SOPs can only be created by admins and supervisors."
             }
             style={{ marginBottom: 16 }}
@@ -282,7 +282,7 @@ const ProtocolFormModal = ({
         <Form.Item label="Equipment" name="equipmentId">
           <Select
             allowClear
-            placeholder="Optionally link this protocol to equipment"
+            placeholder="Optionally link this method to equipment"
             loading={isLoadingEquipment}
             options={equipmentOptions}
           />

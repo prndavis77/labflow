@@ -328,10 +328,10 @@ const ExperimentFormModal = ({
           />
         </Form.Item>
 
-        <Form.Item label="Linked Protocol" name="protocolId">
+        <Form.Item label="Linked Method" name="protocolId">
           <Select
             allowClear
-            placeholder="Optionally link a protocol"
+            placeholder="Optionally link a method"
             loading={isLoadingProtocols}
             options={protocolOptions}
           />

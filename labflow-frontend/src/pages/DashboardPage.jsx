@@ -304,7 +304,7 @@ const DashboardPage = () => {
   const protocolColumns = useMemo(
     () => [
       {
-        title: "Protocol",
+        title: "Method",
         dataIndex: "title",
         key: "title",
         render: (title, record) => (
@@ -478,7 +478,7 @@ const DashboardPage = () => {
             )}
             <Paragraph style={{ marginBottom: 0 }}>
               Welcome back, {user?.name}. Here is the current overview of lab
-              projects, tasks, experiments, protocols, and equipment bookings.
+              projects, tasks, experiments, methods, and equipment bookings.
             </Paragraph>
           </div>
 
@@ -584,7 +584,7 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Pending Protocols"
+              title="Pending Methods"
               value={metrics.protocolsNeedingReview}
               prefix={<FileTextOutlined />}
               loading={isLoadingDashboard}
@@ -653,8 +653,8 @@ const DashboardPage = () => {
           message="Review items need attention"
           description={
             <span>
-              There are {reviewAttentionCount} experiment or protocol review
-              items waiting for action.{" "}
+              There are {reviewAttentionCount} experiment or method review items
+              waiting for action.{" "}
               <Link to="/review">Open the Review Queue</Link> to approve items
               or request changes.
             </span>
@@ -708,7 +708,7 @@ const DashboardPage = () => {
 
         <Col xs={24} xl={12}>
           <Card
-            title="Protocols Pending Review"
+            title="Methods Pending Review"
             extra={
               canAccessReviewQueue ? (
                 <Link to="/review">
@@ -718,7 +718,7 @@ const DashboardPage = () => {
             }
           >
             {lists.protocolsNeedingReview.length === 0 ? (
-              <Empty description="No protocols needing review" />
+              <Empty description="No methods needing review" />
             ) : (
               <Table
                 rowKey="id"

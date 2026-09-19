@@ -48,7 +48,7 @@ const ENTITY_TABS = [
   },
   {
     key: "protocol",
-    label: "Protocols",
+    label: "Methods",
   },
   {
     key: "attachment",
@@ -69,7 +69,7 @@ const getRestoreDescription = (entityType) => {
     case "project":
       return (
         "The project will return to normal lists. Tasks, experiments, " +
-        "protocols, and attachments archived separately will remain archived."
+        "methods, and attachments archived separately will remain archived."
       );
 
     case "attachment":
@@ -144,7 +144,7 @@ const getContextText = (entityType, record) => {
         return `Equipment: ${record.equipment.name}`;
       }
 
-      return "General protocol";
+      return "General method";
 
     case "attachment":
       return `${formatLabel(record.entityType)} #${record.entityId}`;
@@ -456,9 +456,9 @@ const AdminArchivedItemsPage = () => {
             </Title>
 
             <Paragraph style={{ marginBottom: 0 }}>
-              Review and restore archived projects, tasks, experiments,
-              protocols, and attachments. Restoring an item does not
-              automatically restore related records.
+              Review and restore archived projects, tasks, experiments, methods,
+              and attachments. Restoring an item does not automatically restore
+              related records.
             </Paragraph>
           </div>
 

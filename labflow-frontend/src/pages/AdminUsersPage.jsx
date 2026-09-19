@@ -433,7 +433,7 @@ const AdminUsersPage = () => {
         },
       },
       {
-        title: "Protocol Permissions",
+        title: "Method Permissions",
         key: "protocolPermissions",
         width: 260,
         render: (_, record) => {
@@ -446,12 +446,12 @@ const AdminUsersPage = () => {
               {renderPermissionSwitch(
                 record,
                 "canCreateProtocols",
-                "Create protocols",
+                "Create methods",
               )}
               {renderPermissionSwitch(
                 record,
                 "canEditProtocols",
-                "Edit protocols",
+                "Edit methods",
               )}
             </Space>
           );
@@ -610,9 +610,9 @@ const AdminUsersPage = () => {
 
             <Paragraph type="secondary" style={{ marginBottom: 0 }}>
               Researcher workflow permissions control whether researcher
-              accounts can independently create or edit experiments and
-              protocols, and whether their new experiments and protocols require
-              formal review. Admins and supervisors have full access by role.
+              accounts can independently create or edit experiments and methods,
+              and whether their new experiments and methods require formal
+              review. Admins and supervisors have full access by role.
             </Paragraph>
           </div>
 
@@ -660,18 +660,18 @@ const AdminUsersPage = () => {
             </div>
 
             <div>
-              <Text strong>Protocol permissions</Text>
+              <Text strong>Method permissions</Text>
 
               <div style={{ marginTop: 8 }}>
                 <Space wrap size="large">
                   {renderBulkPermissionSwitch(
                     "canCreateProtocols",
-                    "Allow all researchers to create protocols",
+                    "Allow all researchers to create methods",
                   )}
 
                   {renderBulkPermissionSwitch(
                     "canEditProtocols",
-                    "Allow all researchers to edit protocols",
+                    "Allow all researchers to edit methods",
                   )}
                 </Space>
               </div>
@@ -683,7 +683,7 @@ const AdminUsersPage = () => {
               <div style={{ marginTop: 8 }}>
                 {renderBulkPermissionSwitch(
                   "requiresReview",
-                  "Require experiment and protocol review for all researchers",
+                  "Require experiment and method review for all researchers",
                 )}
               </div>
             </div>

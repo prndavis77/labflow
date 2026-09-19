@@ -63,7 +63,7 @@ const ProtocolsPage = () => {
   const canEditProtocols =
     isAdminOrSupervisor || currentUser?.role === "researcher";
 
-  // Only admins and supervisors can archive protocols by role
+  // Only admins and supervisors can archive methods by role
   const canArchiveProtocols = ["admin", "supervisor"].includes(
     currentUser?.role,
   );
@@ -103,7 +103,7 @@ const ProtocolsPage = () => {
     return filters;
   }, [selectedProjectId, selectedEquipmentId, selectedApprovalStatus]);
 
-  // Loads projects for filters and the protocol form
+  // Loads projects for filters and the method form
   const loadProjects = useCallback(async () => {
     try {
       setIsLoadingProjects(true);
@@ -167,7 +167,7 @@ const ProtocolsPage = () => {
     [currentUser, isAdminOrSupervisor],
   );
 
-  // Loads equipment so protocols can optionally be linked to instruments
+  // Loads equipment so methods can optionally be linked to instruments
   const loadEquipment = useCallback(async () => {
     try {
       setIsLoadingEquipment(true);
@@ -185,7 +185,7 @@ const ProtocolsPage = () => {
     }
   }, []);
 
-  // Loads protocols from the backend using the current filters
+  // Loads methods from the backend using the current filters
   const loadProtocols = useCallback(async () => {
     try {
       setIsLoadingProtocols(true);
@@ -199,7 +199,7 @@ const ProtocolsPage = () => {
       await loadProjectRolesForProtocols(fetchedProtocols);
     } catch (error) {
       const messageText =
-        error.response?.data?.message || "Failed to load protocols.";
+        error.response?.data?.message || "Failed to load methods.";
 
       setErrorMessage(messageText);
     } finally {
@@ -216,7 +216,7 @@ const ProtocolsPage = () => {
     });
   }, [loadProjects, loadEquipment]);
 
-  // Reload protocols whenever filters change
+  // Reload methods whenever filters change
   // queueMicrotask avoids direct synchronous state updates inside the effect body
   useEffect(() => {
     queueMicrotask(() => {
@@ -249,12 +249,12 @@ const ProtocolsPage = () => {
       try {
         await archiveProtocol(protocolId);
 
-        message.success("Protocol archived successfully.");
+        message.success("Method archived successfully.");
 
         await loadProtocols();
       } catch (error) {
         const messageText =
-          error.response?.data?.message || "Failed to archive protocol.";
+          error.response?.data?.message || "Failed to archive method.";
 
         message.error(messageText);
       }
@@ -287,7 +287,7 @@ const ProtocolsPage = () => {
   const columns = useMemo(() => {
     const baseColumns = [
       {
-        title: "Protocol",
+        title: "Method",
         dataIndex: "title",
         key: "title",
         render: (title, record) => (
@@ -394,8 +394,8 @@ const ProtocolsPage = () => {
 
             {canArchiveProtocols && (
               <Popconfirm
-                title="Archive protocol?"
-                description="This will hide the protocol from normal protocol lists. It will not be permanently deleted."
+                title="Archive method?"
+                description="This will hide the method from normal method lists. It will not be permanently deleted."
                 okText="Archive"
                 cancelText="Cancel"
                 okButtonProps={{ danger: true }}
@@ -431,10 +431,10 @@ const ProtocolsPage = () => {
         >
           <div>
             <Title level={2} style={{ marginBottom: 4 }}>
-              Protocols
+              Methods
             </Title>
             <Paragraph style={{ marginBottom: 0 }}>
-              Manage reusable lab methods, SOPs, protocol versions, and approval
+              Manage reusable lab methods, SOPs, method versions, and approval
               status.
             </Paragraph>
           </div>
@@ -445,7 +445,7 @@ const ProtocolsPage = () => {
               icon={<PlusOutlined />}
               onClick={openCreateModal}
             >
-              New Protocol
+              New Method
             </Button>
           )}
         </div>

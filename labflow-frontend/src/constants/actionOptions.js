@@ -17,12 +17,12 @@ export const ACTION_OPTIONS = [
     value: "experiment.changes_requested",
   },
   {
-    label: "Protocol submitted for review",
+    label: "Method submitted for review",
     value: "protocol.submitted_for_review",
   },
-  { label: "Protocol approved", value: "protocol.approved" },
+  { label: "Method approved", value: "protocol.approved" },
   {
-    label: "Protocol changes requested",
+    label: "Method changes requested",
     value: "protocol.changes_requested",
   },
   {

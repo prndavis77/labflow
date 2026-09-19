@@ -145,11 +145,11 @@ const InviteUserModal = ({ open, onClose, onInvitationCreated }) => {
             </Form.Item>
 
             <Form.Item name="canCreateProtocols" valuePropName="checked">
-              <Checkbox>Create protocols</Checkbox>
+              <Checkbox>Create methods</Checkbox>
             </Form.Item>
 
             <Form.Item name="canEditProtocols" valuePropName="checked">
-              <Checkbox>Edit protocols</Checkbox>
+              <Checkbox>Edit methods</Checkbox>
             </Form.Item>
           </Space>
         )}

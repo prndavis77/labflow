@@ -202,7 +202,7 @@ const ProjectsPage = () => {
 
                 <Popconfirm
                   title="Archive project?"
-                  description="This will hide the project from normal project lists. Linked tasks, experiments, protocols, bookings, and notebook entries will remain in the database."
+                  description="This will hide the project from normal project lists. Linked tasks, experiments, methods, bookings, and notebook entries will remain in the database."
                   okText="Archive"
                   cancelText="Cancel"
                   okButtonProps={{ danger: true }}

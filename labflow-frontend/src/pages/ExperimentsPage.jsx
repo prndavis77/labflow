@@ -193,7 +193,7 @@ const ExperimentsPage = () => {
       setProtocols(result.data.protocols);
     } catch (error) {
       const messageText =
-        error.response?.data?.message || "Failed to load protocols.";
+        error.response?.data?.message || "Failed to load methods.";
 
       message.error(messageText);
     } finally {
@@ -406,7 +406,7 @@ const ExperimentsPage = () => {
           ),
       },
       {
-        title: "Protocol",
+        title: "Method",
         dataIndex: "protocol",
         key: "protocol",
         width: 240,

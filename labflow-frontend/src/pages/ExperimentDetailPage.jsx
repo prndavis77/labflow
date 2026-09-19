@@ -737,7 +737,7 @@ const ExperimentDetailPage = () => {
                 )}
               </Descriptions.Item>
 
-              <Descriptions.Item label="Protocol Used">
+              <Descriptions.Item label="Method Used">
                 {experiment.protocol ? (
                   <Link to={`/protocols/${experiment.protocol.id}`}>
                     {experiment.protocol.title} v{experiment.protocol.version}

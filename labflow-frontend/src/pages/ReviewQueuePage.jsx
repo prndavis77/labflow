@@ -57,7 +57,7 @@ const ReviewQueuePage = () => {
 
   const canReviewRecords = canReviewProjectLinkedRecord(user);
 
-  // Loads review-related experiments and protocols
+  // Loads review-related experiments and methods
   // This page is intentionally focused on records that need supervisor attention
   const loadReviewQueue = useCallback(async () => {
     try {
@@ -125,7 +125,7 @@ const ReviewQueuePage = () => {
     [loadReviewQueue],
   );
 
-  // Updates a protocol's approval status directly from the review queue
+  // Updates a method's approval status directly from the review queue
   const handleApproveProtocol = useCallback(
     async (protocol) => {
       try {
@@ -135,12 +135,12 @@ const ReviewQueuePage = () => {
           approvalStatus: "approved",
         });
 
-        message.success("Protocol approved.");
+        message.success("Method approved.");
 
         await loadReviewQueue();
       } catch (error) {
         const messageText =
-          error.response?.data?.message || "Failed to approve protocol.";
+          error.response?.data?.message || "Failed to approve method.";
 
         message.error(messageText);
       } finally {
@@ -278,11 +278,11 @@ const ReviewQueuePage = () => {
     [handleApproveExperiment, isUpdatingReviewStatus, canReviewRecords],
   );
 
-  // Columns for protocols that need review attention
+  // Columns for methods that need review attention
   const protocolColumns = useMemo(
     () => [
       {
-        title: "Protocol",
+        title: "Method",
         dataIndex: "title",
         key: "title",
         render: (title, record) => (
@@ -362,8 +362,8 @@ const ReviewQueuePage = () => {
 
             {canReviewRecords && record.approvalStatus !== "approved" && (
               <Popconfirm
-                title="Approve protocol?"
-                description="This will approve the protocol and record approval metadata."
+                title="Approve method?"
+                description="This will approve the method and record approval metadata."
                 okText="Approve"
                 cancelText="Cancel"
                 onConfirm={() => handleApproveProtocol(record)}
@@ -481,7 +481,7 @@ const ReviewQueuePage = () => {
             </Title>
 
             <Paragraph style={{ marginBottom: 0 }}>
-              Use the Review button to inspect experiments, protocols, or task
+              Use the Review button to inspect experiments, methods, or task
               completion requests before taking action. Change requests and task
               completion decisions are handled on the detail pages.
             </Paragraph>
@@ -526,7 +526,7 @@ const ReviewQueuePage = () => {
 
         <Card>
           <Statistic
-            title="Protocols Pending"
+            title="Methods Pending"
             value={pendingProtocols.length}
             prefix={<FileTextOutlined />}
             loading={isLoading}
@@ -589,9 +589,9 @@ const ReviewQueuePage = () => {
         )}
       </Card>
 
-      <Card title={`Protocols Pending Review (${pendingProtocols.length})`}>
+      <Card title={`Methods Pending Review (${pendingProtocols.length})`}>
         {pendingProtocols.length === 0 ? (
-          <Empty description="No protocols are currently pending review." />
+          <Empty description="No methods are currently pending review." />
         ) : (
           <Table
             rowKey="id"
@@ -606,10 +606,10 @@ const ReviewQueuePage = () => {
       </Card>
 
       <Card
-        title={`Protocols With Changes Requested (${changesRequestedProtocols.length})`}
+        title={`Methods With Changes Requested (${changesRequestedProtocols.length})`}
       >
         {changesRequestedProtocols.length === 0 ? (
-          <Empty description="No protocols currently have requested changes." />
+          <Empty description="No methods currently have requested changes." />
         ) : (
           <Table
             rowKey="id"

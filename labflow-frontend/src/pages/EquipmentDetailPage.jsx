@@ -185,7 +185,7 @@ const EquipmentDetailPage = () => {
   const protocolColumns = useMemo(
     () => [
       {
-        title: "Protocol",
+        title: "Method",
         dataIndex: "title",
         key: "title",
         render: (title, record) => (
@@ -353,9 +353,9 @@ const EquipmentDetailPage = () => {
         )}
       </Card>
 
-      <Card title="Equipment SOPs and Protocols">
+      <Card title="Equipment SOPs and Methods">
         {protocols.length === 0 ? (
-          <Empty description="No SOPs or protocols linked to this equipment yet." />
+          <Empty description="No SOPs or methods linked to this equipment yet." />
         ) : (
           <Table
             rowKey="id"

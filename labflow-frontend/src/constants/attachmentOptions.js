@@ -66,7 +66,7 @@ export const ATTACHMENT_CATEGORY_OPTIONS = [
     value: ATTACHMENT_CATEGORIES.MANUSCRIPT,
   },
   {
-    label: "Protocol Attachment",
+    label: "Method Attachment",
     value: ATTACHMENT_CATEGORIES.PROTOCOL_ATTACHMENT,
   },
   {

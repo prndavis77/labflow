@@ -69,8 +69,8 @@ const LoginPage = () => {
         <Title level={2}>Log In to Labfluss</Title>
 
         <Paragraph>
-          Access your organization’s projects, experiments, protocols, tasks,
-          and equipment.
+          Access your organization’s projects, experiments, methods, tasks, and
+          equipment.
         </Paragraph>
 
         {errorMessage && (

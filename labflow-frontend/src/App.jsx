@@ -271,7 +271,7 @@ const App = () => {
     {
       key: "/protocols",
       icon: <FileTextOutlined />,
-      label: "Protocols",
+      label: "Methods",
     },
   ];
 

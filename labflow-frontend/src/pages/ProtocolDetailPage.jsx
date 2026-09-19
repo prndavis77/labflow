@@ -144,7 +144,7 @@ const ProtocolDetailPage = () => {
     }
   }, []);
 
-  // Loads one protocol by route ID
+  // Loads one method by route ID
   const loadProtocolDetail = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -158,7 +158,7 @@ const ProtocolDetailPage = () => {
       await loadProjectMembersForProtocol(fetchedProtocol.projectId);
     } catch (error) {
       const messageText =
-        error.response?.data?.message || "Failed to load protocol details.";
+        error.response?.data?.message || "Failed to load method details.";
 
       setErrorMessage(messageText);
     } finally {
@@ -199,7 +199,7 @@ const ProtocolDetailPage = () => {
     await loadReviewEvents();
   };
 
-  // Approval actions should only appear for protocols in review workflow
+  // Approval actions should only appear for methods in review workflow
   const shouldShowProtocolReviewActions =
     canReviewProtocol &&
     protocol &&
@@ -220,7 +220,7 @@ const ProtocolDetailPage = () => {
     reviewCommentForm.resetFields();
   }, [reviewCommentForm]);
 
-  // Loads review history for the current protocol
+  // Loads review history for the current method
   const loadReviewEvents = useCallback(async () => {
     try {
       setIsLoadingReviewEvents(true);
@@ -242,7 +242,7 @@ const ProtocolDetailPage = () => {
     }
   }, [id]);
 
-  // Load protocol details after the first render or when the route ID changes
+  // Load method details after the first render or when the route ID changes
   useEffect(() => {
     queueMicrotask(() => {
       loadProtocolDetail();
@@ -259,14 +259,14 @@ const ProtocolDetailPage = () => {
         approvalStatus: "pending_review",
       });
 
-      message.success("Protocol submitted for review.");
+      message.success("Method submitted for review.");
 
       await loadProtocolDetail();
       await loadReviewEvents();
     } catch (error) {
       const messageText =
         error.response?.data?.message ||
-        "Failed to submit protocol for review.";
+        "Failed to submit method for review.";
 
       message.error(messageText);
     } finally {
@@ -274,7 +274,7 @@ const ProtocolDetailPage = () => {
     }
   };
 
-  // Updates protocol approval status from the detail page
+  // Updates method approval status from the detail page
   // The backend handles approvedById and approvedAt when approvalStatus becomes approved
   const handleProtocolReviewAction = useCallback(
     async (nextApprovalStatus, reviewComment) => {
@@ -297,8 +297,8 @@ const ProtocolDetailPage = () => {
 
         message.success(
           nextApprovalStatus === "approved"
-            ? "Protocol approved."
-            : "Changes requested for protocol.",
+            ? "Method approved."
+            : "Changes requested for method.",
         );
 
         closeProtocolReviewCommentModal();
@@ -307,7 +307,7 @@ const ProtocolDetailPage = () => {
       } catch (error) {
         const message =
           error.response?.data?.message ||
-          "Failed to update protocol approval status.";
+          "Failed to update method approval status.";
 
         message.error(message);
       } finally {
@@ -361,7 +361,7 @@ const ProtocolDetailPage = () => {
           onClick={() => navigate("/protocols")}
           style={{ marginTop: 16 }}
         >
-          Back to Protocols
+          Back to Methods
         </Button>
       </Card>
     );
@@ -374,7 +374,7 @@ const ProtocolDetailPage = () => {
           icon={<ArrowLeftOutlined />}
           onClick={() => navigate("/protocols")}
         >
-          Back to Protocols
+          Back to Methods
         </Button>
 
         <Button
@@ -390,7 +390,7 @@ const ProtocolDetailPage = () => {
 
         {canEditProtocol && protocol && !isLoadingProjectMembers && (
           <Button onClick={() => setIsEditModalOpen(true)}>
-            Edit Protocol
+            Edit Method
           </Button>
         )}
       </Space>
@@ -408,7 +408,7 @@ const ProtocolDetailPage = () => {
               type="info"
               showIcon
               message="You have read-only access to this project."
-              description="You can view this protocol, but you cannot edit project-linked protocol work."
+              description="You can view this method, but you cannot edit project-linked method work."
               style={{ marginBottom: 16 }}
             />
           )}
@@ -474,7 +474,7 @@ const ProtocolDetailPage = () => {
               entityType="protocol"
               entityId={protocol.id}
               currentUser={currentUser}
-              title="Protocol Attachments"
+              title="Method Attachments"
               canUpload={canUploadProtocolAttachments}
               canManage={canManageProtocolAttachments}
             />
@@ -496,7 +496,7 @@ const ProtocolDetailPage = () => {
             {isLoadingReviewEvents ? (
               <Card loading />
             ) : reviewEvents.length === 0 ? (
-              <Empty description="No review history recorded for this protocol yet." />
+              <Empty description="No review history recorded for this method yet." />
             ) : (
               <Timeline items={reviewHistoryTimelineItems} />
             )}
@@ -524,19 +524,19 @@ const ProtocolDetailPage = () => {
                     type="secondary"
                     style={{ marginTop: 4, marginBottom: 8 }}
                   >
-                    This protocol does not require supervisor review. Approve it
+                    This method does not require supervisor review. Approve it
                     when it is ready for use.
                   </Paragraph>
 
                   <Popconfirm
-                    title="Approve protocol?"
-                    description="This will mark the protocol as approved and record approval metadata."
+                    title="Approve method?"
+                    description="This will mark the method as approved and record approval metadata."
                     okText="Approve"
                     cancelText="Cancel"
                     onConfirm={() => handleProtocolReviewAction("approved")}
                   >
                     <Button type="primary" loading={isUpdatingApprovalStatus}>
-                      Approve Protocol
+                      Approve Method
                     </Button>
                   </Popconfirm>
                 </div>
@@ -550,16 +550,16 @@ const ProtocolDetailPage = () => {
                     type="secondary"
                     style={{ marginTop: 4, marginBottom: 8 }}
                   >
-                    Submit this protocol when it is ready for supervisor review.
+                    Submit this method when it is ready for supervisor review.
                   </Paragraph>
 
                   <Popconfirm
                     title={
                       protocol?.approvalStatus === "changes_requested"
-                        ? "Resubmit protocol for review?"
-                        : "Submit protocol for review?"
+                        ? "Resubmit method for review?"
+                        : "Submit method for review?"
                     }
-                    description="This will move the protocol to pending review."
+                    description="This will move the method to pending review."
                     okText="Submit"
                     cancelText="Cancel"
                     onConfirm={handleSubmitProtocolForReview}
@@ -581,7 +581,7 @@ const ProtocolDetailPage = () => {
                     type="secondary"
                     style={{ marginTop: 4, marginBottom: 8 }}
                   >
-                    Approve the protocol or request changes with a required
+                    Approve the method or request changes with a required
                     review note.
                   </Paragraph>
 
@@ -589,8 +589,8 @@ const ProtocolDetailPage = () => {
                     {canReviewProtocol &&
                       protocol?.approvalStatus !== "approved" && (
                         <Popconfirm
-                          title="Approve protocol?"
-                          description="This will approve the protocol and record approval metadata."
+                          title="Approve method?"
+                          description="This will approve the method and record approval metadata."
                           okText="Approve"
                           cancelText="Cancel"
                           onConfirm={() =>
@@ -601,7 +601,7 @@ const ProtocolDetailPage = () => {
                             type="primary"
                             loading={isUpdatingApprovalStatus}
                           >
-                            Approve Protocol
+                            Approve Method
                           </Button>
                         </Popconfirm>
                       )}
@@ -686,7 +686,7 @@ const ProtocolDetailPage = () => {
             onSuccess={handleProtocolSaved}
           />
 
-          <Card title="Protocol Content" style={{ marginTop: 24 }}>
+          <Card title="Method Content" style={{ marginTop: 24 }}>
             <Text>
               <pre
                 style={{

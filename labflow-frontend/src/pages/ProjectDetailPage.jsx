@@ -504,7 +504,7 @@ const ProjectDetailPage = () => {
   const protocolColumns = useMemo(
     () => [
       {
-        title: "Protocol",
+        title: "Method",
         dataIndex: "title",
         key: "title",
         render: (title, record) => (
@@ -860,7 +860,7 @@ const ProjectDetailPage = () => {
         </Col>
 
         <Col xs={24}>
-          <Card title="Project Protocols">
+          <Card title="Project Methods">
             <Table
               rowKey="id"
               columns={protocolColumns}
