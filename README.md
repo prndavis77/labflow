@@ -8,7 +8,7 @@ The project is designed around a common academic lab problem: research work is o
 
 ## Quick Links
 
-- Live demo: `https://app.labfluss.com`
+- Live demo: `https://labfluss.com`
 - Backend health check: `https://api.labfluss.com/api/health`
 - Portfolio case study: `docs/case-study.md`
 - Security documentation: [SECURITY.md](SECURITY.md)
@@ -25,7 +25,7 @@ Demo accounts are listed below. The live demo uses seeded test data and should n
 
 ## Project Status
 
-Labfluss MVP Version 1.6 is complete and deployed in a production-style AWS environment. The project is now in paid-pilot-readiness preparation for an initial United States university-laboratory pilot.
+Labfluss MVP Version 1.6 is complete and deployed in a production-style AWS environment. Paid-pilot operational readiness is complete for an initial United States university-laboratory pilot within the documented pilot scope and data restrictions.
 
 The application includes authentication, organization-based workspaces, invitation-based onboarding, provider-neutral transactional email with Amazon SES active in production, role-based access control, admin user management, configurable researcher workflow permissions, project membership, membership-aware project access, role-aware dashboards, standalone and project-linked task management, task completion review, experiment tracking, protocol management, equipment inventory and booking, review history, experiment-linked notebook entries, audit logging, end-to-end research file attachments, and admin-controlled recovery of archived records.
 
@@ -33,7 +33,7 @@ Labfluss also now includes substantial production-security and tenant-lifecycle 
 
 Research files are stored privately in Amazon S3 and uploaded directly using short-lived signed URLs. Attachment access follows the linked record's permissions and organization scope.
 
-The backend regression suite currently contains 67 Jest/Supertest suites and 842 tests. The latest complete run passed 840 tests with 2 intentionally skipped tests, including the explicitly opt-in historical R2 integration coverage.
+The backend regression suite currently contains 67 Jest/Supertest suites and 852 tests. The latest complete run passed 850 tests with 2 intentionally skipped tests, including the explicitly opt-in historical R2 integration coverage.
 
 ### Phase 26A: Paid Pilot Data Governance and Organization Offboarding
 
@@ -109,7 +109,7 @@ Completed so far:
 
 ### Phase 26D: Paid-Pilot Operational Readiness
 
-Completed so far:
+Completed:
 
 - Rotated production security credentials and removed obsolete production credential material.
 - Reviewed backend production dependencies and retained the documented Sequelize-transitive `uuid` risk rather than applying an unsafe forced downgrade.
@@ -123,10 +123,18 @@ Completed so far:
 - Added incremental attachment backup behavior that skips unchanged objects and does not propagate source deletions.
 - Added systemd backup scheduling with persistent timers and randomized start delays.
 - Added systemd `OnFailure` backup-failure notification through the production SNS alarm topic.
-- Verified the complete backup failure-notification path using a disposable intentionally failing systemd service, including `OnFailure`, Amazon SNS publish, and email delivery, without breaking either real production backup.
-- Updated production backup, recovery, environment, and operational documentation for the automated backup architecture.
+- Verified the complete backup failure-notification path using a disposable intentionally failing systemd service.
+- Completed the final paid-pilot infrastructure and operational-readiness review.
+- Added optional direct approval for eligible admin and review-exempt researcher experiment/protocol workflows while preserving formal supervisor review behavior.
+- Confirmed researchers requiring review cannot bypass the formal review workflow.
+- Updated email-verification behavior so publicly registered workspace administrators must verify their email before entering the normal application, while invitation-created accounts are verified automatically when invitation acceptance succeeds.
+- Added a frontend verification gate that prevents unverified workspace administrators from entering the normal application while preserving verification resend and logout.
+- Completed the full backend regression suite with 850 passing tests and 2 intentionally skipped tests across 67 suites.
+- Completed production deployment and browser smoke testing of the final pre-commercial changes.
+- Verified local and public backend liveness/readiness at HTTP 200 after deployment.
+- Verified production invitation acceptance, email verification, authenticated navigation, and normal API access without unexpected backend errors.
 
-Phase 26D paid-pilot operational-readiness work is in progress. Automated backup hardening and operational alerting are complete; final paid-pilot release-readiness work remains.
+Phase 26D paid-pilot operational readiness is complete.
 
 ### Phase 25C: Production Security Hardening
 
@@ -269,7 +277,7 @@ Key technical areas include:
 A deployed portfolio/demo version of Labfluss is available here:
 
 ```txt
-https://app.labfluss.com
+https://labfluss.com
 ```
 
 Portfolio case study: [docs/case-study.md](docs/case-study.md)
@@ -296,11 +304,13 @@ This is a portfolio/demo deployment with seeded test data. It should not be used
 
 During the earlier Vercel-hosted deployment, Kaspersky classified the generated Vercel hostname `labflow-brown.vercel.app` as phishing and could block frontend JavaScript and CSS assets.
 
-The production frontend was later migrated to AWS Amplify Hosting and is now served from:
+The production frontend was later migrated to AWS Amplify Hosting and is now primarily served from:
 
-```text
-https://app.labfluss.com
-```
+`https://labfluss.com`
+
+The additional supported frontend origin is:
+
+`https://app.labfluss.com`
 
 Users should never be instructed to disable or pause antivirus protection as a normal access procedure.
 
@@ -374,17 +384,11 @@ Labfluss provides a structured system for managing these workflows in one place.
 
 ### Password Reset, Email Verification, and Session Invalidation
 
-Public workspace administrators must verify their email address before using normal workspace APIs. Registration still creates the workspace and authenticated session, but the frontend displays a verification banner and the backend returns:
-
-```json
-{
-  "status": "error",
-  "code": "EMAIL_VERIFICATION_REQUIRED",
-  "message": "Verify your email address before using this feature."
-}
-```
+Public workspace administrators must verify their email address before using the normal Labfluss application. Registration creates the workspace and authenticated session, but the frontend presents a verification-required gate instead of mounting the normal application. The user can resend the verification email or log out. Backend protected workspace APIs independently enforce the same requirement.
 
 Verification links expire after 24 hours. Requesting another verification email invalidates earlier unused links. Invitation-created accounts are marked verified when invitation acceptance succeeds because the invitation email already proves control of the invited address.
+
+Successful invitation acceptance also marks the invited email address as verified. No separate email-verification step is required because acceptance demonstrates control of the address that received the invitation.
 
 Password-reset links expire after 30 minutes. Reset and verification tokens are generated randomly, while only SHA-256 hashes are stored in PostgreSQL.
 

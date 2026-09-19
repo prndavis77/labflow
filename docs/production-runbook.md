@@ -20,7 +20,13 @@ Labfluss is currently suitable for portfolio demonstrations, controlled pilot us
 
 ## Production URLs
 
-Frontend:
+Primary frontend:
+
+```text
+https://labfluss.com
+```
+
+Additional production frontend origin:
 
 ```text
 https://app.labfluss.com
@@ -33,6 +39,19 @@ https://api.labfluss.com/api/health
 Backend readiness:
 
 https://api.labfluss.com/api/ready
+
+### Production Frontend Origins and CORS
+
+The production backend explicitly permits the two deployed Labfluss frontend origins:
+
+```env
+FRONTEND_URL=https://app.labfluss.com
+ADDITIONAL_FRONTEND_URL=https://labfluss.com
+```
+
+Production CORS must remain explicit. Do not replace the allowlist with \*.
+
+When adding or changing a production frontend origin, verify both backend CORS and direct-to-S3 attachment CORS because browser attachment uploads communicate directly with the private S3 bucket using signed URLs.
 
 ## Health Model
 
@@ -558,6 +577,9 @@ After deployment:
 7. Check the Lightsail backend journal for startup or repeated error events.
 8. Perform a basic login and application load.
 9. Verify the changed production workflow when applicable.
+10. Verify both production frontend origins load successfully when both remain supported.
+11. Verify CORS preflight succeeds from every supported production frontend origin.
+12. For frontend-origin changes, verify a direct S3 attachment upload from the affected origin.
 
 ## Production Database Safety
 

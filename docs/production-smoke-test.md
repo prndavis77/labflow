@@ -1,6 +1,6 @@
 # Labfluss Production Smoke Test
 
-Last verified: 2026-09-18
+Last verified: 2026-09-19
 
 Attachment storage migrated from Cloudflare R2 to Amazon S3 during Phase 26C.4 on 2026-09-04. Storage-specific production verification was performed as part of that migration.
 
@@ -26,6 +26,9 @@ The production smoke test must use synthetic or non-sensitive test data only.
 - [x] Lightsail-to-RDS private connectivity verified
 - [x] Backend liveness and readiness endpoints return HTTP 200
 - [x] Attachment-cleanup systemd timer is enabled and active
+- [x] Final 26D.7 frontend commit `b7a630f` deployed through AWS Amplify Hosting
+- [x] `https://labfluss.com` loads successfully
+- [x] `https://app.labfluss.com` loads successfully
 
 ### Historical frontend reputation issue
 
@@ -51,6 +54,7 @@ Verified variables:
 
 Production frontend origin:
 
+- `https://labfluss.com`
 - `https://app.labfluss.com`
 
 Production API target:
@@ -226,6 +230,12 @@ https://api.labfluss.com/api/ready
 - [x] Verified user regains protected workspace access
 - [x] Invited accounts are treated as verified
 - [x] Raw verification tokens are not exposed in production logs
+- [x] Newly registered workspace administrator is stopped at the frontend verification gate
+- [x] Normal application pages do not mount before verification
+- [x] Verification resend remains available from the gate
+- [x] Successful verification refreshes the authenticated user and restores normal application access
+- [x] Invitation-created users are marked verified when invitation acceptance succeeds
+- [x] Invitation-created users do not require a second email-verification workflow
 
 ### Password reset
 
@@ -311,7 +321,7 @@ The test invitation was revoked after verification.
 - [x] Backend completion verification succeeds
 - [x] Attachment becomes available in Labfluss
 
-The production S3 bucket CORS policy permits the deployed AWS Amplify frontend at `https://app.labfluss.com`.
+The production S3 bucket CORS policy permits the deployed AWS Amplify frontend at `https://app.labfluss.com` and `https://labfluss.com`.
 
 The local Vite development origin was removed from the production S3 CORS policy before paid-pilot sign-off. Production attachment upload, download/open, and archive behavior were reverified successfully after the change.
 
@@ -346,7 +356,8 @@ The local Vite development origin was removed from the production S3 CORS policy
 Backend test result:
 
 Test Suites: 1 skipped, 66 passed, 66 of 67 total
-Tests: 2 skipped, 840 passed, 842 total
+Tests: 2 skipped, 850 passed, 852 total
+Snapshots: 0 total
 
 Verified coverage includes:
 
@@ -578,3 +589,80 @@ Snapshots: 0 total
 Phase 25A improves observability and operational reliability. It does not by itself make Labfluss ready for sensitive, regulated, or institutional production data.
 
 At the completion of Phase 25A, the next production-hardening area was backup, restore, and disaster recovery. That work was subsequently addressed in Phase 25B.
+
+## Phase 26D.7 Final Pre-Commercial Product Changes
+
+Phase 26D.7 was completed on 2026-09-19.
+
+### 26D.7A Optional Review Workflow
+
+Verified:
+
+- admin direct approval
+- supervisor normal review workflow
+- review-required researcher formal review enforcement
+- review-exempt researcher direct approval for eligible records
+- formal-review-cycle restrictions
+- approval history and authorization behavior
+
+### 26D.7B Email Verification Scope and UX
+
+Verified:
+
+- public workspace administrator requires separate email verification
+- frontend verification gate prevents normal application access before verification
+- verification resend remains available
+- invitation acceptance automatically establishes email verification
+- invited users require no second verification step
+
+### 26D.7C Regression Testing
+
+Final automated regression result:
+
+```text
+Test Suites: 1 skipped, 66 passed, 66 of 67 total
+Tests:       2 skipped, 850 passed, 852 total
+Snapshots:   0 total
+```
+
+Frontend ESLint and production build passed.
+
+The complete local browser regression matrix passed.
+
+### 26D.7D Production Deployment and Smoke Test
+
+Verified:
+
+- AWS Amplify deployed commit b7a630f
+- both production frontend URLs loaded successfully
+- existing admin, supervisor, and researcher authentication succeeded
+- workspace-registration verification gate succeeded
+- production email verification succeeded
+- invitation-created user required no separate verification
+- logout and subsequent login succeeded
+- local backend liveness returned HTTP 200
+- local backend readiness returned HTTP 200
+- public backend liveness returned HTTP 200
+- public backend readiness returned HTTP 200
+- readiness reported PostgreSQL ready
+- production journal showed successful verification, invitation acceptance, SES delivery, authentication, dashboard loading, and normal protected API access
+- no Labfluss application error was observed during the final smoke-test window
+
+### 26D.7E Documentation Update and Final Sign-off
+
+Documentation was updated to reflect:
+
+- optional direct approval behavior
+- email-verification access gating
+- automatic verification on invitation acceptance
+- final regression results
+- production deployment verification
+- both supported frontend origins
+- backend and Amazon S3 CORS configuration
+- final production health/readiness results
+
+Phase 26D.7 final pre-commercial product changes are complete.
+
+The changes were implemented, regression-tested, deployed to production, and smoke-tested successfully.
+
+No release-blocking issue was identified during the final 26D.7 regression and production verification.
